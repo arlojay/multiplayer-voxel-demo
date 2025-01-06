@@ -1,8 +1,11 @@
 import { BufferGeometry, Float32BufferAttribute, Int16BufferAttribute } from "three";
 import { CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
-import { ColorPalette } from "./colorPalette";
 
 const AIR_BIT = 1 << 15;
+const chunkCacheBuffer = new Uint16Array((CHUNK_SIZE + 2) ** 3).buffer;
+const OFF_X = (CHUNK_SIZE + 2) ** 2;
+const OFF_Y = (CHUNK_SIZE + 2) ** 0;
+const OFF_Z = (CHUNK_SIZE + 2) ** 1;
 
 export class VoxelRenderer {
     private world: VoxelGrid;
@@ -17,6 +20,7 @@ export class VoxelRenderer {
         const chunkZ = chunk.z;
 
         let x = 0, y = 0, z = 0;
+        let i = 0;
         let worldX = 0, worldY = 0, worldZ = 0;
         let colorR = 0, colorG = 0, colorB = 0;
         let block = 0;
@@ -31,11 +35,21 @@ export class VoxelRenderer {
         const colors = new Array;
         const localPos = new Array;
 
+        const chunkCache = new Uint16Array(chunkCacheBuffer);
+
+        for(x = -1, i = 0, worldX = baseX - 1, i = 0; x < 17; x++, worldX++) {
+            for(z = -1, worldZ = baseZ - 1; z < 17; z++, worldZ++) {
+                for(y = -1, worldY = baseY - 1; y < 17; y++, worldY++, i++) {
+                    chunkCache[i] = this.world.get(worldX, worldY, worldZ);
+                }
+            }
+        }
+
         // CLOCKWISE WINDING
-        for(x = 0, worldX = baseX; x < 16; x++, worldX++) {
+        for(x = 0, worldX = baseX, i = OFF_X + OFF_Y + OFF_Z; x < 16; x++, worldX++) {
             for(z = 0, worldZ = baseZ; z < 16; z++, worldZ++) {
-                for(y = 0, worldY = baseY; y < 16; y++, worldY++) {
-                    block = this.world.get(worldX, worldY, worldZ);
+                for(y = 0, worldY = baseY; y < 16; y++, worldY++, i++) {
+                    block = chunkCache[i];
                     if(!(block & AIR_BIT)) continue;
 
                     colorR = ((block & 0b0111110000000000) >> 10) / 32;
@@ -43,7 +57,7 @@ export class VoxelRenderer {
                     colorB = ((block & 0b0000000000011111) >> 0) / 32;
 
                     // West
-                    if(!(this.world.get(worldX - 1, worldY, worldZ) & AIR_BIT)) {
+                    if(!(chunkCache[i - OFF_X] & AIR_BIT)) {
                         vertices.push(
                             x, y + 1, z,
                             x, y + 1, z + 1,
@@ -70,7 +84,7 @@ export class VoxelRenderer {
                     }
 
                     // East
-                    if(!(this.world.get(worldX + 1, worldY, worldZ) & AIR_BIT)) {
+                    if(!(chunkCache[i + OFF_X] & AIR_BIT)) {
                         vertices.push(
                             x + 1, y + 1, z + 1,
                             x + 1, y + 1, z,
@@ -97,7 +111,7 @@ export class VoxelRenderer {
                     }
 
                     // North
-                    if(!(this.world.get(worldX, worldY, worldZ + 1) & AIR_BIT)) {
+                    if(!(chunkCache[i + OFF_Z] & AIR_BIT)) {
                         vertices.push(
                             x, y + 1, z + 1,
                             x + 1, y + 1, z + 1,
@@ -124,7 +138,7 @@ export class VoxelRenderer {
                     }
 
                     // South
-                    if(!(this.world.get(worldX, worldY, worldZ - 1) & AIR_BIT)) {
+                    if(!(chunkCache[i - OFF_Z] & AIR_BIT)) {
                         vertices.push(
                             x + 1, y + 1, z,
                             x, y + 1, z,
@@ -151,7 +165,7 @@ export class VoxelRenderer {
                     }
 
                     // Up
-                    if(!(this.world.get(worldX, worldY + 1, worldZ) & AIR_BIT)) {
+                    if(!(chunkCache[i + OFF_Y] & AIR_BIT)) {
                         vertices.push(
                             x, y + 1, z,
                             x + 1, y + 1, z,
@@ -178,7 +192,7 @@ export class VoxelRenderer {
                     }
 
                     // Down
-                    if(!(this.world.get(worldX, worldY - 1, worldZ) & AIR_BIT)) {
+                    if(!(chunkCache[i - OFF_Y] & AIR_BIT)) {
                         vertices.push(
                             x, y, z + 1,
                             x + 1, y, z + 1,
@@ -204,7 +218,9 @@ export class VoxelRenderer {
                         vertexCount += 4;
                     }
                 }
+                i += OFF_Z - OFF_Y * 16;
             }
+            i += OFF_X - OFF_Z * 16;
         }
 
         const geometry = new BufferGeometry();
