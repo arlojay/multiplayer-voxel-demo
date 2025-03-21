@@ -1,7 +1,7 @@
-import { read_i32, read_str, read_u16, Sink, write_i32, write_str, write_u16 } from "ts-binary";
+import { read_i32, read_u16, Sink, write_i32, write_u16 } from "ts-binary";
 
 export abstract class Packet {
-    private static packetTypes: Map<number, () => Packet>;
+    private static packetTypes: Map<number, () => Packet> = new Map;
     private static nextId: number = 0;
 
     public static register(factory: () => Packet): number {
@@ -16,6 +16,8 @@ export abstract class Packet {
 
         const packet = factory();
         packet.fromBinary(sink);
+
+        return packet;
     }
 
 

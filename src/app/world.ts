@@ -1,24 +1,14 @@
-import { Color, Mesh, Scene, ShaderMaterial } from "three";
+import { Color, Mesh } from "three";
 import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
-import { VoxelRenderer } from "./voxelRenderer";
+import { VoxelMesher } from "./voxelRenderer";
 
 export type ColorType = Color | number | null;
 
 export class World {
-    public blocks: VoxelGrid;
-    public renderer: VoxelRenderer;
+    public blocks: VoxelGrid = new VoxelGrid;
+    public renderer: VoxelMesher;
     public meshes: Map<VoxelGridChunk, Mesh> = new Map;
-    private dirtyChunkQueue: Set<VoxelGridChunk> = new Set;
-    private scene: Scene;
-    private terrainShader: ShaderMaterial;
-
-    constructor(scene: Scene, terrainShader: ShaderMaterial) {
-        this.scene = scene;
-        this.terrainShader = terrainShader;
-        
-        this.blocks = new VoxelGrid;
-        this.renderer = new VoxelRenderer(this.blocks);
-    }
+    public dirtyChunkQueue: Set<VoxelGridChunk> = new Set;
 
     public getValueFromColor(color: ColorType): number {
         if(color == null) return 0;
@@ -77,31 +67,5 @@ export class World {
 
     public markChunkDirty(chunk: VoxelGridChunk) {
         this.dirtyChunkQueue.add(chunk);
-    }
-
-    public renderChunk(chunk: VoxelGridChunk) {
-        let mesh = this.meshes.get(chunk);
-        if(mesh != null) this.scene.remove(mesh);
-
-        const geometry = this.renderer.render(chunk);
-        if(geometry.index.count == 0) {
-            this.meshes.delete(chunk);
-        } else {
-            mesh = new Mesh(geometry, this.terrainShader);
-            mesh.position.set(chunk.x << CHUNK_BLOCK_INC_BYTE, chunk.y << CHUNK_BLOCK_INC_BYTE, chunk.z << CHUNK_BLOCK_INC_BYTE);
-            this.scene.add(mesh);
-
-            this.meshes.set(chunk, mesh);
-        }
-    }
-
-    public update(dt: number) {
-        const count = Math.max(10, Math.round(this.dirtyChunkQueue.size * 0.1));
-        
-        for(const chunk of this.dirtyChunkQueue.keys().take(count)) {
-            this.dirtyChunkQueue.delete(chunk);
-
-            this.renderChunk(chunk);
-        }
     }
 }

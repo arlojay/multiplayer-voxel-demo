@@ -7,14 +7,14 @@ const OFF_X = (CHUNK_SIZE + 2) ** 2;
 const OFF_Y = (CHUNK_SIZE + 2) ** 0;
 const OFF_Z = (CHUNK_SIZE + 2) ** 1;
 
-export class VoxelRenderer {
+export class VoxelMesher {
     private world: VoxelGrid;
 
     constructor(world: VoxelGrid) {
         this.world = world;
     }
 
-    public render(chunk: VoxelGridChunk): BufferGeometry {
+    public mesh(chunk: VoxelGridChunk): BufferGeometry {
         const chunkX = chunk.x;
         const chunkY = chunk.y;
         const chunkZ = chunk.z;

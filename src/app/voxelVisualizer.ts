@@ -1,31 +1,26 @@
-import { PerspectiveCamera, Scene, ShaderMaterial, WebGLRenderer } from "three";
+import { Camera, PerspectiveCamera, Scene, ShaderMaterial, WebGLRenderer } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { loadShaderProgram } from "./shaderHelper";
 import { World } from "./world";
+import { WorldRenderer } from "./worldRenderer";
 
 export class VoxelVisualizer {
-    public world: World;
-    public renderer: WebGLRenderer;
-    public camera: PerspectiveCamera;
-    public scene: Scene;
-    public controls: OrbitControls;
+    public world: World = null;
+    public worldRenderer: WorldRenderer = null;
+    public renderer: WebGLRenderer = null;
+    public camera: Camera = new PerspectiveCamera(90, 1, 0.01, 3000);
+    public scene: Scene = new Scene();
+    public controls: OrbitControls = null;
 
-    private canvas: HTMLCanvasElement;
-    private terrainShader: ShaderMaterial;
-    private lastRenderTime: number;
+    private canvas: HTMLCanvasElement = null;
+    private terrainShader: ShaderMaterial = null;
+    private lastRenderTime: number = 0;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         
-
         this.renderer = new WebGLRenderer({ canvas });
-        this.camera = new PerspectiveCamera(90, 1, 0.01, 3000);
-        this.scene = new Scene();
-
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-
-        this.terrainShader = null;
-        this.world = null;
     }
 
     render(time: number) {
@@ -35,7 +30,7 @@ export class VoxelVisualizer {
 
         
         this.controls.update(dt);
-        this.world.update(dt);
+        this.worldRenderer.update(dt);
 
         this.terrainShader.uniforms.time.value = time;
 
@@ -46,8 +41,11 @@ export class VoxelVisualizer {
     resize() {
         this.renderer.setPixelRatio(devicePixelRatio);
         this.renderer.setSize(innerWidth, innerHeight);
-        this.camera.aspect = innerWidth / innerHeight;
-        this.camera.updateProjectionMatrix();
+
+        if(this.camera instanceof PerspectiveCamera) {
+            this.camera.aspect = innerWidth / innerHeight;
+            this.camera.updateProjectionMatrix();
+        }
     }
     async init() {
         this.resize();
@@ -59,7 +57,8 @@ export class VoxelVisualizer {
         this.terrainShader = await loadShaderProgram("assets/shaders/terrain", {
             time: { value: 0 }
         });
-        this.world = new World(this.scene, this.terrainShader);
+        this.world = new World();
+        this.worldRenderer = new WorldRenderer(this.world, this.scene, this.terrainShader);
         
         requestAnimationFrame(time => this.render(time));
     }
