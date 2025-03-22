@@ -36,7 +36,9 @@ export class VoxelVisualizer {
 
         this.renderer.render(this.scene, this.camera);
 
-        requestAnimationFrame(time => this.render(time));
+        setTimeout(() => {
+            requestAnimationFrame(time => this.render(time));
+        }, 1000 / 30);
     }
     resize() {
         this.renderer.setPixelRatio(devicePixelRatio);

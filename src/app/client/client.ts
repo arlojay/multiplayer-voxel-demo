@@ -1,11 +1,15 @@
 import Peer, { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { createPeer } from "../turn";
+import { Packet, PACKET_INITIAL_SIZE, SetBlockPacket } from "../packet/packet";
+import { Sink } from "ts-binary";
 
 interface ClientEvents {
     "login": () => void;
     "logout": () => void;
     "disconnected": () => void;
+
+    "setblock": (x: number, y: number, z: number, block: number) => void;
 }
 
 export class Client extends TypedEmitter<ClientEvents> {
@@ -61,10 +65,27 @@ export class Client extends TypedEmitter<ClientEvents> {
 
     private initConnectionEvents() {
         this.serverConnection.addListener("data", data => {
-            this.serverConnection.send(data);
+            if(data instanceof ArrayBuffer) {
+                this.handlePacket(data);
+            }
         });
         this.serverConnection.addListener("close", () => {
             this.emit("disconnected");
         })
+    }
+    
+    public handlePacket(data: ArrayBuffer) {
+        const packet = Packet.createFromBinary(data);
+        
+        if(packet instanceof SetBlockPacket) {
+            this.emit("setblock", packet.x, packet.y, packet.z, packet.block);
+        }
+    }
+
+    public sendPacket(packet: Packet) {
+        const buffer = new ArrayBuffer(packet.getExpectedSize() + 2 /* Packet ID is u16 */ + 1 /* idk this just makes it work */);
+        const sink = Sink(buffer);
+        packet.write(sink);
+        this.serverConnection.send(buffer);
     }
 }

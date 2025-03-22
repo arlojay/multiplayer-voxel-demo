@@ -1,5 +1,5 @@
 import { Client } from "./app/client/client";
-import { Server } from "./app/server/server";
+import { ServerManager } from "./app/server/serverManager";
 import { VoxelVisualizer } from "./app/voxelVisualizer";
 import "./style.css";
 
@@ -16,14 +16,17 @@ main();
 
 async function main() {
     const client = new Client("client-" + Math.random().toString().slice(2) + "-mvd");
+
+    client.addListener("setblock", (x, y, z, block) => {
+        voxelVisualizer.world.setColor(x, y, z, block);
+    });
     
     // Host server myself
-    const server = new Server("main");
-    await server.start();
-
     try {
-        await client.connect("main");
+        const server = new ServerManager("main");
+        await server.start();
     } catch(e) {
-        console.warn(new Error("Cannot connect to main server", { cause: e }));
+        console.warn(new Error("Cannot start main server", { cause: e }));
     }
+    await client.connect("main");
 }

@@ -1,37 +1,21 @@
-import Peer, { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { ServerPeer } from "./severPeer";
 import { createPeer } from "../turn";
-import { Packet } from "../packet/packet";
+import { Packet, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
+import { Color } from "three";
+import { MessagePortConnection } from "./thread";
 
 interface ServerEvents {
     "connection": (peer: ServerPeer) => void;
 }
 
 export class Server extends TypedEmitter<ServerEvents> {
-    public id: string;
-    public peer: Peer;
     public worlds: Map<string, World> = new Map;
-    public connections: Map<string, ServerPeer> = new Map;
-
-    constructor(id: string) {
-        super();
-        this.id = id;
-    }
+    public peers: Map<string, ServerPeer> = new Map;
 
     public async start() {
-        this.peer = createPeer(this.id);
-
-        console.log("Starting server " + this.id + "...");
-        await new Promise<void>((res, rej) => {
-            this.peer.once("open", () => res());
-        });
-        console.log("Server connected to internet");
-
-        this.initListeners();
-
-        this.worlds.set("world", new World());
+        this.worlds.set("world", new World(this));
         this.startLoop();
 
         console.log("Server loaded!");
@@ -40,22 +24,33 @@ export class Server extends TypedEmitter<ServerEvents> {
     private startLoop() {
         const mainWorld = this.worlds.get("world");
         setInterval(() => {
-            // mainWorld.setColor()
-        }, 1000 / 20);
+            for(let i = 0; i < 100; i++) {
+                mainWorld.setColor(
+                    Math.floor(Math.random() * 32),
+                    Math.floor(Math.random() * 32),
+                    Math.floor(Math.random() * 32),
+                    Math.round(Math.random() * 0xFFFFFF)
+                );
+            }
+            // this.flushWorldUpdateQueue();
+        }, 1000 / 200);
     }
 
+    // private flushWorldUpdateQueue() {
+    //     for(const id of this.worlds.keys()) {
+    //         const world = this.worlds.get(id);
 
-    private initListeners() {
-        this.peer.addListener("connection", connection => {
-            this.handleConnection(connection);
-        });
-    }
+    //         for(const chunk of world.dirtyChunkQueue) {
+    //             const packet = 
+    //         }
+    //     }
+    // }
 
-    private async handleConnection(connection: DataConnection) {
+    public async handleConnection(connection: MessagePortConnection) {
         const peer = new ServerPeer(connection, this);
         peer.client.setWorld(this.worlds.get("world"));
         
-        this.connections.set(peer.id, peer);
+        this.peers.set(peer.id, peer);
 
         await new Promise<void>((res, rej) => {
             connection.once("open", () => res());
@@ -67,14 +62,35 @@ export class Server extends TypedEmitter<ServerEvents> {
 
         connection.addListener("data", data => {
             if(data instanceof ArrayBuffer) {
-                peer.handlePacket(Packet.createFromBinary(data));
+                peer.handlePacket(data);
             }
         });
 
         this.emit("connection", peer);
     }
 
-    private handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
+    public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
         console.log("Peer " + peer.id + " disconnected: " + cause.toString());
+    }
+
+    public broadcastPacket(packet: Packet, world?: World) {
+        for(const id of this.peers.keys()) {
+            const peer = this.peers.get(id);
+            if(world == null || peer.client.world == world) {
+                peer.sendPacket(packet);
+            }
+        }
+    }
+
+
+
+    public updateBlock(world: World, x: number, y: number, z: number) {
+        const packet = new SetBlockPacket;
+        packet.x = x;
+        packet.y = y;
+        packet.z = z;
+        packet.block = world.blocks.get(x, y, z);
+        
+        this.broadcastPacket(packet, world);
     }
 }

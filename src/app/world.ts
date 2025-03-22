@@ -1,14 +1,20 @@
 import { Color, Mesh } from "three";
 import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
-import { VoxelMesher } from "./voxelRenderer";
+import { VoxelMesher } from "./voxelMesh";
+import { Server } from "./server/server";
 
 export type ColorType = Color | number | null;
 
 export class World {
+    public server: Server = null;
     public blocks: VoxelGrid = new VoxelGrid;
     public renderer: VoxelMesher;
     public meshes: Map<VoxelGridChunk, Mesh> = new Map;
     public dirtyChunkQueue: Set<VoxelGridChunk> = new Set;
+
+    public constructor(server?: Server) {
+        this.server = server;
+    }
 
     public getValueFromColor(color: ColorType): number {
         if(color == null) return 0;
@@ -41,12 +47,10 @@ export class World {
             colorValue
         );
 
-        this.updateBlock(chunk);
+        this.updateBlock(x, y, z, chunk);
     }
 
-    public updateBlock(chunk: VoxelGridChunk) {
-        const { x, y, z } = chunk;
-
+    public updateBlock(x: number, y: number, z: number, chunk: VoxelGridChunk) {
         const chunkX = x >> CHUNK_BLOCK_INC_BYTE;
         const chunkY = y >> CHUNK_BLOCK_INC_BYTE;
         const chunkZ = z >> CHUNK_BLOCK_INC_BYTE;
@@ -63,6 +67,10 @@ export class World {
         if(relativeY == 15) this.markChunkDirty(this.blocks.getChunk(chunkX, chunkY + 1, chunkZ));
         if(relativeZ == 0) this.markChunkDirty(this.blocks.getChunk(chunkX, chunkY, chunkZ - 1));
         if(relativeZ == 15) this.markChunkDirty(this.blocks.getChunk(chunkX, chunkY, chunkZ + 1));
+
+        if(this.server != null) {
+            this.server.updateBlock(this, x, y, z);
+        }
     }
 
     public markChunkDirty(chunk: VoxelGridChunk) {

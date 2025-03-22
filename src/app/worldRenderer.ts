@@ -1,6 +1,6 @@
 import { Mesh, Scene, ShaderMaterial } from "three";
 import { CHUNK_BLOCK_INC_BYTE, VoxelGridChunk } from "./voxelGrid";
-import { VoxelMesher } from "./voxelRenderer";
+import { VoxelMesher } from "./voxelMesh";
 import { World } from "./world";
 
 export class WorldRenderer {
