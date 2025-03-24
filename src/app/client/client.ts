@@ -1,14 +1,15 @@
 import Peer, { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { createPeer } from "../turn";
-import { Packet, PACKET_INITIAL_SIZE, SetBlockPacket } from "../packet/packet";
 import { Sink } from "ts-binary";
+import { ChunkDataPacket, CombinedPacket, GetChunkPacket, Packet, SetBlockPacket } from "../packet/packet";
+import { createPeer } from "../turn";
 
 interface ClientEvents {
     "login": () => void;
     "logout": () => void;
     "disconnected": () => void;
 
+    "getchunk": (x: number, y: number, z: number, data: Uint16Array) => void;
     "setblock": (x: number, y: number, z: number, block: number) => void;
 }
 
@@ -16,6 +17,8 @@ export class Client extends TypedEmitter<ClientEvents> {
     private peer: Peer;
     private serverConnection: DataConnection;
     public connected: boolean;
+
+    private waitingChunks: Map<string, (packet: ChunkDataPacket) => void> = new Map;
     
     constructor(id: string) {
         super();
@@ -77,15 +80,40 @@ export class Client extends TypedEmitter<ClientEvents> {
     public handlePacket(data: ArrayBuffer) {
         const packet = Packet.createFromBinary(data);
         
+        console.log(packet);
+        if(packet instanceof CombinedPacket) {
+            console.log("subpacket of " + packet.packets.size + " length");
+            for(const subPacket of packet.packets) {
+                this.handlePacket(subPacket);
+            }
+        }
         if(packet instanceof SetBlockPacket) {
             this.emit("setblock", packet.x, packet.y, packet.z, packet.block);
+        }
+        if(packet instanceof ChunkDataPacket) {
+            this.emit("getchunk", packet.x, packet.y, packet.z, packet.data);
+
+            const promise = this.waitingChunks.get(packet.x + ";" + packet.y + ";" + packet.z);
+            if(promise != null) promise(packet);
         }
     }
 
     public sendPacket(packet: Packet) {
         const buffer = new ArrayBuffer(packet.getExpectedSize() + 2 /* Packet ID is u16 */ + 1 /* idk this just makes it work */);
-        const sink = Sink(buffer);
-        packet.write(sink);
+        packet.write(Sink(buffer));
         this.serverConnection.send(buffer);
+    }
+
+    public fetchChunk(x: number, y: number, z: number) {
+        const packet = new GetChunkPacket;
+        packet.x = x;
+        packet.y = y;
+        packet.z = z;
+
+        this.sendPacket(packet);
+
+        return new Promise<ChunkDataPacket>(res => {
+            this.waitingChunks.set(x + ";" + y + ";" + z, packet => res(packet));
+        });
     }
 }

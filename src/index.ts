@@ -28,5 +28,19 @@ async function main() {
     } catch(e) {
         console.warn(new Error("Cannot start main server", { cause: e }));
     }
+
+
     await client.connect("main");
+
+    for(let x = -3; x < 3; x++) {
+        for(let y = -3; y < 3; y++) {
+            for(let z = -3; z < 3; z++) {
+                client.fetchChunk(x, y, z).then(response => {
+                    const localChunk = voxelVisualizer.world.blocks.getChunk(x, y, z);
+                    localChunk.data.set(response.data);
+                    voxelVisualizer.world.markChunkDirty(localChunk);
+                });
+            }
+        }
+    }
 }
