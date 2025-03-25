@@ -1,8 +1,8 @@
 import Peer, { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { Sink } from "ts-binary";
 import { ChunkDataPacket, CombinedPacket, GetChunkPacket, Packet, SetBlockPacket } from "../packet/packet";
 import { createPeer } from "../turn";
+import { BinaryWriter } from "../binary";
 
 interface ClientEvents {
     "login": () => void;
@@ -80,9 +80,7 @@ export class Client extends TypedEmitter<ClientEvents> {
     public handlePacket(data: ArrayBuffer) {
         const packet = Packet.createFromBinary(data);
         
-        console.log(packet);
         if(packet instanceof CombinedPacket) {
-            console.log("subpacket of " + packet.packets.size + " length");
             for(const subPacket of packet.packets) {
                 this.handlePacket(subPacket);
             }
@@ -100,7 +98,7 @@ export class Client extends TypedEmitter<ClientEvents> {
 
     public sendPacket(packet: Packet) {
         const buffer = new ArrayBuffer(packet.getExpectedSize() + 2 /* Packet ID is u16 */ + 1 /* idk this just makes it work */);
-        packet.write(Sink(buffer));
+        packet.write(new BinaryWriter(buffer));
         this.serverConnection.send(buffer);
     }
 

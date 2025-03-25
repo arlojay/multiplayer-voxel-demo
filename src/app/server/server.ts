@@ -1,9 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { ServerPeer } from "./severPeer";
-import { createPeer } from "../turn";
 import { ChunkDataPacket, Packet, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
-import { Color } from "three";
 import { MessagePortConnection } from "./thread";
 
 interface ServerEvents {
@@ -29,12 +27,12 @@ export class Server extends TypedEmitter<ServerEvents> {
         for(let x = -32; x < 32; x++) {
             for(let z = -32; z < 32; z++) {
                 for(let y = -5; y <= -1; y++) {
-                    world.setColor(x, y, z, 0x888888);
+                    world.setColor(x, y, z, 0x888888, false);
                 }
                 for(let y = -1; y <= 1; y++) {
-                    world.setColor(x, y, z, 0xCC9966);
+                    world.setColor(x, y, z, 0xCC9966, false);
                 }
-                world.setColor(x, 2, z, 0xBBFF99);
+                world.setColor(x, 2, z, 0xBBFF99, false);
             }
         }
     }
@@ -42,7 +40,7 @@ export class Server extends TypedEmitter<ServerEvents> {
     private startLoop() {
         const mainWorld = this.worlds.get("world");
         setInterval(() => {
-            for(let i = 0; i < 1; i++) {
+            for(let i = 0; i < 300; i++) {
                 mainWorld.setColor(
                     Math.floor(Math.random() * 32),
                     Math.floor(Math.random() * 32),
@@ -51,7 +49,7 @@ export class Server extends TypedEmitter<ServerEvents> {
                 );
             }
             // this.flushWorldUpdateQueue();
-        }, 1000 / 20);
+        }, 1000 / 5);
 
         setInterval(() => {
             for(const peer of this.peers.values()) {

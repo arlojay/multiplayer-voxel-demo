@@ -1,5 +1,5 @@
-import { read_i32, read_u16, read_u32, read_u64, Sink, write_i32, write_u16, write_u32 } from "ts-binary";
 import { CHUNK_SIZE } from "../voxelGrid";
+import { BinaryWriter, I32, U16 } from "../binary";
 
 export abstract class Packet {
     private static packetTypes: Map<number, () => Packet> = new Map;
@@ -10,29 +10,36 @@ export abstract class Packet {
         return this.nextId++;
     }
     public static createFromBinary(buffer: ArrayBuffer) {
-        const sink = Sink(buffer);
+        const writer = new BinaryWriter(buffer);
 
-        const id = read_u16(sink);
+        const id = writer.read_u16();
         const factory = this.packetTypes.get(id);
+        if(factory == null) throw new TypeError(
+            "Invalid packet " + id + (
+                buffer.byteLength < 128
+                    ? " (" + new Uint8Array(buffer).toString() + ")"
+                    : ""
+            )
+        );
 
         const packet = factory();
-        packet.read(sink);
+        packet.read(writer);
 
         return packet;
     }
 
 
     public abstract id: number;
-    protected abstract serialize(sink: Sink): void;
-    protected abstract deserialize(sink: Sink): void;
+    protected abstract serialize(writer: BinaryWriter): void;
+    protected abstract deserialize(writer: BinaryWriter): void;
 
-    public read(sink: Sink) {
-        this.deserialize(sink);
+    public read(writer: BinaryWriter) {
+        this.deserialize(writer);
     }
     
-    public write(sink: Sink) {
-        write_u16(sink, this.id);
-        this.serialize(sink);
+    public write(writer: BinaryWriter) {
+        writer.write_u16(this.id);
+        this.serialize(writer);
     }
 
     public abstract getExpectedSize(): number;
@@ -46,20 +53,20 @@ export class GetChunkPacket extends Packet {
     public y: number;
     public z: number;
 
-    protected deserialize(sink: Sink) {
-        this.x = read_i32(sink);
-        this.y = read_i32(sink);
-        this.z = read_i32(sink);
+    protected deserialize(writer: BinaryWriter) {
+        this.x = writer.read_i32();
+        this.y = writer.read_i32();
+        this.z = writer.read_i32();
     }
 
-    protected serialize(sink: Sink) {
-        write_i32(sink, this.x);
-        write_i32(sink, this.y);
-        write_i32(sink, this.z);
+    protected serialize(writer: BinaryWriter) {
+        writer.write_i32(this.x);
+        writer.write_i32(this.y);
+        writer.write_i32(this.z);
     }
 
     public getExpectedSize() {
-        return 12;
+        return I32 * 3;
     }
 }
 
@@ -72,28 +79,28 @@ export class ChunkDataPacket extends Packet {
     public z: number;
     public data: Uint16Array = new Uint16Array(CHUNK_SIZE ** 3);
 
-    protected deserialize(sink: Sink) {
-        this.x = read_i32(sink);
-        this.y = read_i32(sink);
-        this.z = read_i32(sink);
+    protected deserialize(writer: BinaryWriter) {
+        this.x = writer.read_i32();
+        this.y = writer.read_i32();
+        this.z = writer.read_i32();
 
         for(let i = 0; i < this.data.length; i++) {
-            this.data[i] = read_u16(sink);
+            this.data[i] = writer.read_u16();
         }
     }
 
-    protected serialize(sink: Sink) {
-        write_i32(sink, this.x);
-        write_i32(sink, this.y);
-        write_i32(sink, this.z);
+    protected serialize(sink: BinaryWriter) {
+        sink.write_i32(this.x);
+        sink.write_i32(this.y);
+        sink.write_i32(this.z);
 
         for(let i = 0; i < this.data.length; i++) {
-            write_u16(sink, this.data[i]);
+            sink.write_u16(this.data[i]);
         }
     }
 
     public getExpectedSize() {
-        return (3 * 4) + (CHUNK_SIZE ** 3) * 2;
+        return I32 * 3 + BinaryWriter.bufferByteCount(U16 * CHUNK_SIZE ** 3);
     }
 }
 
@@ -106,63 +113,53 @@ export class SetBlockPacket extends Packet {
     public z: number;
     public block: number;
 
-    protected deserialize(sink: Sink) {
-        this.x = read_i32(sink);
-        this.y = read_i32(sink);
-        this.z = read_i32(sink);
-        this.block = read_i32(sink);
+    protected deserialize(writer: BinaryWriter) {
+        this.x = writer.read_i32();
+        this.y = writer.read_i32();
+        this.z = writer.read_i32();
+        this.block = writer.read_u16();
     }
 
-    protected serialize(sink: Sink) {
-        write_i32(sink, this.x);
-        write_i32(sink, this.y);
-        write_i32(sink, this.z);
-        write_i32(sink, this.block);
+    protected serialize(writer: BinaryWriter) {
+        writer.write_i32(this.x);
+        writer.write_i32(this.y);
+        writer.write_i32(this.z);
+        writer.write_u16(this.block);
     }
 
     public getExpectedSize(): number {
-        return 16;
+        return I32 * 4;
     }
 }
 
 export class CombinedPacket extends Packet {
     static id = Packet.register(() => new this);
-    public id = SetBlockPacket.id;
+    public id = CombinedPacket.id;
     
     public packets: Set<ArrayBuffer> = new Set;
 
-    protected deserialize(sink: Sink) {
+    protected deserialize(writer: BinaryWriter) {
         this.packets.clear();
 
-        const buffer = sink.view.buffer as ArrayBuffer;
-
-        const packetCount = read_u16(sink);
+        const packetCount = writer.read_u16();
         for(let i = 0; i < packetCount; i++) {
-            const length = read_u32(sink);
-            this.packets.add(buffer.slice(sink.pos, sink.pos + length));
-            sink.pos += length;
+            this.packets.add(writer.read_buffer());
         }
     }
 
-    protected serialize(sink: Sink) {
-        const buffer = sink.view.buffer as ArrayBuffer;
-        const bufferArray = new Uint8Array(buffer);
-
-        write_u16(sink, this.packets.size);
+    protected serialize(writer: BinaryWriter) {
+        writer.write_u16(this.packets.size);
 
         for(const packet of this.packets) {
-            write_u32(sink, packet.byteLength);
-            bufferArray.set(new Uint8Array(packet), sink.pos);
-            sink.pos += packet.byteLength;
+            writer.write_buffer(packet);
         }
     }
 
     public getExpectedSize(): number {
-        let size = 2;
+        let size = U16;
 
         for(const packet of this.packets) {
-            size += 4;
-            size += packet.byteLength;
+            size += BinaryWriter.bufferByteCount(packet);
         }
 
         return size;

@@ -1,9 +1,9 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { Sink } from "ts-binary";
 import { CombinedPacket, GetChunkPacket, Packet } from "../packet/packet";
 import { Server } from "./server";
 import { ServerClient } from "./serverClient";
 import { MessagePortConnection } from "./thread";
+import { BinaryWriter, U16 } from "../binary";
 
 interface ServerPeerEvents {
     "getchunk": (packet: GetChunkPacket) => void;
@@ -63,13 +63,8 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     }
 
     public sendPacket(packet: Packet, instant: boolean = false) {
-        const buffer = new ArrayBuffer(packet.getExpectedSize() + 2 /* Packet ID is u16 */ + 1 /* idk this just makes it work */);
-        packet.write(Sink(buffer));
-
-        
-        if(packet instanceof CombinedPacket) {
-            console.log(new Uint8Array(buffer));
-        }
+        const buffer = new ArrayBuffer(packet.getExpectedSize() + U16);
+        packet.write(new BinaryWriter(buffer));
 
         if(instant) {
             if(this.connected) {
@@ -85,30 +80,42 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     }
 
     public flushPacketQueue() {
-        let fullLength = 0;
-        for(const packet of this.packetQueue) fullLength += packet.byteLength;
+        if(this.packetQueue.size == 0) return;
 
-        if(fullLength == 0) return;
+        const maxAggregateBytes = 0x4000;
 
-        // No benefit from sending a singular packet, bundled
-        if(fullLength == 1) {
-            console.log("Send single queued packet");
-            for(const packet of this.packetQueue) this.connection.send(packet);
-            return;
-        }
+        
+        while(this.packetQueue.size > 0) {
+            const combinedPacket = new CombinedPacket;
+            const iterator = this.packetQueue.values();
 
-        console.log("Send multiple queued packets (" + this.packetQueue.size + ")");
+            let next: IteratorResult<ArrayBuffer, ArrayBuffer> = iterator.next();
+            let byteAggregate = 0;
+            while(!next.done) {
+                if(byteAggregate + next.value.byteLength > maxAggregateBytes) break;
 
-        const combinedPacket = new CombinedPacket;
-        for(const packet of this.packetQueue) combinedPacket.packets.add(packet);
+                byteAggregate += next.value.byteLength;
+                
+                combinedPacket.packets.add(next.value);
+                this.packetQueue.delete(next.value);
 
-        this.packetQueue.clear();
-        if(this.connected) {
-            this.sendPacket(combinedPacket, true);
-        } else {
-            this.waitForConnection().then(() => {
+                next = iterator.next();
+            }
+
+            // No benefit from bundling a singular packet
+            if(combinedPacket.packets.size == 1) {
+                for(const packet of combinedPacket.packets) this.connection.send(packet);
+                continue;
+            }
+
+            console.log("Send " + combinedPacket.packets.size + " combined packets (" + byteAggregate + " Bytes)");
+            if(this.connected) {
                 this.sendPacket(combinedPacket, true);
-            });
+            } else {
+                this.waitForConnection().then(() => {
+                    this.sendPacket(combinedPacket, true);
+                });
+            }
         }
     }
 }

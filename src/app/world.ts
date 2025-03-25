@@ -36,18 +36,21 @@ export class World {
         }
     }
 
-    public setColor(x: number, y: number, z: number, color: ColorType) {
-        const colorValue = this.getValueFromColor(color);
+    public setColor(x: number, y: number, z: number, color: ColorType, update = true) {
+        this.setRawValue(x, y, z, this.getValueFromColor(color), update);
+    }
+
+    public setRawValue(x: number, y: number, z: number, value: number, update = true) {
         const chunk = this.blocks.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
         chunk.set(
             (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE)),
             (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE)),
             (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE)),
-            colorValue
+            value
         );
 
-        this.updateBlock(x, y, z, chunk);
+        if(update) this.updateBlock(x, y, z, chunk);
     }
 
     public updateBlock(x: number, y: number, z: number, chunk: VoxelGridChunk) {

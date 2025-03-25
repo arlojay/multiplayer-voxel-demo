@@ -55,6 +55,7 @@ export function createPeer(id: string) {
     console.log("Creating peer with id " + id);
     return new Peer(id, {
         host: "peerjs.arlojay.cc",
+        secure: document.location.hostname == "localhost" ? true : undefined,
         port: 443,
         config: {
             iceServers: [

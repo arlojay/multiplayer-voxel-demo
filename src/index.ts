@@ -18,7 +18,7 @@ async function main() {
     const client = new Client("client-" + Math.random().toString().slice(2) + "-mvd");
 
     client.addListener("setblock", (x, y, z, block) => {
-        voxelVisualizer.world.setColor(x, y, z, block);
+        voxelVisualizer.world.setRawValue(x, y, z, block);
     });
     
     // Host server myself
