@@ -1,14 +1,14 @@
 import { Color, Mesh } from "three";
 import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
-import { VoxelMesher } from "./voxelMesh";
+import { VoxelMesher } from "./voxelMesher";
 import { Server } from "./server/server";
+import { WorldRenderer } from "./worldRenderer";
 
 export type ColorType = Color | number | null;
 
 export class World {
     public server: Server = null;
     public blocks: VoxelGrid = new VoxelGrid;
-    public renderer: VoxelMesher;
     public meshes: Map<VoxelGridChunk, Mesh> = new Map;
     public dirtyChunkQueue: Set<VoxelGridChunk> = new Set;
 
@@ -34,6 +34,10 @@ export class World {
                 (((color & 0x0000ff) >> 3) << 0)
             )
         }
+    }
+
+    public getRawValue(x: number, y: number, z: number) {
+        return this.blocks.get(x, y, z);
     }
 
     public setColor(x: number, y: number, z: number, color: ColorType, update = true) {

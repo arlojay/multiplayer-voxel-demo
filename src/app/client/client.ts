@@ -3,6 +3,9 @@ import { TypedEmitter } from "tiny-typed-emitter";
 import { ChunkDataPacket, CombinedPacket, GetChunkPacket, Packet, SetBlockPacket } from "../packet/packet";
 import { createPeer } from "../turn";
 import { BinaryWriter } from "../binary";
+import { LocalPlayer } from "./localPlayer";
+import { ServerSession } from "./serverSession";
+import { GameRenderer } from "../gameRenderer";
 
 interface ClientEvents {
     "login": () => void;
@@ -14,104 +17,76 @@ interface ClientEvents {
 }
 
 export class Client extends TypedEmitter<ClientEvents> {
-    private peer: Peer;
-    private serverConnection: DataConnection;
-    public connected: boolean;
-
-    private waitingChunks: Map<string, (packet: ChunkDataPacket) => void> = new Map;
+    public peer: Peer;
+    public online: boolean;
+    public gameRenderer: GameRenderer;
+    public onlineId: string;
+    public serverSession: ServerSession = null;
     
-    constructor(id: string) {
+    constructor(canvas: HTMLCanvasElement) {
         super();
+        this.gameRenderer = new GameRenderer(canvas);
+        
+        this.gameRenderer.addListener("frame", (time, dt) => {
+            this.update(time, dt);
+        });
+    }
+
+    public login(id: string) {
+        this.onlineId = id;
 
         this.peer = createPeer(id);
+        
         this.peer.addListener("open", () => {
-            this.connected = true;
+            this.online = true;
             this.emit("login");
         });
         this.peer.addListener("close", () => {
-            this.connected = false;
+            this.online = false;
             this.emit("logout");
         })
+
+        return new Promise<void>((res, rej) => {
+            this.peer.once("open", () => res());
+            this.peer.once("error", (e) => rej(new Error("Client cannot login with id " + id, { cause: e })));
+            this.peer.once("close", () => rej(new Error("Client cannot login with id " + id)));
+        });
+    }
+
+    public async init() {
+        await this.gameRenderer.init();
     }
 
     public async waitForLogin() {
-        if(this.connected) return;
+        if(this.online) return;
         console.log("Waiting for internet...");
         await new Promise<void>(r => this.once("login", r));
         console.log("Connected to the internet");
     }
 
-    public async connect(id: string) {
+    public async connect(id: string): Promise<ServerSession> {
+        if(this.serverSession != null) throw new Error("Already connected to a server");
+
         console.log("Connect to " + id);
         await this.waitForLogin();
         console.log("Connecting to the server " + id);
 
-        const connection = this.peer.connect(id);
-        this.serverConnection = connection;
-
-        await new Promise<void>((res, rej) => {
-            connection.once("open", () => {
-                this.connected = true;
-                res();
-            });
-            connection.once("error", (error) => {
-                rej(new Error("Cannot connect to peer " + id, { cause: error }));
-            });
-            connection.once("close", () => {
-                rej(new Error("Cannot connect to peer " + id));
-            })
-        });
-
-        console.log("Connected to the server " + id + "!");
-        this.initConnectionEvents();
-    }
-
-    private initConnectionEvents() {
-        this.serverConnection.addListener("data", data => {
-            if(data instanceof ArrayBuffer) {
-                this.handlePacket(data);
-            }
-        });
-        this.serverConnection.addListener("close", () => {
-            this.emit("disconnected");
-        })
-    }
-    
-    public handlePacket(data: ArrayBuffer) {
-        const packet = Packet.createFromBinary(data);
+        const serverSession = new ServerSession(this);
+        await serverSession.connect(id);
         
-        if(packet instanceof CombinedPacket) {
-            for(const subPacket of packet.packets) {
-                this.handlePacket(subPacket);
-            }
-        }
-        if(packet instanceof SetBlockPacket) {
-            this.emit("setblock", packet.x, packet.y, packet.z, packet.block);
-        }
-        if(packet instanceof ChunkDataPacket) {
-            this.emit("getchunk", packet.x, packet.y, packet.z, packet.data);
+        this.gameRenderer.setWorld(serverSession.localWorld);
+        this.serverSession = serverSession;
 
-            const promise = this.waitingChunks.get(packet.x + ";" + packet.y + ";" + packet.z);
-            if(promise != null) promise(packet);
-        }
-    }
-
-    public sendPacket(packet: Packet) {
-        const buffer = new ArrayBuffer(packet.getExpectedSize() + 2 /* Packet ID is u16 */ + 1 /* idk this just makes it work */);
-        packet.write(new BinaryWriter(buffer));
-        this.serverConnection.send(buffer);
-    }
-
-    public fetchChunk(x: number, y: number, z: number) {
-        const packet = new GetChunkPacket;
-        packet.x = x;
-        packet.y = y;
-        packet.z = z;
-
-        this.sendPacket(packet);
-
-        return new Promise<ChunkDataPacket>(res => {
-            this.waitingChunks.set(x + ";" + y + ";" + z, packet => res(packet));
+        serverSession.addListener("disconnected", () => {
+            this.serverSession = null;
         });
+
+        return serverSession;
+    }
+
+    public update(time: number, dt: number) {
+        if(this.serverSession != null) {
+            this.serverSession.update(time, dt);
+        }
     }
 }

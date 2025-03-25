@@ -1,46 +1,60 @@
 import { Camera, PerspectiveCamera, Scene, ShaderMaterial, WebGLRenderer } from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { TypedEmitter } from "tiny-typed-emitter";
 import { loadShaderProgram } from "./shaderHelper";
 import { World } from "./world";
 import { WorldRenderer } from "./worldRenderer";
 
-export class VoxelVisualizer {
+interface GameRendererEvents {
+    "frame": (time: number, dt: number) => void;
+    "resize": () => void;
+}
+
+export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public world: World = null;
     public worldRenderer: WorldRenderer = null;
+
     public renderer: WebGLRenderer = null;
     public camera: Camera = new PerspectiveCamera(90, 1, 0.01, 3000);
     public scene: Scene = new Scene();
-    public controls: OrbitControls = null;
 
-    private canvas: HTMLCanvasElement = null;
     private terrainShader: ShaderMaterial = null;
     private lastRenderTime: number = 0;
 
     constructor(canvas: HTMLCanvasElement) {
-        this.canvas = canvas;
+        super();
         
         this.renderer = new WebGLRenderer({ canvas });
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    }
+    public async init() {
+        this.resize();
+        window.addEventListener("resize", () => this.resize());
+
+        this.camera.position.set(16, 16, 16);
+
+        this.terrainShader = await loadShaderProgram("assets/shaders/terrain", {
+            time: { value: 0 }
+        });
+        
+        requestAnimationFrame(time => this.render(time));
     }
 
-    render(time: number) {
+    public render(time: number) {
         time /= 1000;
         const dt = (time - this.lastRenderTime);
         this.lastRenderTime = time;
 
         
-        this.controls.update(dt);
-        this.worldRenderer.update(dt);
+        if(this.worldRenderer != null) {
+            this.emit("frame", time, dt);
+            this.worldRenderer.update(dt);
 
-        this.terrainShader.uniforms.time.value = time;
+            this.terrainShader.uniforms.time.value = time;
+            this.renderer.render(this.scene, this.camera);
+        }
 
-        this.renderer.render(this.scene, this.camera);
-
-        setTimeout(() => {
-            requestAnimationFrame(time => this.render(time));
-        }, 1000 / 30);
+        requestAnimationFrame(time => this.render(time));
     }
-    resize() {
+    public resize() {
         this.renderer.setPixelRatio(devicePixelRatio);
         this.renderer.setSize(innerWidth, innerHeight);
 
@@ -48,20 +62,14 @@ export class VoxelVisualizer {
             this.camera.aspect = innerWidth / innerHeight;
             this.camera.updateProjectionMatrix();
         }
+
+        this.emit("resize");
     }
-    async init() {
-        this.resize();
-        window.addEventListener("resize", () => this.resize());
 
-        this.camera.position.set(16, 16, 16);
-        this.controls.update();
+    public setWorld(world: World) {
+        if(this.world == world) return;
 
-        this.terrainShader = await loadShaderProgram("assets/shaders/terrain", {
-            time: { value: 0 }
-        });
-        this.world = new World();
+        this.world = world;
         this.worldRenderer = new WorldRenderer(this.world, this.scene, this.terrainShader);
-        
-        requestAnimationFrame(time => this.render(time));
     }
 }

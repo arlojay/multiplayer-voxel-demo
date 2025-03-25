@@ -40,7 +40,7 @@ export class Server extends TypedEmitter<ServerEvents> {
     private startLoop() {
         const mainWorld = this.worlds.get("world");
         setInterval(() => {
-            for(let i = 0; i < 300; i++) {
+            for(let i = 0; i < 1; i++) {
                 mainWorld.setColor(
                     Math.floor(Math.random() * 32),
                     Math.floor(Math.random() * 32),
@@ -48,8 +48,8 @@ export class Server extends TypedEmitter<ServerEvents> {
                     Math.round(Math.random() * 0xFFFFFF)
                 );
             }
-            // this.flushWorldUpdateQueue();
-        }, 1000 / 5);
+            this.flushWorldUpdateQueue();
+        }, 1000 / 1);
 
         setInterval(() => {
             for(const peer of this.peers.values()) {
@@ -58,15 +58,17 @@ export class Server extends TypedEmitter<ServerEvents> {
         }, 1000 / 10);
     }
 
-    // private flushWorldUpdateQueue() {
-    //     for(const id of this.worlds.keys()) {
-    //         const world = this.worlds.get(id);
+    private flushWorldUpdateQueue() {
+        for(const id of this.worlds.keys()) {
+            const world = this.worlds.get(id);
 
-    //         for(const chunk of world.dirtyChunkQueue) {
-    //             const packet = 
-    //         }
-    //     }
-    // }
+            for(const chunk of world.dirtyChunkQueue) {
+
+                
+                world.dirtyChunkQueue.delete(chunk);
+            }
+        }
+    }
 
     public async handleConnection(connection: MessagePortConnection) {
         const peer = new ServerPeer(connection, this);

@@ -1,7 +1,7 @@
 import { BufferGeometry, Float32BufferAttribute, Int16BufferAttribute, Int32BufferAttribute, TypedArray, Uint32BufferAttribute } from "three";
 import { CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 
-const AIR_BIT = 1 << 15;
+export const AIR_BIT = 1 << 15;
 const chunkCacheBuffer = new Uint16Array((CHUNK_SIZE + 2) ** 3).buffer;
 const OFF_X = (CHUNK_SIZE + 2) ** 2;
 const OFF_Y = (CHUNK_SIZE + 2) ** 0;
