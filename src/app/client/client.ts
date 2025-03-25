@@ -1,11 +1,9 @@
-import Peer, { DataConnection } from "peerjs";
+import Peer from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { ChunkDataPacket, CombinedPacket, GetChunkPacket, Packet, SetBlockPacket } from "../packet/packet";
-import { createPeer } from "../turn";
-import { BinaryWriter } from "../binary";
-import { LocalPlayer } from "./localPlayer";
-import { ServerSession } from "./serverSession";
 import { GameRenderer } from "../gameRenderer";
+import { createPeer } from "../turn";
+import { ServerSession } from "./serverSession";
+import { PlayerController } from "../playerController";
 
 interface ClientEvents {
     "login": () => void;
@@ -22,10 +20,12 @@ export class Client extends TypedEmitter<ClientEvents> {
     public gameRenderer: GameRenderer;
     public onlineId: string;
     public serverSession: ServerSession = null;
+    public playerController: PlayerController;
     
     constructor(canvas: HTMLCanvasElement) {
         super();
         this.gameRenderer = new GameRenderer(canvas);
+        this.playerController = new PlayerController(document.documentElement);
         
         this.gameRenderer.addListener("frame", (time, dt) => {
             this.update(time, dt);
@@ -85,6 +85,8 @@ export class Client extends TypedEmitter<ClientEvents> {
     }
 
     public update(time: number, dt: number) {
+        if(dt > 0.1) dt = 0.1;
+        
         if(this.serverSession != null) {
             this.serverSession.update(time, dt);
         }

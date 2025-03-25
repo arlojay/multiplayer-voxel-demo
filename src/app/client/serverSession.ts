@@ -94,11 +94,16 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         const renderer = this.client.gameRenderer;
         renderer.camera.position.copy(this.player.position);
+        renderer.camera.position.y += this.player.eyeHeight;
+
+        renderer.camera.rotation.x = this.player.pitch;
+        renderer.camera.rotation.y = this.player.yaw;
     }
 
     private onConnected() {
         this.player = new LocalPlayer;
         this.player.setWorld(this.localWorld);
         this.player.position.set(0, 10, 0);
+        this.player.setController(this.client.playerController);
     }
 }
