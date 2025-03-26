@@ -18,7 +18,7 @@ async function main() {
     
     if("navigator" in window && "keyboard" in window.navigator) {
         (window.navigator as any).keyboard.lock([
-            "KeyW", "KeyA", "KeyS", "KeyD"
+            "KeyW", "KeyA", "KeyS", "KeyD", "Space"
         ]).then(() => {
             console.log("Locked keyboard events!");
         });
