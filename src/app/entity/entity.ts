@@ -12,8 +12,8 @@ const S = 0.001;
 
 export class Entity {
     public world: World = null;
-    public position: Vector3;
-    public velocity: Vector3;
+    public position = new Vector3;
+    public velocity = new Vector3;
     public hitbox: Box3;
     public airTime: number = 0;
     private lastBlockCollision = {
@@ -23,11 +23,6 @@ export class Entity {
         block: 0,
         hitbox: BLOCK_HITBOX
     };
-    
-    constructor() {
-        this.position = new Vector3;
-        this.velocity = new Vector3;
-    }
 
     public setWorld(world: World) {
         this.world = world;

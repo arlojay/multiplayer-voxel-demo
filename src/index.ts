@@ -9,7 +9,8 @@ main();
 
 async function main() {
     const clientId = "client-" + Math.random().toString().slice(2) + "-mvd";
-    const serverId = "server-" + Math.random().toString().slice(2) + "-mvd";
+    // const serverId = "server-" + Math.random().toString().slice(2) + "-mvd";
+    const serverId = "server-main-mvd";
 
     const client = new Client(canvas);
     await client.init();

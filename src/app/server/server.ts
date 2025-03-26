@@ -1,6 +1,6 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { ServerPeer } from "./severPeer";
-import { ChunkDataPacket, Packet, SetBlockPacket } from "../packet/packet";
+import { ChunkDataPacket, Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
 import { Color } from "three";
@@ -83,8 +83,6 @@ export class Server extends TypedEmitter<ServerEvents> {
     public async handleConnection(connection: MessagePortConnection) {
         const peer = new ServerPeer(connection, this);
         peer.client.setWorld(this.worlds.get("world"));
-        
-        this.peers.set(peer.id, peer);
 
         peer.addListener("getchunk", packet => {
             const chunk = peer.client.world.blocks.getChunk(packet.x, packet.y, packet.z);
@@ -97,6 +95,24 @@ export class Server extends TypedEmitter<ServerEvents> {
             
             peer.sendPacket(responsePacket);
         });
+        peer.addListener("move", () => {
+            const packet = new PlayerMovePacket;
+            packet.player = peer.id;
+            packet.x = peer.player.position.x;
+            packet.y = peer.player.position.y;
+            packet.z = peer.player.position.z;
+            packet.vx = peer.player.velocity.x;
+            packet.vy = peer.player.velocity.y;
+            packet.vz = peer.player.velocity.z;
+            packet.yaw = peer.player.yaw;
+            packet.pitch = peer.player.pitch;
+
+            for(const otherId of this.peers.keys()) {
+                if(otherId == peer.id) continue;
+
+                this.peers.get(otherId).sendPacket(packet);
+            }
+        })
 
         await new Promise<void>((res, rej) => {
             connection.once("open", () => res());
@@ -112,11 +128,29 @@ export class Server extends TypedEmitter<ServerEvents> {
             }
         });
 
+        const joinPacket = new PlayerJoinPacket;
+        joinPacket.player = peer.id;
+        this.broadcastPacket(joinPacket);
+
+        for(const otherId of this.peers.keys()) {
+            const joinPacket = new PlayerJoinPacket;
+            joinPacket.player = otherId;
+
+            peer.sendPacket(joinPacket);
+        }
+
+        this.peers.set(peer.id, peer);
         this.emit("connection", peer);
     }
 
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
         console.log("Peer " + peer.id + " disconnected: " + cause.toString());
+
+        this.peers.delete(peer.id);
+        
+        const leavePacket = new PlayerLeavePacket;
+        leavePacket.player = peer.id;
+        this.broadcastPacket(leavePacket);
     }
 
     public broadcastPacket(packet: Packet, world?: World, instant: boolean = false) {

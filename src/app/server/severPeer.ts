@@ -1,12 +1,15 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { CombinedPacket, GetChunkPacket, Packet } from "../packet/packet";
+import { ClientMovePacket, CombinedPacket, GetChunkPacket, Packet } from "../packet/packet";
 import { Server } from "./server";
 import { ServerClient } from "./serverClient";
 import { MessagePortConnection } from "./thread";
 import { BinaryWriter, U16 } from "../binary";
+import { RemotePlayer } from "../client/remotePlayer";
+import { ServerPlayer } from "./serverPlayer";
 
 interface ServerPeerEvents {
     "getchunk": (packet: GetChunkPacket) => void;
+    "move": () => void;
 }
 
 export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
@@ -15,6 +18,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public id: string;
     public server: Server;
     public client: ServerClient;
+    public player: ServerPlayer = null;
     private packetQueue: Set<ArrayBuffer> = new Set;
 
 
@@ -25,6 +29,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         this.server = server;
 
         this.client = new ServerClient;
+        this.player = new ServerPlayer;
 
         connection.addListener("open", () => {
             this.connected = true;
@@ -59,6 +64,13 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
         if(packet instanceof GetChunkPacket) {
             this.emit("getchunk", packet);
+        }
+        if(packet instanceof ClientMovePacket) {
+            this.player.position.set(packet.x, packet.y, packet.z);
+            this.player.velocity.set(packet.vx, packet.vy, packet.vz);
+            this.player.yaw = packet.yaw;
+            this.player.pitch = packet.pitch;
+            this.emit("move");
         }
     }
 
@@ -108,7 +120,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 continue;
             }
 
-            console.log("Send " + combinedPacket.packets.size + " combined packets (" + byteAggregate + " Bytes)");
             if(this.connected) {
                 this.sendPacket(combinedPacket, true);
             } else {

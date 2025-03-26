@@ -1,8 +1,8 @@
 import { Box3, Vector3 } from "three";
 import { Entity } from "../entity/entity";
 import { PlayerController } from "../playerController";
-import { dlerp, lerp } from "../math";
-import { Client, getClient } from "./client";
+import { dlerp } from "../math";
+import { getClient } from "./client";
 
 export class LocalPlayer extends Entity {
     public hitbox: Box3 = new Box3(
@@ -12,7 +12,7 @@ export class LocalPlayer extends Entity {
     public eyeHeight = 1.7;
     private controller: PlayerController;
 
-    public yaw: number = Math.PI * 0.25;
+    public yaw: number = 0;
     public pitch: number = 0;
 
     public update(dt: number) {

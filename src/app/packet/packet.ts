@@ -1,5 +1,5 @@
 import { CHUNK_SIZE } from "../voxelGrid";
-import { BinaryWriter, I32, U16 } from "../binary";
+import { BinaryWriter, F32, I32, U16 } from "../binary";
 
 export abstract class Packet {
     private static packetTypes: Map<number, () => Packet> = new Map;
@@ -163,5 +163,104 @@ export class CombinedPacket extends Packet {
         }
 
         return size;
+    }
+}
+
+export class ClientMovePacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = ClientMovePacket.id;
+
+    public x: number;
+    public y: number;
+    public z: number;
+    public vx: number;
+    public vy: number;
+    public vz: number;
+    public yaw: number;
+    public pitch: number;
+
+    protected serialize(writer: BinaryWriter): void {
+        writer.write_f32(this.x);
+        writer.write_f32(this.y);
+        writer.write_f32(this.z);
+        writer.write_f32(this.vx);
+        writer.write_f32(this.vy);
+        writer.write_f32(this.vz);
+        writer.write_f32(this.yaw);
+        writer.write_f32(this.pitch);
+    }
+
+    protected deserialize(writer: BinaryWriter): void {
+        this.x = writer.read_f32();
+        this.y = writer.read_f32();
+        this.z = writer.read_f32();
+        this.vx = writer.read_f32();
+        this.vy = writer.read_f32();
+        this.vz = writer.read_f32();
+        this.yaw = writer.read_f32();
+        this.pitch = writer.read_f32();
+    }
+
+    public getExpectedSize(): number {
+        return (F32 * 3) + (F32 * 3) + (F32 * 2);
+    }
+}
+
+export class PlayerMovePacket extends ClientMovePacket {
+    static id = Packet.register(() => new this);
+    public id = PlayerMovePacket.id;
+
+    public player: string;
+
+    protected serialize(writer: BinaryWriter): void {
+        super.serialize(writer);
+        writer.write_string(this.player);
+    }
+
+    protected deserialize(writer: BinaryWriter): void {
+        super.deserialize(writer);
+        this.player = writer.read_string();
+    }
+
+    public getExpectedSize(): number {
+        return BinaryWriter.stringByteCount(this.player) + super.getExpectedSize();
+    }
+}
+
+export class PlayerJoinPacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = PlayerJoinPacket.id;
+
+    public player: string;
+
+    protected serialize(writer: BinaryWriter): void {
+        writer.write_string(this.player);
+    }
+
+    protected deserialize(writer: BinaryWriter): void {
+        this.player = writer.read_string();
+    }
+
+    public getExpectedSize(): number {
+        return BinaryWriter.stringByteCount(this.player);
+    }
+}
+
+export class PlayerLeavePacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = PlayerLeavePacket.id;
+
+    public player: string;
+
+    protected serialize(writer: BinaryWriter): void {
+        writer.write_string(this.player);
+    }
+
+    protected deserialize(writer: BinaryWriter): void {
+        this.player = writer.read_string();
+    }
+
+    public getExpectedSize(): number {
+        return BinaryWriter.stringByteCount(this.player);
     }
 }
