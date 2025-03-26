@@ -40,8 +40,6 @@ export class World {
         const g = (value & 0b000001111100000);
         const b = (value & 0b000000000011111);
 
-        console.log(value.toString(2), r.toString(2), g.toString(2), b.toString(2));
-
         return (r << 9) | (g << 6) | (b << 3);
     }
 

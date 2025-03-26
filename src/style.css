@@ -11,5 +11,7 @@ html, body, canvas {
     left: calc(50% - 4px);
     width: 8px;
     height: 8px;
-    background: #fff;
+    border-radius: 4px;
+    backdrop-filter: invert(1);
+    background: transparent;
 }

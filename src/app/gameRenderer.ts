@@ -24,6 +24,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         super();
         
         this.renderer = new WebGLRenderer({ canvas });
+        this.renderer.setClearColor(0xddeeff);
     }
     public async init() {
         this.resize();

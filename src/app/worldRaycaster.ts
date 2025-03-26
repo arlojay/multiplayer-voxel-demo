@@ -128,8 +128,6 @@ export class WorldRaycaster {
             smallestAxis = axis;
             smallestAxisDistance = axis.distance;
         }
-        
-        console.log(axes);
 
         this.lastIntersection.normalX = smallestAxis.x;
         this.lastIntersection.normalY = smallestAxis.y;

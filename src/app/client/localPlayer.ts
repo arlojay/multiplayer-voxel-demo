@@ -1,5 +1,5 @@
 import { Box3, Euler, Ray, Vector3 } from "three";
-import { Entity } from "../entity/entity";
+import { BLOCK_HITBOX, Entity } from "../entity/entity";
 import { PlayerController } from "../playerController";
 import { dlerp } from "../math";
 import { Client, getClient } from "./client";
@@ -97,7 +97,7 @@ export class LocalPlayer extends Entity {
 
         if(this.controller.leftPointer) {
             if(this.placeBlockCooldown <= 0) {
-                this.placeBlockCooldown = 0.2;
+                this.placeBlockCooldown = 0;
                 const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
 
                 if(raycastResult.intersected) {
@@ -118,6 +118,10 @@ export class LocalPlayer extends Entity {
 
     public placeBlock(x: number, y: number, z: number) {
         const color = 0xffff00;
+
+        const hitbox = BLOCK_HITBOX;
+        if(this.collidesWithHitbox(x, y, z, hitbox)) return;
+
         this.world.setColor(x, y, z, color);
 
         const packet = new PlaceBlockPacket;

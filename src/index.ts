@@ -33,7 +33,7 @@ async function main() {
             if(document.fullscreenElement == canvas) {
                 document.exitFullscreen();
             } else {
-                canvas.requestFullscreen();
+                document.body.requestFullscreen();
             }
         }
     });

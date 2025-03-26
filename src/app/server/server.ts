@@ -42,24 +42,8 @@ export class Server extends TypedEmitter<ServerEvents> {
         const mainWorld = this.worlds.get("world");
         const color = new Color;
         setInterval(() => {
-            for(let i = 0; i < 16; i++) {
-                const x = Math.random();
-                const y = Math.random();
-                const z = Math.random();
-                
-                color.r = x;
-                color.g = y;
-                color.b = z;
-
-                mainWorld.setColor(
-                    Math.floor(x * 64) - 32,
-                    Math.floor(y * 10) + 3,
-                    Math.floor(z * 64) - 32,
-                    color
-                );
-            }
             this.flushWorldUpdateQueue();
-        }, 1000 / 1);
+        }, 1000 / 2);
 
         setInterval(() => {
             for(const peer of this.peers.values()) {
