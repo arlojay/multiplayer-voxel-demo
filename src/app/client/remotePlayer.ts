@@ -2,6 +2,15 @@ import { Box3, Box3Helper, BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D
 import { RemoteEntity } from "../entity/remoteEntity";
 import { dlerp } from "../math";
 
+const simpleHash = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+    }
+    return (hash >>> 0);
+}
+
 export class RemotePlayer extends RemoteEntity {
     public hitbox: Box3 = new Box3(
         new Vector3(-0.3, 0, -0.3),
@@ -11,10 +20,14 @@ export class RemotePlayer extends RemoteEntity {
     public pitch: number = 0;
 
     public mesh: Object3D;
+    public id: string;
 
-    public constructor() {
+    public constructor(id: string) {
         super();
+        this.id = id;
         this.mesh = new Group();
+
+        const color = simpleHash(id) & 0xffffff;
 
 
         const size = new Vector3;
@@ -27,7 +40,7 @@ export class RemotePlayer extends RemoteEntity {
         body.translate(center.x, center.y, center.z);
         const bodyMesh = new Mesh(
             body,
-            new MeshBasicMaterial({ color: 0xffff00 })
+            new MeshBasicMaterial({ color })
         );
         this.mesh.add(bodyMesh);
         

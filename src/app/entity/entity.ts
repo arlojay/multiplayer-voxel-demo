@@ -4,7 +4,7 @@ import { AIR_BIT } from "../voxelMesher";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);
-const BLOCK_HITBOX = new Box3(
+export const BLOCK_HITBOX = new Box3(
     new Vector3(0, 0, 0),
     new Vector3(1, 1, 1)
 );

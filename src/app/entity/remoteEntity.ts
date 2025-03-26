@@ -23,5 +23,8 @@ export class RemoteEntity {
         newPosition.add(this.velocity.clone().multiplyScalar(1 - 0.5 ** (this.timeSinceLastUpdate)));
 
         this.renderPosition.lerp(newPosition, 1 - 0.5 ** (dt * 30));
+        if(isNaN(this.renderPosition.x)) {
+            this.renderPosition.copy(this.position);
+        }
     }
 }

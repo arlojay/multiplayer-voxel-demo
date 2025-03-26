@@ -128,7 +128,7 @@ export class SetBlockPacket extends Packet {
     }
 
     public getExpectedSize(): number {
-        return I32 * 4;
+        return I32 * 3 + U16;
     }
 }
 
@@ -262,5 +262,33 @@ export class PlayerLeavePacket extends Packet {
 
     public getExpectedSize(): number {
         return BinaryWriter.stringByteCount(this.player);
+    }
+}
+
+export class PlaceBlockPacket extends Packet{
+    static id = Packet.register(() => new this);
+    public id = PlaceBlockPacket.id;
+
+    public x: number;
+    public y: number;
+    public z: number;
+    public block: number;
+
+    protected serialize(writer: BinaryWriter): void {
+        writer.write_i32(this.x);
+        writer.write_i32(this.y);
+        writer.write_i32(this.z);
+        writer.write_u16(this.block);
+    }
+
+    protected deserialize(writer: BinaryWriter): void {
+        this.x = writer.read_i32();
+        this.y = writer.read_i32();
+        this.z = writer.read_i32();
+        this.block = writer.read_u16();
+    }
+
+    public getExpectedSize(): number {
+        return (I32 * 3) + U16;
     }
 }

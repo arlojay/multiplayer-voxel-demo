@@ -1,8 +1,10 @@
-import { Box3, Vector3 } from "three";
+import { Box3, Euler, Ray, Vector3 } from "three";
 import { Entity } from "../entity/entity";
 import { PlayerController } from "../playerController";
 import { dlerp } from "../math";
-import { getClient } from "./client";
+import { Client, getClient } from "./client";
+import { PlaceBlockPacket } from "../packet/packet";
+
 
 export class LocalPlayer extends Entity {
     public hitbox: Box3 = new Box3(
@@ -14,6 +16,8 @@ export class LocalPlayer extends Entity {
 
     public yaw: number = 0;
     public pitch: number = 0;
+    public placeBlockCooldown: number;
+    public visionRay: Ray;
 
     public update(dt: number) {
         const client = getClient();
@@ -84,7 +88,46 @@ export class LocalPlayer extends Entity {
 
         this.controller.resetPointerMovement();
 
+
+        this.visionRay = new Ray(
+            this.position.clone().add(new Vector3(0, this.eyeHeight, 0)),
+            new Vector3(0, 0, 1).applyEuler(new Euler(this.pitch, this.yaw, 0, "YXZ"))
+        );
+        this.visionRay.direction.z *= -1;
+
+        if(this.controller.leftPointer) {
+            if(this.placeBlockCooldown <= 0) {
+                this.placeBlockCooldown = 0.2;
+                const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
+
+                if(raycastResult.intersected) {
+                    this.placeBlock(
+                        raycastResult.x + raycastResult.normalX,
+                        raycastResult.y + raycastResult.normalY,
+                        raycastResult.z + raycastResult.normalZ
+                    );
+                }
+            }
+            this.placeBlockCooldown -= dt;
+        } else {
+            this.placeBlockCooldown = 0;
+        }
+
         super.update(dt);
+    }
+
+    public placeBlock(x: number, y: number, z: number) {
+        const color = 0xffff00;
+        this.world.setColor(x, y, z, color);
+
+        const packet = new PlaceBlockPacket;
+        packet.x = x;
+        packet.y = y;
+        packet.z = z;
+        packet.block = this.world.getValueFromColor(color);
+
+        // TODO: Make specific to the session the player belongs to
+        Client.instance.serverSession.sendPacket(packet);
     }
     
     public setController(controller: PlayerController) {

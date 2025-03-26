@@ -1,8 +1,7 @@
 import { Color, Mesh } from "three";
-import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
-import { VoxelMesher } from "./voxelMesher";
 import { Server } from "./server/server";
-import { WorldRenderer } from "./worldRenderer";
+import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
+import { WorldRaycaster } from "./worldRaycaster";
 
 export type ColorType = Color | number | null;
 
@@ -11,6 +10,7 @@ export class World {
     public blocks: VoxelGrid = new VoxelGrid;
     public meshes: Map<VoxelGridChunk, Mesh> = new Map;
     public dirtyChunkQueue: Set<VoxelGridChunk> = new Set;
+    public raycaster = new WorldRaycaster(this);
 
     public constructor(server?: Server) {
         this.server = server;
@@ -34,6 +34,15 @@ export class World {
                 (((color & 0x0000ff) >> 3) << 0)
             )
         }
+    }
+    public getColorFromValue(value: number) {
+        const r = (value & 0b111110000000000);
+        const g = (value & 0b000001111100000);
+        const b = (value & 0b000000000011111);
+
+        console.log(value.toString(2), r.toString(2), g.toString(2), b.toString(2));
+
+        return (r << 9) | (g << 6) | (b << 3);
     }
 
     public getRawValue(x: number, y: number, z: number) {

@@ -21,6 +21,8 @@ async function main() {
             "KeyW", "KeyA", "KeyS", "KeyD", "Space"
         ]).then(() => {
             console.log("Locked keyboard events!");
+        }).catch((e: any) => {
+            console.warn(e);
         });
     } else {
         console.log("Keyboard locking unsupported");

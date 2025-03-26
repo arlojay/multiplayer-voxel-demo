@@ -92,7 +92,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             player.resetTimer();
         }
         if(packet instanceof PlayerJoinPacket) {
-            const remotePlayer = new RemotePlayer;
+            const remotePlayer = new RemotePlayer(packet.player);
             this.players.set(packet.player, remotePlayer);
             console.log("Player " + packet.player + " joined the game");
 
