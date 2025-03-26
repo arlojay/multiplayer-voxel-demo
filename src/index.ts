@@ -13,6 +13,27 @@ async function main() {
 
     const client = new Client(canvas);
     await client.init();
+    (window as any).client = client;
+    
+    if("navigator" in window && "keyboard" in window.navigator) {
+        (window.navigator as any).keyboard.lock([
+            "KeyW", "KeyA", "KeyS", "KeyD"
+        ]).then(() => {
+            console.log("Locked keyboard events!");
+        });
+    } else {
+        console.log("Keyboard locking unsupported");
+    }
+
+    document.addEventListener("keydown", e => {
+        if(e.key == "F4") {
+            if(document.fullscreenElement == canvas) {
+                document.exitFullscreen();
+            } else {
+                canvas.requestFullscreen();
+            }
+        }
+    });
     
 
     await client.login(clientId);

@@ -3,6 +3,7 @@ import { ServerPeer } from "./severPeer";
 import { ChunkDataPacket, Packet, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
+import { Color } from "three";
 
 interface ServerEvents {
     "connection": (peer: ServerPeer) => void;
@@ -39,13 +40,22 @@ export class Server extends TypedEmitter<ServerEvents> {
 
     private startLoop() {
         const mainWorld = this.worlds.get("world");
+        const color = new Color;
         setInterval(() => {
-            for(let i = 0; i < 1; i++) {
+            for(let i = 0; i < 16; i++) {
+                const x = Math.random();
+                const y = Math.random();
+                const z = Math.random();
+                
+                color.r = x;
+                color.g = y;
+                color.b = z;
+
                 mainWorld.setColor(
-                    Math.floor(Math.random() * 32),
-                    Math.floor(Math.random() * 32),
-                    Math.floor(Math.random() * 32),
-                    Math.round(Math.random() * 0xFFFFFF)
+                    Math.floor(x * 64) - 32,
+                    Math.floor(y * 10) + 3,
+                    Math.floor(z * 64) - 32,
+                    color
                 );
             }
             this.flushWorldUpdateQueue();

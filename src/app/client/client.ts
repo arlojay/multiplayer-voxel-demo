@@ -4,6 +4,7 @@ import { GameRenderer } from "../gameRenderer";
 import { createPeer } from "../turn";
 import { ServerSession } from "./serverSession";
 import { PlayerController } from "../playerController";
+import { ControlOptions } from "../controlOptions";
 
 interface ClientEvents {
     "login": () => void;
@@ -15,17 +16,24 @@ interface ClientEvents {
 }
 
 export class Client extends TypedEmitter<ClientEvents> {
+    public static instance: Client;
+
     public peer: Peer;
     public online: boolean;
     public gameRenderer: GameRenderer;
     public onlineId: string;
     public serverSession: ServerSession = null;
     public playerController: PlayerController;
+    public controlOptions: ControlOptions = {
+        mouseSensitivity: 0.3
+    };
     
     constructor(canvas: HTMLCanvasElement) {
         super();
+        Client.instance = this;
+
         this.gameRenderer = new GameRenderer(canvas);
-        this.playerController = new PlayerController(document.documentElement);
+        this.playerController = new PlayerController(canvas, document.documentElement);
         
         this.gameRenderer.addListener("frame", (time, dt) => {
             this.update(time, dt);
@@ -77,7 +85,9 @@ export class Client extends TypedEmitter<ClientEvents> {
         this.gameRenderer.setWorld(serverSession.localWorld);
         this.serverSession = serverSession;
 
+        this.playerController.setPointerLocked(true);
         serverSession.addListener("disconnected", () => {
+            this.playerController.setPointerLocked(false);
             this.serverSession = null;
         });
 
@@ -91,4 +101,8 @@ export class Client extends TypedEmitter<ClientEvents> {
             this.serverSession.update(time, dt);
         }
     }
+}
+
+export function getClient() {
+    return Client.instance;
 }

@@ -96,8 +96,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         renderer.camera.position.copy(this.player.position);
         renderer.camera.position.y += this.player.eyeHeight;
 
-        renderer.camera.rotation.x = this.player.pitch;
-        renderer.camera.rotation.y = this.player.yaw;
+        renderer.camera.rotation.set(0, 0, 0);
+        renderer.camera.rotateY(-this.player.yaw);
+        renderer.camera.rotateX(-this.player.pitch);
     }
 
     private onConnected() {
