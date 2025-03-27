@@ -12,5 +12,6 @@
     "importHelpers": true,
     "target": "ESNext",
     "lib": ["ESNext", "dom"],
+    "types": ["@webgpu/types"]
   }
 }

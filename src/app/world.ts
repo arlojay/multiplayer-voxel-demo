@@ -3,6 +3,7 @@ import { Server } from "./server/server";
 import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldRaycaster } from "./worldRaycaster";
 import { AIR_BIT } from "./voxelMesher";
+import { clamp } from "./math";
 
 export type ColorType = Color | number | null;
 
@@ -23,9 +24,9 @@ export class World {
         if(color instanceof Color) {
             return (
                 1 << 15 |
-                Math.round(color.r * 32) << 10 |
-                Math.round(color.g * 32) << 5 |
-                Math.round(color.b * 32) << 0
+                Math.round(clamp(color.r * 32, 0, 31)) << 10 |
+                Math.round(clamp(color.g * 32, 0, 31)) << 5 |
+                Math.round(clamp(color.b * 32, 0, 31)) << 0
             );
         } else {
             return (

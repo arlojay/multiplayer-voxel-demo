@@ -33,11 +33,11 @@ export class LocalPlayer extends Entity {
         if(!onGround) {
             speed *= 0.2;
         }
-        if(this.controller.keyDown("control")) {
+        if(this.controller.keyDown("shift")) {
             speed *= 1.5;
             maxHorizontalSpeed *= 1.5;
         }
-        if(this.controller.keyDown("shift")) {
+        if(this.controller.keyDown("c")) {
             speed *= 0.5;
             maxHorizontalSpeed *= 0.5;
         }
@@ -97,6 +97,7 @@ export class LocalPlayer extends Entity {
         this.visionRay.direction.z *= -1;
         const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
 
+        this.placeBlockCooldown -= dt;
         if(this.controller.keyDown("e")) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;
@@ -108,7 +109,6 @@ export class LocalPlayer extends Entity {
                     );
                 }
             }
-            this.placeBlockCooldown -= dt;
         } else if(this.controller.keyDown("r")) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;

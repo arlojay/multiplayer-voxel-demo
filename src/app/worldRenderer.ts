@@ -1,16 +1,17 @@
-import { Mesh, Scene, ShaderMaterial } from "three";
+import { Mesh, Scene } from "three";
 import { CHUNK_BLOCK_INC_BYTE, VoxelGridChunk } from "./voxelGrid";
 import { VoxelMesher } from "./voxelMesher";
 import { World } from "./world";
+import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
 
 export class WorldRenderer {
     public world: World;
     public mesher: VoxelMesher;
     public meshes: Map<VoxelGridChunk, Mesh> = new Map;
     public scene: Scene;
-    public terrainShader: ShaderMaterial;
+    public terrainShader: MeshBasicNodeMaterial;
 
-    constructor(world: World, scene: Scene, terrainShader: ShaderMaterial) {
+    constructor(world: World, scene: Scene, terrainShader: MeshBasicNodeMaterial) {
         this.world = world;
         this.scene = scene;
         this.terrainShader = terrainShader;
