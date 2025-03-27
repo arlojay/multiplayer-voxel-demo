@@ -1,5 +1,5 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { ClientMovePacket, CombinedPacket, GetChunkPacket, Packet, PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, Packet, PlaceBlockPacket } from "../packet/packet";
 import { Server } from "./server";
 import { ServerClient } from "./serverClient";
 import { MessagePortConnection } from "./thread";
@@ -74,6 +74,9 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         }
         if(packet instanceof PlaceBlockPacket) {
             this.client.world.setColor(packet.x, packet.y, packet.z, this.client.world.getColorFromValue(packet.block));
+        }
+        if(packet instanceof BreakBlockPacket) {
+            this.client.world.clearColor(packet.x, packet.y, packet.z);
         }
     }
 

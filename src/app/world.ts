@@ -2,6 +2,7 @@ import { Color, Mesh } from "three";
 import { Server } from "./server/server";
 import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldRaycaster } from "./worldRaycaster";
+import { AIR_BIT } from "./voxelMesher";
 
 export type ColorType = Color | number | null;
 
@@ -49,6 +50,11 @@ export class World {
 
     public setColor(x: number, y: number, z: number, color: ColorType, update = true) {
         this.setRawValue(x, y, z, this.getValueFromColor(color), update);
+    }
+
+    public clearColor(x: number, y: number, z: number, update = true) {
+        // alert(AIR_BIT.toString(2));
+        this.setRawValue(x, y, z, ~AIR_BIT, update);
     }
 
     public setRawValue(x: number, y: number, z: number, value: number, update = true) {

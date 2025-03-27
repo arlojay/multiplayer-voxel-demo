@@ -292,3 +292,28 @@ export class PlaceBlockPacket extends Packet{
         return (I32 * 3) + U16;
     }
 }
+
+export class BreakBlockPacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = BreakBlockPacket.id;
+
+    public x: number;
+    public y: number;
+    public z: number;
+
+    protected serialize(writer: BinaryWriter): void {
+        writer.write_i32(this.x);
+        writer.write_i32(this.y);
+        writer.write_i32(this.z);
+    }
+
+    protected deserialize(writer: BinaryWriter): void {
+        this.x = writer.read_i32();
+        this.y = writer.read_i32();
+        this.z = writer.read_i32();
+    }
+
+    public getExpectedSize(): number {
+        return I32 * 3;
+    }
+}

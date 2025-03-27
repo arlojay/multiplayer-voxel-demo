@@ -3,7 +3,8 @@ import { BLOCK_HITBOX, Entity } from "../entity/entity";
 import { PlayerController } from "../playerController";
 import { dlerp } from "../math";
 import { Client, getClient } from "./client";
-import { PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, PlaceBlockPacket } from "../packet/packet";
+import { simpleHash } from "./remotePlayer";
 
 
 export class LocalPlayer extends Entity {
@@ -94,12 +95,11 @@ export class LocalPlayer extends Entity {
             new Vector3(0, 0, 1).applyEuler(new Euler(this.pitch, this.yaw, 0, "YXZ"))
         );
         this.visionRay.direction.z *= -1;
+        const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
 
-        if(this.controller.leftPointer) {
+        if(this.controller.keyDown("e")) {
             if(this.placeBlockCooldown <= 0) {
-                this.placeBlockCooldown = 0;
-                const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
-
+                this.placeBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
                     this.placeBlock(
                         raycastResult.x + raycastResult.normalX,
@@ -109,6 +109,17 @@ export class LocalPlayer extends Entity {
                 }
             }
             this.placeBlockCooldown -= dt;
+        } else if(this.controller.keyDown("r")) {
+            if(this.placeBlockCooldown <= 0) {
+                this.placeBlockCooldown = 0.25;
+                if(raycastResult.intersected) {
+                    this.breakBlock(
+                        raycastResult.x,
+                        raycastResult.y,
+                        raycastResult.z
+                    );
+                }
+            }
         } else {
             this.placeBlockCooldown = 0;
         }
@@ -116,8 +127,20 @@ export class LocalPlayer extends Entity {
         super.update(dt);
     }
 
+    public breakBlock(x: number, y: number, z: number) {
+        this.world.clearColor(x, y, z);
+
+        const packet = new BreakBlockPacket;
+        packet.x = x;
+        packet.y = y;
+        packet.z = z;
+
+        // TODO: Make specific to the session the player belongs to
+        Client.instance.serverSession.sendPacket(packet);
+    }
+
     public placeBlock(x: number, y: number, z: number) {
-        const color = 0xffff00;
+        const color = simpleHash(Client.instance.peer.id) & 0xffffff;
 
         const hitbox = BLOCK_HITBOX;
         if(this.collidesWithHitbox(x, y, z, hitbox)) return;

@@ -2,7 +2,7 @@ import { Box3, Box3Helper, BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D
 import { RemoteEntity } from "../entity/remoteEntity";
 import { dlerp } from "../math";
 
-const simpleHash = (str: string) => {
+export const simpleHash = (str: string) => {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
