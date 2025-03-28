@@ -15,14 +15,18 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
 
     private dataPort: MessagePort;
     private commandPort: MessagePort;
+    public debugPort: MessagePort;
+    public errorPort: MessagePort;
 
-    constructor(peer: string, dataPort: MessagePort, commandPort: MessagePort) {
+    constructor(peer: string, dataPort: MessagePort, commandPort: MessagePort, debugPort: MessagePort, errorPort: MessagePort) {
         super();
 
         this.peer = peer;
         
         this.dataPort = dataPort;
         this.commandPort = commandPort;
+        this.debugPort = debugPort;
+        this.errorPort = errorPort;
 
         dataPort.addEventListener("message", (event) => {
             this.emit("data", event.data);
@@ -58,13 +62,15 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
 
 async function init() {
     const server = new Server();
+    (globalThis as any).server = server;
+    
     addEventListener("message", event => {
         const name: string = event.data[0];
         const params: any[] = event.data.slice(1);
 
         if(name == "connection") {
             const options = params[0];
-            const connection = new MessagePortConnection(options.peer, options.data, options.command);
+            const connection = new MessagePortConnection(options.peer, options.data, options.command, options.debug, options.error);
 
             server.handleConnection(connection);
         }

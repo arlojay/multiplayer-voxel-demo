@@ -1,4 +1,5 @@
 import { Client } from "./app/client/client";
+import { debugLog } from "./app/logging";
 import { ServerManager } from "./app/server/serverManager";
 import "./style.css";
 
@@ -19,12 +20,13 @@ async function main() {
         (window.navigator as any).keyboard.lock([
             "KeyW", "KeyA", "KeyS", "KeyD", "Space"
         ]).then(() => {
-            console.log("Locked keyboard events!");
+            debugLog("Locked keyboard events!");
         }).catch((e: any) => {
+            debugLog(e.message);
             console.warn(e);
         });
     } else {
-        console.log("Keyboard locking unsupported");
+        debugLog("Keyboard locking unsupported");
     }
 
     document.addEventListener("keydown", e => {

@@ -53,3 +53,32 @@ body {
 #game.hidden {
     display: none;
 }
+
+#debug-logs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+
+    padding: 0.5rem;
+    font-weight: bold;
+    --outline: 0.5px;
+    filter:
+        drop-shadow(var(--outline) var(--outline) 0px #000)
+        drop-shadow(calc(-var(--outline)) var(--outline) 0px #000)
+        drop-shadow(var(--outline) calc(-var(--outline)) 0px #000)
+        drop-shadow(calc(-var(--outline)) calc(-var(--outline)) 0px #000);
+
+    pointer-events: none;
+    user-select: none;
+    overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+
+    & > pre {
+        display: block;
+        margin: 0;
+    }
+}

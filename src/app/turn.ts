@@ -1,4 +1,5 @@
 import Peer from "peerjs";
+import { debugLog } from "./logging";
 
 export const iceServers = [
     {
@@ -52,7 +53,7 @@ export const iceServers = [
 ];
 
 export function createPeer(id: string) {
-    console.log("Creating peer with id " + id);
+    debugLog("Creating peer with id " + id);
     return new Peer(id, {
         host: "peerjs.arlojay.cc",
         secure: document.location.hostname == "localhost" ? true : undefined,

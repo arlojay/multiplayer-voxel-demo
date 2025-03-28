@@ -4,6 +4,7 @@ import { ChunkDataPacket, Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMov
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
 import { Color } from "three";
+import { debugLog } from "../logging";
 
 interface ServerEvents {
     "connection": (peer: ServerPeer) => void;
@@ -12,6 +13,8 @@ interface ServerEvents {
 export class Server extends TypedEmitter<ServerEvents> {
     public worlds: Map<string, World> = new Map;
     public peers: Map<string, ServerPeer> = new Map;
+    public debugPort: MessagePort;
+    public errorPort: MessagePort;
 
     public async start() {
         this.worlds.set("world", new World(this));
@@ -19,7 +22,7 @@ export class Server extends TypedEmitter<ServerEvents> {
 
         this.initWorld();
 
-        console.log("Server loaded!");
+        debugLog("Server loaded!");
     }
 
     private initWorld() {
@@ -66,6 +69,8 @@ export class Server extends TypedEmitter<ServerEvents> {
 
     public async handleConnection(connection: MessagePortConnection) {
         const peer = new ServerPeer(connection, this);
+        this.debugPort = connection.debugPort;
+        this.errorPort = connection.errorPort;
         peer.client.setWorld(this.worlds.get("world"));
 
         peer.addListener("getchunk", packet => {
@@ -128,7 +133,7 @@ export class Server extends TypedEmitter<ServerEvents> {
     }
 
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
-        console.log("Peer " + peer.id + " disconnected: " + cause.toString());
+        debugLog("Peer " + peer.id + " disconnected: " + cause.toString());
 
         this.peers.delete(peer.id);
         
@@ -156,5 +161,13 @@ export class Server extends TypedEmitter<ServerEvents> {
         packet.block = world.blocks.get(x, y, z);
         
         this.broadcastPacket(packet, world);
+    }
+
+    public logDebug(text: string) {
+        this.debugPort.postMessage(text);
+    }
+
+    public logError(text: string) {
+        this.errorPort.postMessage(text);
     }
 }

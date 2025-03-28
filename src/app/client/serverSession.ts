@@ -7,6 +7,7 @@ import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
 import { Vector3 } from "three";
 import { RemotePlayer } from "./remotePlayer";
+import { debugLog } from "../logging";
 
 interface ServerSessionEvents {
     "disconnected": () => void;
@@ -52,7 +53,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }, 10000);
         });
 
-        console.log("Connected to the server " + serverId + "!");
+        debugLog("Connected to the server " + serverId + "!");
         this.initConnectionEvents();
 
         this.onConnected();
@@ -98,7 +99,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof PlayerJoinPacket) {
             const remotePlayer = new RemotePlayer(packet.player);
             this.players.set(packet.player, remotePlayer);
-            console.log("Player " + packet.player + " joined the game");
+            debugLog("Player " + packet.player + " joined the game");
 
             this.emit("playerjoin", remotePlayer);
         }
@@ -108,7 +109,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
             this.emit("playerleave", player);
             this.players.delete(packet.player);
-            console.log("Player " + packet.player + " left the game");
+            debugLog("Player " + packet.player + " left the game");
         }
     }
 

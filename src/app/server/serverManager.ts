@@ -1,5 +1,6 @@
 import Peer, { DataConnection } from "peerjs";
 import { createPeer } from "../turn";
+import { debugLog } from "../logging";
 
 export class ServerManager {
     public id: string;
@@ -12,16 +13,16 @@ export class ServerManager {
 
     public async start() {
         this.peer = createPeer(this.id);
-        console.log("Starting server " + this.id + "...");
+        debugLog("Starting server " + this.id + "...");
         await new Promise<void>((res, rej) => {
             this.peer.once("open", () => res());
             this.peer.once("error", e => rej(e));
         });
-        console.log("Server connected to internet");
+        debugLog("Server connected to internet");
 
-        console.log("Setting up server worker...");
+        debugLog("Setting up server worker...");
         await this.setupWorker();
-        console.log("Setting up server network listeners");
+        debugLog("Setting up server network listeners");
         this.initListeners();
     }
     private setupWorker() {
@@ -63,19 +64,27 @@ export class ServerManager {
     private async handleConnection(connection: DataConnection) {
         const dataChannel = new MessageChannel();
         const commandChannel = new MessageChannel();
+        const debugChannel = new MessageChannel();
+        const errorChannel = new MessageChannel();
         this.worker.postMessage([
             "connection",
             {
                 peer: connection.peer,
                 data: dataChannel.port2,
                 command: commandChannel.port2,
+                debug: debugChannel.port2,
+                error: errorChannel.port2
             }
-        ], [ dataChannel.port2, commandChannel.port2 ]);
+        ], [ dataChannel.port2, commandChannel.port2, debugChannel.port2, errorChannel.port2 ]);
 
         const dataPort = dataChannel.port1;
         const commandPort = commandChannel.port1;
+        const debugPort = debugChannel.port1;
+        const errorPort = errorChannel.port1;
         dataPort.start();
         commandPort.start();
+        debugPort.start();
+        errorPort.start();
 
         connection.addListener("close", () => {
             commandPort.postMessage(["close"]);
@@ -104,6 +113,13 @@ export class ServerManager {
 
         dataPort.addEventListener("message", event => {
             connection.send(event.data);
+        })
+
+        debugPort.addEventListener("message", event => {
+            debugLog(event.data);
+        })
+        errorPort.addEventListener("message", event => {
+            debugLog(event.data);
         })
     }
 }

@@ -5,6 +5,7 @@ import { createPeer } from "../turn";
 import { ServerSession } from "./serverSession";
 import { PlayerController } from "../playerController";
 import { ControlOptions } from "../controlOptions";
+import { debugLog } from "../logging";
 
 interface ClientEvents {
     "login": () => void;
@@ -68,16 +69,16 @@ export class Client extends TypedEmitter<ClientEvents> {
 
     public async waitForLogin() {
         if(this.online) return;
-        console.log("Waiting for internet...");
+        debugLog("Waiting for internet...");
         await new Promise<void>(r => this.once("login", r));
-        console.log("Connected to the internet");
+        debugLog("Connected to the internet");
     }
 
     public async connect(id: string): Promise<ServerSession> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
 
         await this.waitForLogin();
-        console.log("Connecting to the server " + id);
+        debugLog("Connecting to the server " + id);
 
         const serverSession = new ServerSession(this);
         await serverSession.connect(id);
