@@ -15,3 +15,41 @@ html, body, canvas {
     backdrop-filter: invert(1);
     background: transparent;
 }
+
+body {
+    display: grid;
+}
+
+#ui, #game {
+    grid-area: 1 / 1 / 2 / 2;
+    width: 100%;
+    height: 100%;
+}
+
+#ui {
+    display: grid;
+}
+
+#ui:not(:has(.modal.visible)) {
+    pointer-events: none;
+    display: none;
+}
+
+.modal {
+    &:not(.visible) {
+        display: none;
+    }
+    &.centered {
+        align-self: center;
+        justify-self: center;
+    }
+}
+
+#game:focus-visible {
+    outline: none;
+    border: none;
+}
+
+#game.hidden {
+    display: none;
+}

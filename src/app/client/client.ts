@@ -28,12 +28,13 @@ export class Client extends TypedEmitter<ClientEvents> {
         mouseSensitivity: 0.3
     };
     
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(gameRoot: HTMLElement) {
         super();
         Client.instance = this;
 
+        const canvas = gameRoot.querySelector("canvas") as HTMLCanvasElement;
         this.gameRenderer = new GameRenderer(canvas);
-        this.playerController = new PlayerController(canvas, document.documentElement);
+        this.playerController = new PlayerController(canvas, gameRoot);
         
         this.gameRenderer.addListener("frame", (time, dt) => {
             this.update(time, dt);
@@ -75,7 +76,6 @@ export class Client extends TypedEmitter<ClientEvents> {
     public async connect(id: string): Promise<ServerSession> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
 
-        console.log("Connect to " + id);
         await this.waitForLogin();
         console.log("Connecting to the server " + id);
 

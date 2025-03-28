@@ -4,12 +4,26 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light">
     <title>Voxel Visualizer</title>
 </head>
 
 <body>
-    <canvas></canvas>
-    <div id="crosshair"></div>
+    <div id="game" class="hidden" tabindex="0">
+        <canvas></canvas>
+        <div id="crosshair"></div>
+    </div>
+    <div id="ui">
+        <div class="modal centered visible" data-name="server-select" style="text-align: center;">
+            <h1>Select a server</h1>
+            <form>
+                <input type="text" name="id">
+                <input type="submit" name="connect" value="Connect"></input>
+                <input type="submit" name="create" value="Create"></submit>
+            </form>
+            <p class="connect-error" style="color: red;"></p>
+        </div>
+    </div>
 </body>
 
 </html>

@@ -45,7 +45,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             });
             connection.once("close", () => {
                 rej(new Error("Cannot connect to server " + serverId));
-            })
+            });
+
+            setTimeout(() => {
+                rej(new Error("Cannot connect to server " + serverId, { cause: new Error("Connection timed out") }));
+            }, 10000);
         });
 
         console.log("Connected to the server " + serverId + "!");

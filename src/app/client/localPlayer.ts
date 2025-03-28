@@ -21,7 +21,14 @@ export class LocalPlayer extends Entity {
     public visionRay: Ray;
 
     public update(dt: number) {
+        this.updateControls(dt);
+        super.update(dt);
+    }
+
+    private updateControls(dt: number) {
         const client = getClient();
+        const receivingControls = this.controller.pointerCurrentlyLocked;
+
         const onGround = this.airTime < 0.01;
 
 
@@ -33,20 +40,23 @@ export class LocalPlayer extends Entity {
         if(!onGround) {
             speed *= 0.2;
         }
-        if(this.controller.keyDown("shift")) {
-            speed *= 1.5;
-            maxHorizontalSpeed *= 1.5;
-        }
-        if(this.controller.keyDown("c")) {
-            speed *= 0.5;
-            maxHorizontalSpeed *= 0.5;
-        }
 
-        if(this.controller.keyDown("w")) dz--;
-        if(this.controller.keyDown("s")) dz++;
+        if(receivingControls) {
+            if(this.controller.keyDown("shift")) {
+                speed *= 1.5;
+                maxHorizontalSpeed *= 1.5;
+            }
+            if(this.controller.keyDown("c")) {
+                speed *= 0.5;
+                maxHorizontalSpeed *= 0.5;
+            }
 
-        if(this.controller.keyDown("a")) dx--;
-        if(this.controller.keyDown("d")) dx++;
+            if(this.controller.keyDown("w")) dz--;
+            if(this.controller.keyDown("s")) dz++;
+
+            if(this.controller.keyDown("a")) dx--;
+            if(this.controller.keyDown("d")) dx++;
+        }
 
         const length = Math.sqrt(dx * dx + dz * dz);
         if(length > 1) {
@@ -72,20 +82,20 @@ export class LocalPlayer extends Entity {
         }
 
 
-        if(onGround) {
+        if(onGround && receivingControls) {
             if(this.controller.keyDown(" ")) {
                 this.velocity.y = 8;
             }
         }
 
 
-        if(this.controller.pointerCurrentlyLocked) {
+        if(receivingControls) {
             this.yaw += this.controller.pointerMovement.x * client.controlOptions.mouseSensitivity * (Math.PI / 180);
             this.pitch += this.controller.pointerMovement.y * client.controlOptions.mouseSensitivity * (Math.PI / 180);
-
-            if(this.pitch > Math.PI * 0.5) this.pitch = Math.PI * 0.5;
-            if(this.pitch < Math.PI * -0.5) this.pitch = Math.PI * -0.5;
         }
+
+        if(this.pitch > Math.PI * 0.5) this.pitch = Math.PI * 0.5;
+        if(this.pitch < Math.PI * -0.5) this.pitch = Math.PI * -0.5;
 
         this.controller.resetPointerMovement();
 
@@ -98,7 +108,7 @@ export class LocalPlayer extends Entity {
         const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
 
         this.placeBlockCooldown -= dt;
-        if(this.controller.keyDown("e")) {
+        if(this.controller.keyDown("e") && receivingControls) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
@@ -109,7 +119,7 @@ export class LocalPlayer extends Entity {
                     );
                 }
             }
-        } else if(this.controller.keyDown("r")) {
+        } else if(this.controller.keyDown("r") && receivingControls) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
@@ -123,8 +133,6 @@ export class LocalPlayer extends Entity {
         } else {
             this.placeBlockCooldown = 0;
         }
-
-        super.update(dt);
     }
 
     public breakBlock(x: number, y: number, z: number) {
