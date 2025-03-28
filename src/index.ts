@@ -63,6 +63,8 @@ async function main() {
 
     const serverSelect = document.querySelector('#ui .modal[data-name="server-select"]')!;
 
+    (serverSelect.querySelector('[name="id"]') as HTMLInputElement).value = localStorage.getItem("lastserver") ?? "";
+
     serverSelect.addEventListener("submit", async (event: SubmitEvent) => {
         event.preventDefault();
         const submitter = event.submitter as HTMLInputElement;
@@ -70,23 +72,25 @@ async function main() {
 
         console.log(submitter);
 
-        const serverId = "server-" + data.get("id") + "-mvd";
+        const serverId = data.get("id").toString();
+        const serverPeerId = "server-" + serverId + "-mvd";
+        localStorage.setItem("lastserver", serverId);
 
         try {
             if(submitter.name == "connect") {
-                await connect(serverId);
+                await connect(serverPeerId);
             } else if(submitter.name == "create") {
                 // Host server myself
-                const server = new ServerManager(serverId);
+                const server = new ServerManager(serverPeerId);
                 await server.start();
-                await connect(serverId);
+                await connect(serverPeerId);
             }
 
             serverSelect.classList.remove("visible");
             gameRoot.classList.remove("hidden");
             gameRoot.focus();
         } catch(e) {
-            serverSelect.querySelector(".connect-error").textContent = e.message;
+            serverSelect.querySelector(".connect-error").textContent = "Error while connecting/creating server " + serverId + ": " + e.message;
             console.error(e);
         }
     })
