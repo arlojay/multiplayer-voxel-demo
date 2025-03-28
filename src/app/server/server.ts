@@ -13,8 +13,15 @@ interface ServerEvents {
 export class Server extends TypedEmitter<ServerEvents> {
     public worlds: Map<string, World> = new Map;
     public peers: Map<string, ServerPeer> = new Map;
-    public debugPort: MessagePort;
-    public errorPort: MessagePort;
+    public debugPort: MessagePort = new MessageChannel().port1;
+    public errorPort: MessagePort = new MessageChannel().port1;
+
+    public setDebugPort(port: MessagePort) {
+        this.debugPort = port;
+    }
+    public setErrorPort(port: MessagePort) {
+        this.errorPort = port;
+    }
 
     public async start() {
         this.worlds.set("world", new World(this));

@@ -63,12 +63,12 @@ body {
 
     padding: 0.5rem;
     font-weight: bold;
-    --outline: 0.5px;
-    filter:
-        drop-shadow(var(--outline) var(--outline) 0px #000)
-        drop-shadow(calc(-var(--outline)) var(--outline) 0px #000)
-        drop-shadow(var(--outline) calc(-var(--outline)) 0px #000)
-        drop-shadow(calc(-var(--outline)) calc(-var(--outline)) 0px #000);
+    --outline: 1px;
+    text-shadow:
+        var(--outline)              var(--outline)              var(--outline)  #000,
+        calc(-1 * var(--outline))   var(--outline)              var(--outline)  #000,
+        var(--outline)              calc(-1 * var(--outline))   var(--outline)  #000,
+        calc(-1 * var(--outline))   calc(-1 * var(--outline))   var(--outline)  #000;
 
     pointer-events: none;
     user-select: none;

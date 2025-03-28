@@ -32,8 +32,19 @@ export class ServerManager {
         return new Promise<void>((res, rej) => {
             function messageCallback(event: MessageEvent) {
                 const name: string = event.data[0];
-                const params: string[] = event.data.slice(1);
+                const params: any[] = event.data.slice(1);
 
+                if(name == "ports") {
+                    const debugPort = params[0] as MessagePort;
+                    const errorPort = params[1] as MessagePort;
+
+                    debugPort.addEventListener("message", event => {
+                        debugLog(event.data);
+                    })
+                    errorPort.addEventListener("message", event => {
+                        debugLog(event.data);
+                    })
+                }
                 if(name == "ready") {
                     cleanupCallbacks();
                     res();
@@ -64,27 +75,19 @@ export class ServerManager {
     private async handleConnection(connection: DataConnection) {
         const dataChannel = new MessageChannel();
         const commandChannel = new MessageChannel();
-        const debugChannel = new MessageChannel();
-        const errorChannel = new MessageChannel();
         this.worker.postMessage([
             "connection",
             {
                 peer: connection.peer,
                 data: dataChannel.port2,
                 command: commandChannel.port2,
-                debug: debugChannel.port2,
-                error: errorChannel.port2
             }
-        ], [ dataChannel.port2, commandChannel.port2, debugChannel.port2, errorChannel.port2 ]);
+        ], [ dataChannel.port2, commandChannel.port2 ]);
 
         const dataPort = dataChannel.port1;
         const commandPort = commandChannel.port1;
-        const debugPort = debugChannel.port1;
-        const errorPort = errorChannel.port1;
         dataPort.start();
         commandPort.start();
-        debugPort.start();
-        errorPort.start();
 
         connection.addListener("close", () => {
             commandPort.postMessage(["close"]);
@@ -113,13 +116,6 @@ export class ServerManager {
 
         dataPort.addEventListener("message", event => {
             connection.send(event.data);
-        })
-
-        debugPort.addEventListener("message", event => {
-            debugLog(event.data);
-        })
-        errorPort.addEventListener("message", event => {
-            debugLog(event.data);
         })
     }
 }
