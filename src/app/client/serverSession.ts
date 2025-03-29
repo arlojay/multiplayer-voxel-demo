@@ -1,7 +1,7 @@
 import { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryWriter, U16 } from "../binary";
-import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
+import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
 import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
@@ -10,7 +10,7 @@ import { RemotePlayer } from "./remotePlayer";
 import { debugLog } from "../logging";
 
 interface ServerSessionEvents {
-    "disconnected": () => void;
+    "disconnected": (reason: string) => void;
     "playerjoin": (player: RemotePlayer) => void;
     "playerleave": (player: RemotePlayer) => void;
 }
@@ -28,7 +28,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private lastPlayerYaw: number = 0;
     
     private waitingChunks: Map<string, (packet: ChunkDataPacket) => void> = new Map;
-    private lastUpdateTime: number = 0;
+    private kicked: boolean;
 
     public constructor(client: Client) {
         super();
@@ -66,7 +66,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }
         });
         this.serverConnection.addListener("close", () => {
-            this.emit("disconnected");
+            if(this.kicked) return;
+
+            this.emit("disconnected", "Connection lost");
         })
     }
     
@@ -98,6 +100,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof PlayerJoinPacket) {
             const remotePlayer = new RemotePlayer(packet.player);
+            remotePlayer.position.set(packet.x, packet.y, packet.z);
+            remotePlayer.velocity.set(packet.vx, packet.vy, packet.vz);
+            remotePlayer.yaw = packet.yaw;
+            remotePlayer.pitch = packet.pitch;
             this.players.set(packet.player, remotePlayer);
             debugLog("Player " + packet.player + " joined the game");
 
@@ -110,6 +116,15 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.emit("playerleave", player);
             this.players.delete(packet.player);
             debugLog("Player " + packet.player + " left the game");
+        }
+        if(packet instanceof PingPacket) {
+            const responsePacket = new PingResponsePacket();
+            this.sendPacket(responsePacket);
+        }
+        if(packet instanceof KickPacket) {
+            this.emit("disconnected", packet.reason);
+            this.kicked = true;
+            this.serverConnection.close();
         }
     }
 
@@ -132,7 +147,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         });
     }
     public update(time: number, dt: number) {
-        this.lastUpdateTime = time;
         this.player.update(dt);
 
         const renderer = this.client.gameRenderer;
@@ -142,7 +156,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         renderer.camera.rotation.set(0, 0, 0);
         renderer.camera.rotateY(-this.player.yaw);
         renderer.camera.rotateX(-this.player.pitch);
-
 
 
 

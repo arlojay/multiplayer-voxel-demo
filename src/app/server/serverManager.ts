@@ -109,7 +109,7 @@ export class ServerManager {
 
             switch(name) {
                 case "close":
-                    connection.close();
+                    connection.close({ flush: true });
                     break;
             }
         })

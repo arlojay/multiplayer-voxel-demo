@@ -1,5 +1,6 @@
 import { CHUNK_SIZE } from "../voxelGrid";
 import { BinaryWriter, F32, I32, U16 } from "../binary";
+import { ServerPlayer } from "../server/serverPlayer";
 
 export abstract class Packet {
     private static packetTypes: Map<number, () => Packet> = new Map;
@@ -166,10 +167,7 @@ export class CombinedPacket extends Packet {
     }
 }
 
-export class ClientMovePacket extends Packet {
-    static id = Packet.register(() => new this);
-    public id = ClientMovePacket.id;
-
+abstract class PlayerInfo extends Packet {
     public x: number;
     public y: number;
     public z: number;
@@ -206,11 +204,38 @@ export class ClientMovePacket extends Packet {
     }
 }
 
-export class PlayerMovePacket extends ClientMovePacket {
+export class ClientMovePacket extends PlayerInfo {
+    static id = Packet.register(() => new this);
+    public id = ClientMovePacket.id
+
+    protected serialize(writer: BinaryWriter): void {
+        super.serialize(writer);
+    }
+
+    protected deserialize(writer: BinaryWriter): void {
+        super.deserialize(writer);
+    }
+
+    public getExpectedSize(): number {
+        return super.getExpectedSize();
+    }
+}
+
+export class PlayerMovePacket extends PlayerInfo {
     static id = Packet.register(() => new this);
     public id = PlayerMovePacket.id;
 
     public player: string;
+
+    public constructor(player?: ServerPlayer) {
+        super();
+
+        if(player == null) return;
+
+        [ this.x, this.y, this.z ] = player.position.toArray();
+        [ this.vx, this.vy, this.vz ] = player.velocity.toArray();
+        [ this.yaw, this.pitch ] = [ player.yaw, player.pitch ];
+    }
 
     protected serialize(writer: BinaryWriter): void {
         super.serialize(writer);
@@ -223,26 +248,38 @@ export class PlayerMovePacket extends ClientMovePacket {
     }
 
     public getExpectedSize(): number {
-        return BinaryWriter.stringByteCount(this.player) + super.getExpectedSize();
+        return super.getExpectedSize() + BinaryWriter.stringByteCount(this.player);
     }
 }
 
-export class PlayerJoinPacket extends Packet {
+export class PlayerJoinPacket extends PlayerInfo {
     static id = Packet.register(() => new this);
     public id = PlayerJoinPacket.id;
 
     public player: string;
 
+    public constructor(player?: ServerPlayer) {
+        super();
+
+        if(player == null) return;
+
+        [ this.x, this.y, this.z ] = player.position.toArray();
+        [ this.vx, this.vy, this.vz ] = player.velocity.toArray();
+        [ this.yaw, this.pitch ] = [ player.yaw, player.pitch ];
+    }
+
     protected serialize(writer: BinaryWriter): void {
+        super.serialize(writer);
         writer.write_string(this.player);
     }
 
     protected deserialize(writer: BinaryWriter): void {
+        super.deserialize(writer);
         this.player = writer.read_string();
     }
 
     public getExpectedSize(): number {
-        return BinaryWriter.stringByteCount(this.player);
+        return super.getExpectedSize() + BinaryWriter.stringByteCount(this.player);
     }
 }
 
@@ -315,5 +352,52 @@ export class BreakBlockPacket extends Packet {
 
     public getExpectedSize(): number {
         return I32 * 3;
+    }
+}
+
+export class PingPacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = PingPacket.id;
+
+    protected serialize(writer: BinaryWriter): void {
+        
+    }
+    protected deserialize(writer: BinaryWriter): void {
+        
+    }
+    public getExpectedSize(): number {
+        return 0;
+    }
+}
+
+export class PingResponsePacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = PingResponsePacket.id;
+
+    protected serialize(writer: BinaryWriter): void {
+        
+    }
+    protected deserialize(writer: BinaryWriter): void {
+        
+    }
+    public getExpectedSize(): number {
+        return 0;
+    }
+}
+
+export class KickPacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = KickPacket.id;
+
+    public reason: string;
+
+    protected serialize(writer: BinaryWriter): void {
+        writer.write_string(this.reason);
+    }
+    protected deserialize(writer: BinaryWriter): void {
+        this.reason = writer.read_string();
+    }
+    public getExpectedSize(): number {
+        return BinaryWriter.stringByteCount(this.reason);
     }
 }

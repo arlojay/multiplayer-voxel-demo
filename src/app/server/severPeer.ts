@@ -1,15 +1,21 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { BreakBlockPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, Packet, PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet/packet";
 import { Server } from "./server";
 import { ServerClient } from "./serverClient";
 import { MessagePortConnection } from "./thread";
 import { BinaryWriter, U16 } from "../binary";
 import { RemotePlayer } from "../client/remotePlayer";
 import { ServerPlayer } from "./serverPlayer";
+import { debugLog } from "../logging";
 
 interface ServerPeerEvents {
     "getchunk": (packet: GetChunkPacket) => void;
     "move": () => void;
+    "disconnected": (cause: string) => void;
+}
+
+export class TimedOutError extends Error {
+
 }
 
 export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
@@ -20,6 +26,9 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public client: ServerClient;
     public player: ServerPlayer = null;
     private packetQueue: Set<ArrayBuffer> = new Set;
+    private pingPromise: Promise<number> = null;
+    public ping: number = 0;
+    private onPingResponse: () => void = null;
 
 
     constructor(connection: MessagePortConnection, server: Server) {
@@ -33,13 +42,33 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
         connection.addListener("open", () => {
             this.connected = true;
+            this.initPingLoop();
         });
         connection.addListener("close", () => {
+            if(!this.connected) return;
+
             this.connected = false;
+            this.emit("disconnected", "Connection lost");
         });
         connection.addListener("error", () => {
             this.connected = false;
         });
+    }
+    private async initPingLoop() {
+        try {
+            while(this.connected) {
+                await this.sendPing();
+                await new Promise(r => setTimeout(r, 3000));
+            }
+        } catch(e) {
+            if(e instanceof TimedOutError) {
+                console.log(e);
+                this.kick("Timed out");
+            } else {
+                this.kick("Internal server error");
+                throw e;
+            }
+        }
     }
 
     private connectionPromise: Promise<void>;
@@ -77,6 +106,9 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         }
         if(packet instanceof BreakBlockPacket) {
             this.client.world.clearColor(packet.x, packet.y, packet.z);
+        }
+        if(packet instanceof PingResponsePacket) {
+            if(this.onPingResponse != null) this.onPingResponse();
         }
     }
 
@@ -134,5 +166,49 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 });
             }
         }
+    }
+
+    public async sendPing() {
+        this.ping = await (this.pingPromise ??= new Promise<number>((res, rej) => {
+            const pingPacket = new PingPacket;
+            debugLog("ping");
+
+            const t0 = performance.now();
+
+            this.onPingResponse = () => {
+                res(performance.now() - t0);
+                this.pingPromise = null;
+                this.onPingResponse = null;
+            };
+
+            setTimeout(() => {
+                this.pingPromise = null;
+                this.onPingResponse = null;
+                rej(new TimedOutError("Ping timed out"));
+            }, 5000);
+            
+            this.sendPacket(pingPacket);
+        }));
+    }
+
+    public kick(reason: string = "Unknown reason") {
+        if(this.connected) {
+            // Ask the client to disconnect
+            const packet = new KickPacket();
+            packet.reason = reason;
+            this.sendPacket(packet, true);
+
+            console.log(packet);
+
+            this.emit("disconnected", reason);
+            this.connected = false; // Stop interpreting packets
+
+            setTimeout(() => {
+                this.connection.close(); // Force connection closed
+            }, 2000);
+        } else {
+            this.connection.close();
+        }
+        debugLog("Kicked " + this.id + " for: " + reason);
     }
 }

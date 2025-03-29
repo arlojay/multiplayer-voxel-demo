@@ -38,10 +38,16 @@ async function main() {
             }
         }
     });
-    
 
+    const serverSelect = document.querySelector('#ui .modal[data-name="server-select"]')!;
+    
     async function connect(id: string) {
-        const serverSession = await client.connect(id);            
+        const serverSession = await client.connect(id);
+        serverSession.addListener("disconnected", (reason) => {
+            serverSelect.querySelector(".connect-error").textContent = "Kicked from server: " + reason;
+            serverSelect.classList.add("visible");
+            gameRoot.classList.add("hidden");
+        })
 
         for(let x = -3; x < 3; x++) {
             for(let y = -3; y < 3; y++) {
@@ -62,8 +68,6 @@ async function main() {
             }
         }
     }
-
-    const serverSelect = document.querySelector('#ui .modal[data-name="server-select"]')!;
 
     (serverSelect.querySelector('[name="id"]') as HTMLInputElement).value = localStorage.getItem("lastserver") ?? "";
 

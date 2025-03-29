@@ -4,7 +4,7 @@ export const terrainColor = Fn(() => {
     const time = uniform(0);
     time.onFrameUpdate(n => n.time);
     
-    const localPos = attribute("localPos", "vec3<f32>");
+    const localPos = attribute("localPos", "vec3f");
     const vColor = vertexColor();
 
     const manhattanDistance = Fn(({ a = vec3(), b = vec3() }) => {

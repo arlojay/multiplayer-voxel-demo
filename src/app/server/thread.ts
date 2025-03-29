@@ -62,14 +62,19 @@ async function init() {
     const server = new Server();
     (globalThis as any).server = server;
 
+    
     const debugChannel = new MessageChannel();
-    const errorChannel = new MessageChannel();
-
     const debugPort = debugChannel.port1;
-    const errorPort = errorChannel.port1;
-
     server.setDebugPort(debugPort);
+    debugPort.start();
+
+    const errorChannel = new MessageChannel();
+    const errorPort = errorChannel.port1;
     server.setErrorPort(errorPort);
+    errorPort.start();
+
+    console.log(server.debugPort, server.errorPort);
+
     postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
     
     addEventListener("message", event => {
@@ -79,6 +84,8 @@ async function init() {
         if(name == "connection") {
             const options = params[0];
             const connection = new MessagePortConnection(options.peer, options.data, options.command);
+            options.data.start();
+            options.command.start();
 
             server.handleConnection(connection);
         }

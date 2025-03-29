@@ -13,8 +13,8 @@ interface ServerEvents {
 export class Server extends TypedEmitter<ServerEvents> {
     public worlds: Map<string, World> = new Map;
     public peers: Map<string, ServerPeer> = new Map;
-    public debugPort: MessagePort = new MessageChannel().port1;
-    public errorPort: MessagePort = new MessageChannel().port1;
+    public debugPort: MessagePort = null;
+    public errorPort: MessagePort = null;
 
     public setDebugPort(port: MessagePort) {
         this.debugPort = port;
@@ -92,16 +92,8 @@ export class Server extends TypedEmitter<ServerEvents> {
             peer.sendPacket(responsePacket);
         });
         peer.addListener("move", () => {
-            const packet = new PlayerMovePacket;
+            const packet = new PlayerMovePacket(peer.player);
             packet.player = peer.id;
-            packet.x = peer.player.position.x;
-            packet.y = peer.player.position.y;
-            packet.z = peer.player.position.z;
-            packet.vx = peer.player.velocity.x;
-            packet.vy = peer.player.velocity.y;
-            packet.vz = peer.player.velocity.z;
-            packet.yaw = peer.player.yaw;
-            packet.pitch = peer.player.pitch;
 
             for(const otherId of this.peers.keys()) {
                 if(otherId == peer.id) continue;
@@ -124,16 +116,21 @@ export class Server extends TypedEmitter<ServerEvents> {
             }
         });
 
-        const joinPacket = new PlayerJoinPacket;
+        const joinPacket = new PlayerJoinPacket(peer.player);
         joinPacket.player = peer.id;
         this.broadcastPacket(joinPacket);
 
         for(const otherId of this.peers.keys()) {
-            const joinPacket = new PlayerJoinPacket;
+            const joinPacket = new PlayerJoinPacket(this.peers.get(otherId).player);
             joinPacket.player = otherId;
 
             peer.sendPacket(joinPacket);
         }
+
+        peer.addListener("disconnected", (cause) => {
+            this.handleDisconnection(peer, cause);
+            this.peers.delete(peer.id);
+        });
 
         this.peers.set(peer.id, peer);
         this.emit("connection", peer);
@@ -171,10 +168,12 @@ export class Server extends TypedEmitter<ServerEvents> {
     }
 
     public logDebug(text: string) {
+        if(this.debugPort == null) return;
         this.debugPort.postMessage(text);
     }
 
     public logError(text: string) {
+        if(this.errorPort == null) return;
         this.errorPort.postMessage(text);
     }
 }
