@@ -12,6 +12,8 @@ export class ServerManager {
     public peer: Peer;
     public id: string;
     private worker: Worker;
+    private connections: Map<string, DataConnection> = new Map;
+    public started: boolean = false;
     
     constructor(serverId: string, options: ServerOptions) {
         this.id = serverId;
@@ -31,6 +33,37 @@ export class ServerManager {
         await this.setupWorker();
         debugLog("Setting up server network listeners");
         this.initListeners();
+        this.started = true;
+    }
+    public async close(force = false) {
+        for(const connection of this.connections.values()) connection.close();
+        this.peer.disconnect();
+        this.peer = null;
+        this.started = false;
+
+        if(force) this.worker.terminate();
+        else await new Promise<void>((res, rej) => {
+            const timeout = setTimeout(() => {
+                console.warn("Server closing forcibly; 10 second timeout reached");
+                this.worker.terminate();
+                res();
+            }, 10000);
+
+            this.worker.postMessage(["close"]);
+            this.worker.addEventListener("message", event => {
+                const name: string = event.data[0];
+                const params: any[] = event.data.slice(1);
+
+                if(name == "finished") {
+                    clearTimeout(timeout);
+                    this.worker.terminate();
+                    res();
+                }
+            })
+        });
+
+        this.worker = null;
+        debugLog("Server closed successfully");
     }
     private setupWorker() {
         const worker = new Worker(new URL("./thread.ts", import.meta.url));
@@ -101,12 +134,15 @@ export class ServerManager {
 
         connection.addListener("close", () => {
             commandPort.postMessage(["close"]);
+            this.connections.delete(connection.peer);
         });
         connection.addListener("error", (error) => {
             commandPort.postMessage(["error", error]);
+            this.connections.delete(connection.peer);
         });
         connection.addListener("open", () => {
             commandPort.postMessage(["open"]);
+            this.connections.set(connection.peer, connection);
         });
         
         connection.addListener("data", (data) => {

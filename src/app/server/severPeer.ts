@@ -1,12 +1,11 @@
 import { TypedEmitter } from "tiny-typed-emitter";
+import { BinaryWriter } from "../binary";
+import { debugLog } from "../logging";
 import { BreakBlockPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet/packet";
 import { Server } from "./server";
 import { ServerClient } from "./serverClient";
-import { MessagePortConnection } from "./thread";
-import { BinaryWriter, U16 } from "../binary";
-import { RemotePlayer } from "../client/remotePlayer";
 import { ServerPlayer } from "./serverPlayer";
-import { debugLog } from "../logging";
+import { MessagePortConnection } from "./thread";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -73,7 +72,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     }
 
     private connectionPromise: Promise<void>;
-    public waitForConnection() {        
+    public waitForConnection() {
         return this.connectionPromise ??= new Promise<void>((res, rej) => {
             this.connection.once("open", () => {
                 res();
@@ -112,6 +111,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         }
         if(packet instanceof BreakBlockPacket) {
             this.client.world.clearColor(packet.x, packet.y, packet.z);
+            this.server.savers.get(this.client.world.name).saveModified();
         }
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();

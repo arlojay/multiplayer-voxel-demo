@@ -112,13 +112,15 @@ export class World {
                 for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
                     let color = 0x000000;
 
-                    if(y < -5) color = 0x888888;
-                    else if(y < -1) color = 0xCC9966;
-                    else if(y < 0) color = 0xBBFF99;
+                    if(globalY < -5) color = 0x888888;
+                    else if(globalY < -1) color = 0xCC9966;
+                    else if(globalY < 0) color = 0xBBFF99;
 
                     if(color != 0x000000) chunk.set(x, y, z, this.getValueFromColor(color));
                 }
+                globalZ -= CHUNK_SIZE;
             }
+            globalY -= CHUNK_SIZE;
         }
 
         return chunk;

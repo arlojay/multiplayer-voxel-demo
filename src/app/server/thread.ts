@@ -96,6 +96,11 @@ async function init() {
 
             server.handleConnection(connection);
         }
+        if(name == "close") {
+            server.close().then(() => {
+                postMessage(["finished"]);
+            });
+        }
     });
 
     postMessage(["getoptions"]);

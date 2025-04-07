@@ -46,18 +46,6 @@ export class Server extends TypedEmitter<ServerEvents> {
 
         this.worlds.set(name, world);
         this.savers.set(name, saver);
-
-        for(let x = -32; x < 32; x++) {
-            for(let z = -32; z < 32; z++) {
-                for(let y = -5; y <= -1; y++) {
-                    world.setColor(x, y, z, 0x888888, false);
-                }
-                for(let y = -1; y <= 1; y++) {
-                    world.setColor(x, y, z, 0xCC9966, false);
-                }
-                world.setColor(x, 2, z, 0xBBFF99, false);
-            }
-        }
     }
 
     public async start() {
@@ -102,17 +90,23 @@ export class Server extends TypedEmitter<ServerEvents> {
         peer.addListener("chunkrequest", async packet => {
             const world = peer.client.world;
             const voxelWorld = world.blocks;
+            console.log("finding chunk " + packet.x + ", " + packet.y + ", " + packet.z + " in cache");
             let chunk: VoxelGridChunk = voxelWorld.getChunk(packet.x, packet.y, packet.z, false);
 
             if(chunk == null) {
+                console.log("cannot find chunk in cache");
                 chunk = voxelWorld.getChunk(packet.x, packet.y, packet.z, true);
 
                 const saver = this.savers.get(world.name);
+                console.log("finding chunk in database");
                 const data = await saver.getChunkData(packet.x, packet.y, packet.z);
                 if(data == null) {
+                    console.log("cannot find chunk in database; generating");
                     world.generateChunk(packet.x, packet.y, packet.z);
                     saver.saveChunk(chunk);
                 } else {
+                    console.log("caching database chunk");
+                    console.log(new Uint16Array(data).filter(v => v));
                     chunk.data.set(new Uint16Array(data));
                 }
             }
@@ -209,5 +203,11 @@ export class Server extends TypedEmitter<ServerEvents> {
     public logError(text: string) {
         if(this.errorPort == null) return;
         this.errorPort.postMessage(text);
+    }
+
+    public async close() {
+        for await(const saver of this.savers.values()) {
+            await saver.saveModified();
+        }
     }
 }

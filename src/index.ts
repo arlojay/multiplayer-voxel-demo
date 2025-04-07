@@ -1,6 +1,7 @@
 import { Client } from "./app/client/client";
 import { ServerSession } from "./app/client/serverSession";
 import { debugLog } from "./app/logging";
+import { Server } from "./app/server/server";
 import { ServerManager, ServerPeerError } from "./app/server/serverManager";
 import "./style.css";
 
@@ -61,6 +62,7 @@ async function main() {
 
         let errored = false;
         let serverId: string = "";
+        let server: ServerManager = null;
         worldCreation.classList.remove("visible");
         try {
             do {
@@ -68,7 +70,7 @@ async function main() {
                 serverId = createRandomServerId();
                 
                 // Host server myself
-                const server = new ServerManager(serverId, {
+                server = new ServerManager(serverId, {
                     worldName
                 });
 
@@ -84,7 +86,11 @@ async function main() {
                 }
             } while(errored);
 
-            await connect(serverId);
+            const connection = await connect(serverId);
+            connection.addListener("disconnected", () => {
+                server.close();
+            });
+
             gameRoot.classList.remove("hidden");
             gameRoot.focus();
         } catch(e) {
@@ -109,6 +115,7 @@ async function main() {
         })
         
         loadChunks(serverSession);
+        return serverSession;
     }
 
     (serverSelect.querySelector('[name="id"]') as HTMLInputElement).value = localStorage.getItem("lastserver") ?? "";
