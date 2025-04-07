@@ -28,6 +28,7 @@ export class LocalPlayer extends Entity {
     private updateControls(dt: number) {
         const client = getClient();
         const receivingControls = this.controller.pointerCurrentlyLocked;
+        const controlOptions = client.options.controls;
 
         const onGround = this.airTime < 0.01;
 
@@ -90,8 +91,8 @@ export class LocalPlayer extends Entity {
 
 
         if(receivingControls) {
-            this.yaw += this.controller.pointerMovement.x * client.controlOptions.mouseSensitivity * (Math.PI / 180);
-            this.pitch += this.controller.pointerMovement.y * client.controlOptions.mouseSensitivity * (Math.PI / 180);
+            this.yaw += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
+            this.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180);
         }
 
         if(this.pitch > Math.PI * 0.5) this.pitch = Math.PI * 0.5;
@@ -133,6 +134,17 @@ export class LocalPlayer extends Entity {
         } else {
             this.placeBlockCooldown = 0;
         }
+
+        if(this.position.y < -100) {
+            this.respawn();
+        }
+    }
+
+    public respawn() {
+        this.position.x = 0;
+        this.position.y = 16;
+        this.position.z = 0;
+        this.velocity.set(0, 0, 0);
     }
 
     public breakBlock(x: number, y: number, z: number) {

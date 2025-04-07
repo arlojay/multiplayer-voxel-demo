@@ -13,6 +13,47 @@ export const U64 = 8;
 export const I64 = 8;
 export const F64 = 8;
 
+export const MIN_U8 = 0;
+export const MAX_U8 = 255;
+export const SMALLEST_U8 = 1;
+
+export const MIN_I8 = -128;
+export const MAX_I8 = 127;
+export const SMALLEST_I8 = 1;
+
+export const MIN_U16 = 0;
+export const MAX_U16 = 65535;
+export const SMALLEST_U16 = 1;
+
+export const MIN_I16 = -32768;
+export const MAX_I16 = 32767;
+export const SMALLEST_I16 = 1;
+
+export const MIN_U32 = 0;
+export const MAX_U32 = 4294967295;
+export const SMALLEST_U32 = 1;
+
+export const MIN_I32 = -2147483648;
+export const MAX_I32 = 2147483647;
+export const SMALLEST_I32 = 1;
+
+export const MIN_U64 = 0n;
+export const MAX_U64 = 18446744073709551616n;
+export const SMALLEST_U64 = 1n;
+
+export const MIN_I64 = -9223372036854775808n;
+export const MAX_I64 = 9223372036854775807n;
+export const SMALLEST_I64 = 1n;
+
+export const MIN_F32 = -3.4028234663852886e+38;
+export const MAX_F32 = 3.4028234663852886e+38;
+export const SMALLEST_F32 = 1.401298464324817e-45;
+
+export const MIN_F64 = -1.7976931348623157e+308;
+export const MAX_F64 = 1.7976931348623157e+308;
+export const SMALLEST_F64 = 5e-324;
+
+
 export class BinaryWriter {
     public buffer: ArrayBuffer;
     public view: DataView<ArrayBuffer>;

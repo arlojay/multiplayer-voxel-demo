@@ -1,6 +1,6 @@
 import { Color, Mesh } from "three";
 import { Server } from "./server/server";
-import { CHUNK_BLOCK_INC_BYTE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
+import { CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldRaycaster } from "./worldRaycaster";
 import { AIR_BIT } from "./voxelMesher";
 import { clamp } from "./math";
@@ -13,8 +13,10 @@ export class World {
     public meshes: Map<VoxelGridChunk, Mesh> = new Map;
     public dirtyChunkQueue: Set<VoxelGridChunk> = new Set;
     public raycaster = new WorldRaycaster(this);
+    public name: string;
 
-    public constructor(server?: Server) {
+    public constructor(name = "world", server?: Server) {
+        this.name = name;
         this.server = server;
     }
 
@@ -61,12 +63,13 @@ export class World {
     public setRawValue(x: number, y: number, z: number, value: number, update = true) {
         const chunk = this.blocks.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
-        chunk.set(
-            (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE)),
-            (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE)),
-            (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE)),
-            value
-        );
+        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+
+        if(update) update &&= chunk.get(blockX, blockY, blockZ) != value;
+        
+        chunk.set(blockX, blockY, blockZ, value);
 
         if(update) this.updateBlock(x, y, z, chunk);
     }
@@ -96,5 +99,28 @@ export class World {
 
     public markChunkDirty(chunk: VoxelGridChunk) {
         this.dirtyChunkQueue.add(chunk);
+    }
+    
+    public generateChunk(x: number, y: number, z: number) {
+        const chunk = this.blocks.getChunk(x, y, z);
+        let globalX = x << CHUNK_INC_SCL;
+        let globalY = y << CHUNK_INC_SCL;
+        let globalZ = z << CHUNK_INC_SCL;
+
+        for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
+            for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
+                for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
+                    let color = 0x000000;
+
+                    if(y < -5) color = 0x888888;
+                    else if(y < -1) color = 0xCC9966;
+                    else if(y < 0) color = 0xBBFF99;
+
+                    if(color != 0x000000) chunk.set(x, y, z, this.getValueFromColor(color));
+                }
+            }
+        }
+
+        return chunk;
     }
 }

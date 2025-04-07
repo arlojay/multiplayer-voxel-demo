@@ -1,6 +1,7 @@
 import { CHUNK_SIZE } from "../voxelGrid";
-import { BinaryWriter, F32, I32, U16 } from "../binary";
+import { BinaryWriter, F32, I32, U16, U32 } from "../binary";
 import { ServerPlayer } from "../server/serverPlayer";
+import { makeAdvancingTimestamp } from "../timestamp";
 
 export abstract class Packet {
     private static packetTypes: Map<number, () => Packet> = new Map;
@@ -14,6 +15,8 @@ export abstract class Packet {
         const writer = new BinaryWriter(buffer);
 
         const id = writer.read_u16();
+        const timestamp = writer.read_u32();
+
         const factory = this.packetTypes.get(id);
         if(factory == null) throw new TypeError(
             "Invalid packet " + id + (
@@ -24,13 +27,15 @@ export abstract class Packet {
         );
 
         const packet = factory();
+        packet.timestamp = timestamp;
         packet.read(writer);
 
         return packet;
     }
 
 
-    public abstract id: number;
+    public abstract readonly id: number;
+    public timestamp: number = 0;
     protected abstract serialize(writer: BinaryWriter): void;
     protected abstract deserialize(writer: BinaryWriter): void;
 
@@ -40,10 +45,15 @@ export abstract class Packet {
     
     public write(writer: BinaryWriter) {
         writer.write_u16(this.id);
+        writer.write_u32(makeAdvancingTimestamp());
         this.serialize(writer);
     }
 
-    public abstract getExpectedSize(): number;
+    public getBufferSize() {
+        return this.getExpectedSize() + U16 + U32;
+    }
+
+    protected abstract getExpectedSize(): number;
 }
 
 export class GetChunkPacket extends Packet {
@@ -66,7 +76,7 @@ export class GetChunkPacket extends Packet {
         writer.write_i32(this.z);
     }
 
-    public getExpectedSize() {
+    protected getExpectedSize() {
         return I32 * 3;
     }
 }
@@ -100,7 +110,7 @@ export class ChunkDataPacket extends Packet {
         }
     }
 
-    public getExpectedSize() {
+    protected getExpectedSize() {
         return I32 * 3 + BinaryWriter.bufferByteCount(U16 * CHUNK_SIZE ** 3);
     }
 }
@@ -128,7 +138,7 @@ export class SetBlockPacket extends Packet {
         writer.write_u16(this.block);
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return I32 * 3 + U16;
     }
 }
@@ -156,7 +166,7 @@ export class CombinedPacket extends Packet {
         }
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         let size = U16;
 
         for(const packet of this.packets) {
@@ -199,7 +209,7 @@ abstract class PlayerInfo extends Packet {
         this.pitch = writer.read_f32();
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return (F32 * 3) + (F32 * 3) + (F32 * 2);
     }
 }
@@ -216,7 +226,7 @@ export class ClientMovePacket extends PlayerInfo {
         super.deserialize(writer);
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return super.getExpectedSize();
     }
 }
@@ -247,7 +257,7 @@ export class PlayerMovePacket extends PlayerInfo {
         this.player = writer.read_string();
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return super.getExpectedSize() + BinaryWriter.stringByteCount(this.player);
     }
 }
@@ -278,7 +288,7 @@ export class PlayerJoinPacket extends PlayerInfo {
         this.player = writer.read_string();
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return super.getExpectedSize() + BinaryWriter.stringByteCount(this.player);
     }
 }
@@ -297,7 +307,7 @@ export class PlayerLeavePacket extends Packet {
         this.player = writer.read_string();
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return BinaryWriter.stringByteCount(this.player);
     }
 }
@@ -325,7 +335,7 @@ export class PlaceBlockPacket extends Packet{
         this.block = writer.read_u16();
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return (I32 * 3) + U16;
     }
 }
@@ -350,7 +360,7 @@ export class BreakBlockPacket extends Packet {
         this.z = writer.read_i32();
     }
 
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return I32 * 3;
     }
 }
@@ -365,7 +375,7 @@ export class PingPacket extends Packet {
     protected deserialize(writer: BinaryWriter): void {
         
     }
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return 0;
     }
 }
@@ -380,7 +390,7 @@ export class PingResponsePacket extends Packet {
     protected deserialize(writer: BinaryWriter): void {
         
     }
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return 0;
     }
 }
@@ -397,7 +407,7 @@ export class KickPacket extends Packet {
     protected deserialize(writer: BinaryWriter): void {
         this.reason = writer.read_string();
     }
-    public getExpectedSize(): number {
+    protected getExpectedSize(): number {
         return BinaryWriter.stringByteCount(this.reason);
     }
 }

@@ -64,9 +64,9 @@ export class VoxelGridRegion {
     chunkExists(x: number, y: number, z: number): boolean {
         return this.chunks[x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE] != null;
     }
-    getChunk(x: number, y: number, z: number): VoxelGridChunk {
+    getChunk(x: number, y: number, z: number, create = true): VoxelGridChunk {
         let chunk = this.chunks[x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE];
-        if(chunk == null) {
+        if(chunk == null && create) {
             chunk = this.createChunk(x, y, z);
         }
         return chunk;
@@ -76,12 +76,29 @@ export class VoxelGridRegion {
     }
 
     get(x: number, y: number, z: number): number {
-        const chunk = this.getChunk(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL);
-        return chunk.get(x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL), y - (y >> CHUNK_INC_SCL << CHUNK_INC_SCL), z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL));
+        const chunk = this.getChunk(
+            x >> CHUNK_INC_SCL,
+            y >> CHUNK_INC_SCL,
+            z >> CHUNK_INC_SCL
+        );
+        return chunk.get(
+            x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL),
+            y - (y >> CHUNK_INC_SCL << CHUNK_INC_SCL),
+            z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL)
+        );
     }
     set(x: number, y: number, z: number, value: number): void {
-        const chunk = this.getChunk(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL);
-        chunk.set(x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL), y - (y >> CHUNK_INC_SCL << CHUNK_INC_SCL), z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL), value);
+        const chunk = this.getChunk(
+            x >> CHUNK_INC_SCL,
+            y >> CHUNK_INC_SCL,
+            z >> CHUNK_INC_SCL
+        );
+        chunk.set(
+            x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL),
+            y - (y >> CHUNK_INC_SCL << CHUNK_INC_SCL),
+            z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL),
+            value
+        );
     }
     dispose(): void {
         let chunk;
@@ -120,23 +137,57 @@ export class VoxelGrid {
         return this.cachedRegion = cachedRegion;
     }
     chunkExists(x: number, y: number, z: number): boolean {
-        const region = this.getRegion(x >> REGION_INC_SCL, y >> REGION_INC_SCL, z >> REGION_INC_SCL);
+        const region = this.getRegion(
+            x >> REGION_INC_SCL,
+            y >> REGION_INC_SCL,
+            z >> REGION_INC_SCL
+        );
 
-        return region.chunkExists(x - (x >> REGION_INC_SCL << REGION_INC_SCL), y - (y >> REGION_INC_SCL << REGION_INC_SCL), z - (z >> REGION_INC_SCL << REGION_INC_SCL));
+        return region.chunkExists(
+            x - (x >> REGION_INC_SCL << REGION_INC_SCL),
+            y - (y >> REGION_INC_SCL << REGION_INC_SCL),
+            z - (z >> REGION_INC_SCL << REGION_INC_SCL)
+        );
     }
-    getChunk(x: number, y: number, z: number): VoxelGridChunk {
-        const region = this.getRegion(x >> REGION_INC_SCL, y >> REGION_INC_SCL, z >> REGION_INC_SCL);
+    getChunk(x: number, y: number, z: number, create = true): VoxelGridChunk {
+        const region = this.getRegion(
+            x >> REGION_INC_SCL,
+            y >> REGION_INC_SCL,
+            z >> REGION_INC_SCL
+        );
 
-        return region.getChunk(x - (x >> REGION_INC_SCL << REGION_INC_SCL), y - (y >> REGION_INC_SCL << REGION_INC_SCL), z - (z >> REGION_INC_SCL << REGION_INC_SCL));
+        return region.getChunk(
+            x - (x >> REGION_INC_SCL << REGION_INC_SCL),
+            y - (y >> REGION_INC_SCL << REGION_INC_SCL),
+            z - (z >> REGION_INC_SCL << REGION_INC_SCL),
+            create
+        );
     }
     get(x: number, y: number, z: number): number {
-        const region = this.getRegion(x >> REGION_BLOCK_INC, y >> REGION_BLOCK_INC, z >> REGION_BLOCK_INC);
+        const region = this.getRegion(
+            x >> REGION_BLOCK_INC,
+            y >> REGION_BLOCK_INC,
+            z >> REGION_BLOCK_INC
+        );
 
-        return region.get(x - (x >> REGION_BLOCK_INC << REGION_BLOCK_INC), y - (y >> REGION_BLOCK_INC << REGION_BLOCK_INC), z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC));
+        return region.get(
+            x - (x >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            y - (y >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC)
+        );
     }
     set(x: number, y: number, z: number, value: number): void {
-        const region = this.getRegion(x >> REGION_BLOCK_INC, y >> REGION_BLOCK_INC, z >> REGION_BLOCK_INC);
+        const region = this.getRegion(
+            x >> REGION_BLOCK_INC,
+            y >> REGION_BLOCK_INC,
+            z >> REGION_BLOCK_INC
+        );
 
-        region.set(x - (x >> REGION_BLOCK_INC << REGION_BLOCK_INC), y - (y >> REGION_BLOCK_INC << REGION_BLOCK_INC), z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC), value);
+        region.set(
+            x - (x >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            y - (y >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            value
+        );
     }
 }

@@ -1,6 +1,6 @@
 import { PeerError } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { Server } from "./server";
+import { Server, ServerOptions } from "./server";
 
 init();
 
@@ -59,28 +59,35 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
 }
 
 async function init() {
-    const server = new Server();
-    (globalThis as any).server = server;
-
-    
-    const debugChannel = new MessageChannel();
-    const debugPort = debugChannel.port1;
-    server.setDebugPort(debugPort);
-    debugPort.start();
-
-    const errorChannel = new MessageChannel();
-    const errorPort = errorChannel.port1;
-    server.setErrorPort(errorPort);
-    errorPort.start();
-
-    console.log(server.debugPort, server.errorPort);
-
-    postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
+    let server: Server;
     
     addEventListener("message", event => {
         const name: string = event.data[0];
         const params: any[] = event.data.slice(1);
 
+        if(name == "options") {
+            server = new Server(params[0] as ServerOptions);
+            (globalThis as any).server = server;
+        
+            
+            const debugChannel = new MessageChannel();
+            const debugPort = debugChannel.port1;
+            server.setDebugPort(debugPort);
+            debugPort.start();
+        
+            const errorChannel = new MessageChannel();
+            const errorPort = errorChannel.port1;
+            server.setErrorPort(errorPort);
+            errorPort.start();
+        
+            console.log(server.debugPort, server.errorPort);
+        
+            postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
+
+            server.start().then(() => {
+                postMessage(["ready"]);
+            });
+        }
         if(name == "connection") {
             const options = params[0];
             const connection = new MessagePortConnection(options.peer, options.data, options.command);
@@ -91,6 +98,5 @@ async function init() {
         }
     });
 
-    await server.start();
-    postMessage(["ready"]);
+    postMessage(["getoptions"]);
 }

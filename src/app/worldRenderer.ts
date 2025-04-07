@@ -22,14 +22,20 @@ export class WorldRenderer {
 
     public renderChunk(chunk: VoxelGridChunk) {
         let mesh = this.meshes.get(chunk);
-        if(mesh != null) this.scene.remove(mesh);
+        if(mesh != null) {
+            this.scene.remove(mesh);
+            mesh.geometry.dispose();
+        }
 
         const geometry = this.mesher.mesh(chunk);
+        console.log("Render chunk @ " + chunk.x + ", " + chunk.y + ", " + chunk.z);
         if(geometry.index.count == 0) {
             this.meshes.delete(chunk);
         } else {
             mesh = new Mesh(geometry, this.terrainShader);
             mesh.position.set(chunk.x << CHUNK_BLOCK_INC_BYTE, chunk.y << CHUNK_BLOCK_INC_BYTE, chunk.z << CHUNK_BLOCK_INC_BYTE);
+            mesh.matrixAutoUpdate = false;
+            mesh.updateMatrix();
             this.scene.add(mesh);
 
             this.meshes.set(chunk, mesh);

@@ -8,20 +8,51 @@
     <title>Voxel Visualizer</title>
 </head>
 
-<body>
+<body style="font: 1rem Arial, sans-serif">
     <div id="game" class="hidden" tabindex="0">
         <canvas></canvas>
         <div id="crosshair"></div>
     </div>
     <div id="ui">
-        <div class="modal centered visible" data-name="server-select" style="text-align: center;">
-            <h1>Select a server</h1>
+        <div class="modal centered visible" data-name="game-select">
+            <section id="join-game">
+                <h1>Join a game</h1>
+                <form>
+                    <span>Game Code</span>
+                    <input type="text" name="id">
+                    <input type="submit" value="Connect"></input>
+                </form>
+                <p class="connect-error" style="color: red;"></p>
+            </section>
+            <section id="select-world">
+                <h1>Select a world</h1>
+                <div style="width: 100%; text-align: left; font-weight: bold; display: flex; flex-direction: row;">
+                    <div style="width: 10rem;">Name</div>
+                    <div style="width: 8rem;">Time Created</div>
+                </div>
+                <ul>
+                    <li><span class="name">teststses</span> <time datetime="|">7 minutes ago</time><button class="play">Play</button></li>
+                    <li><span class="name">w</span> <time datetime="|">12 minutes ago</time><button class="play">Play</button></li>
+                    <li><span class="name">kljhasdflkjhasdflkjhasdflkjhasdflkjhasdflkjhasdflkjhasdflkjhasdflkjhasdflkjhasdflkjh</span> <time datetime="|">7 minutes ago</time><button class="play">Play</button></li>
+                    <li><span class="name">a very long name to test the wrapping of text using css and html</span> <time datetime="|">1 hour ago</time><button class="play">Play</button></li>
+                    <li style="display: block; width: 100%; text-align: center;">No created worlds!</li>
+                </ul>
+                <span>Or create a </span><button id="create-world-btn">New World</button>
+            </section>
+        </div>
+        <div class="modal centered" data-name="create-world">
+            <h1>Create World</h1>
             <form>
-                <input type="text" name="id">
-                <input type="submit" name="connect" value="Connect"></input>
-                <input type="submit" name="create" value="Create"></submit>
+                <fieldset>
+                    <legend>General</legend>
+                    <div>
+                        <label for="name">World Name</label>
+                        <input type="text" name="name">
+                    </div>
+                </fieldset>
+                <div style="height: 2rem;"></div>
+                <input type="submit" value="Create World">
             </form>
-            <p class="connect-error" style="color: red;"></p>
         </div>
     </div>
     <div id="debug-logs">

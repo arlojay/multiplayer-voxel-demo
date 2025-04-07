@@ -18,6 +18,8 @@ html, body, canvas {
 
 body {
     display: grid;
+    font: 1rem Arial, sans-serif;
+    user-select: none;
 }
 
 #ui, #game {
@@ -28,21 +30,12 @@ body {
 
 #ui {
     display: grid;
+    overflow: hidden;
 }
 
 #ui:not(:has(.modal.visible)) {
     pointer-events: none;
     display: none;
-}
-
-.modal {
-    &:not(.visible) {
-        display: none;
-    }
-    &.centered {
-        align-self: center;
-        justify-self: center;
-    }
 }
 
 #game:focus-visible {
@@ -60,6 +53,7 @@ body {
     left: 0;
     width: 50%;
     height: 100%;
+    font-size: 10px;
 
     padding: 0.5rem;
     font-weight: bold;
@@ -71,7 +65,6 @@ body {
         calc(-1 * var(--outline))   calc(-1 * var(--outline))   var(--outline)  #000;
 
     pointer-events: none;
-    user-select: none;
     overflow-y: auto;
 
     display: flex;
@@ -81,4 +74,57 @@ body {
         display: block;
         margin: 0;
     }
+}
+
+.modal[data-name="game-select"] {
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#select-world {
+    ul {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        gap: 0.5rem;
+        text-align: left;
+
+        li {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+
+            .name {
+                display: inline-block;
+                width: 10rem;
+                word-wrap: break-word;
+                white-space: wrap;
+                text-wrap: wrap;
+            }
+            time {
+                display: inline-block;
+                width: 8rem;
+            }
+        }
+    }
+}
+
+.modal[data-name="create-world"] {
+    text-align: center;
+}
+
+.modal {
+    &:not(.visible) {
+        display: none;
+    }
+    &.centered {
+        align-self: center;
+        justify-self: center;
+    }
+    grid-area: 1 / 1 / 2 / 2;
 }

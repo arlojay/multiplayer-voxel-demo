@@ -62,7 +62,7 @@ export function createPeer(id: string) {
             iceServers: [
                 { url: "stun:stun.l.google.com:19302" },
 
-                ...iceServers
+                ...iceServers.sort(() => Math.random() * 2 - 1)
             ]
         }
     });

@@ -1,14 +1,21 @@
 import Peer, { DataConnection } from "peerjs";
 import { createPeer } from "../turn";
 import { debugLog } from "../logging";
+import { ServerOptions } from "./server";
+
+export class ServerPeerError extends Error {
+
+}
 
 export class ServerManager {
-    public id: string;
+    public options: ServerOptions;
     public peer: Peer;
+    public id: string;
     private worker: Worker;
     
-    constructor(id: string) {
-        this.id = id;
+    constructor(serverId: string, options: ServerOptions) {
+        this.id = serverId;
+        this.options = options;
     }
 
     public async start() {
@@ -16,7 +23,7 @@ export class ServerManager {
         debugLog("Starting server " + this.id + "...");
         await new Promise<void>((res, rej) => {
             this.peer.once("open", () => res());
-            this.peer.once("error", e => rej(e));
+            this.peer.once("error", e => rej(new ServerPeerError("Error while creating server connection ", { cause: e })));
         });
         debugLog("Server connected to internet");
 
@@ -30,7 +37,7 @@ export class ServerManager {
         this.worker = worker;
 
         return new Promise<void>((res, rej) => {
-            function messageCallback(event: MessageEvent) {
+            const messageCallback = (event: MessageEvent) => {
                 const name: string = event.data[0];
                 const params: any[] = event.data.slice(1);
 
@@ -44,6 +51,9 @@ export class ServerManager {
                     errorPort.addEventListener("message", event => {
                         debugLog(event.data);
                     })
+                }
+                if(name == "getoptions") {
+                    worker.postMessage(["options", this.options]);
                 }
                 if(name == "ready") {
                     cleanupCallbacks();

@@ -1,10 +1,20 @@
 import { Client } from "./app/client/client";
+import { ServerSession } from "./app/client/serverSession";
 import { debugLog } from "./app/logging";
-import { ServerManager } from "./app/server/serverManager";
+import { ServerManager, ServerPeerError } from "./app/server/serverManager";
 import "./style.css";
 
 const gameRoot = document.querySelector("#game") as HTMLElement;
 
+function createRandomServerId() {
+    const chars = "ACDEFGHJKMNPQRTWXYZ234679abcdefghijkmnpqrtwxyz".split("");
+    let str = "";
+
+    for(let i = 0; i < 4; i++) {
+        str += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return str;
+}
 
 main();
 
@@ -39,39 +49,71 @@ async function main() {
         }
     });
 
-    const serverSelect = document.querySelector('#ui .modal[data-name="server-select"]')!;
+
+
+    const worldCreation = document.querySelector('.modal[data-name="create-world"]')!;
+
+    worldCreation.querySelector("form").addEventListener("submit", async (event: SubmitEvent) => {
+        event.preventDefault();
+        const data = new FormData(event.target as HTMLFormElement);
+
+        const worldName = data.get("name").toString();
+
+        let errored = false;
+        let serverId: string = "";
+        worldCreation.classList.remove("visible");
+        try {
+            do {
+                errored = false;
+                serverId = createRandomServerId();
+                
+                // Host server myself
+                const server = new ServerManager(serverId, {
+                    worldName
+                });
+
+                try {
+                    await server.start();
+                } catch(error) {
+                    if(error instanceof ServerPeerError) {
+                        console.log(error);
+                        errored = true;
+                    } else {
+                        throw error;
+                    }
+                }
+            } while(errored);
+
+            await connect(serverId);
+            gameRoot.classList.remove("hidden");
+            gameRoot.focus();
+        } catch(e) {
+            worldCreation.classList.add("visible");
+            alert(e.message);
+            console.error(e);
+        }
+    })
+
+
+
+    const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
+    const serverSelect = document.querySelector('#join-game')!;
     
     async function connect(id: string) {
+        gameSelect.classList.remove("visible");
         const serverSession = await client.connect(id);
         serverSession.addListener("disconnected", (reason) => {
             serverSelect.querySelector(".connect-error").textContent = "Kicked from server: " + reason;
-            serverSelect.classList.add("visible");
+            gameSelect.classList.add("visible");
             gameRoot.classList.add("hidden");
         })
-
-        for(let x = -3; x < 3; x++) {
-            for(let y = -3; y < 3; y++) {
-                for(let z = -3; z < 3; z++) {
-                    serverSession.fetchChunk(x, y, z).then(response => {
-                        const localChunk = serverSession.localWorld.blocks.getChunk(x, y, z);
-                        localChunk.data.set(response.data);
-
-                        serverSession.localWorld.markChunkDirty(localChunk);
-                        serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x + 1, y, z));
-                        serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x - 1, y, z));
-                        serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y + 1, z));
-                        serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y - 1, z));
-                        serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z + 1));
-                        serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z - 1));
-                    });
-                }
-            }
-        }
+        
+        loadChunks(serverSession);
     }
 
     (serverSelect.querySelector('[name="id"]') as HTMLInputElement).value = localStorage.getItem("lastserver") ?? "";
 
-    serverSelect.addEventListener("submit", async (event: SubmitEvent) => {
+    document.querySelector("#join-game").addEventListener("submit", async (event: SubmitEvent) => {
         event.preventDefault();
         const submitter = event.submitter as HTMLInputElement;
         const data = new FormData(event.target as HTMLFormElement);
@@ -83,16 +125,9 @@ async function main() {
         localStorage.setItem("lastserver", serverId);
 
         try {
-            if(submitter.name == "connect") {
-                await connect(serverPeerId);
-            } else if(submitter.name == "create") {
-                // Host server myself
-                const server = new ServerManager(serverPeerId);
-                await server.start();
-                await connect(serverPeerId);
-            }
+            await connect(serverPeerId);
 
-            serverSelect.classList.remove("visible");
+            gameSelect.classList.remove("visible");
             gameRoot.classList.remove("hidden");
             gameRoot.focus();
         } catch(e) {
@@ -101,6 +136,33 @@ async function main() {
         }
     })
     
+    document.querySelector("#create-world-btn").addEventListener("click", () => {
+        console.log(serverSelect);
+        worldCreation.classList.add("visible");
+        gameSelect.classList.remove("visible");
+    });
+    
 
     await client.login(clientId);
+}
+
+function loadChunks(serverSession: ServerSession) {
+    for(let x = -3; x < 3; x++) {
+        for(let y = -3; y < 3; y++) {
+            for(let z = -3; z < 3; z++) {
+                serverSession.fetchChunk(x, y, z).then(response => {
+                    const localChunk = serverSession.localWorld.blocks.getChunk(x, y, z);
+                    localChunk.data.set(response.data);
+
+                    serverSession.localWorld.markChunkDirty(localChunk);
+                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x + 1, y, z));
+                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x - 1, y, z));
+                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y + 1, z));
+                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y - 1, z));
+                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z + 1));
+                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z - 1));
+                });
+            }
+        }
+    }
 }

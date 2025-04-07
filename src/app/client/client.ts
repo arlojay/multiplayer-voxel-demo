@@ -4,7 +4,7 @@ import { GameRenderer } from "../gameRenderer";
 import { createPeer } from "../turn";
 import { ServerSession } from "./serverSession";
 import { PlayerController } from "../playerController";
-import { ControlOptions } from "../controlOptions";
+import { Options as ClientOptions } from "../controlOptions";
 import { debugLog } from "../logging";
 
 interface ClientEvents {
@@ -25,8 +25,11 @@ export class Client extends TypedEmitter<ClientEvents> {
     public onlineId: string;
     public serverSession: ServerSession = null;
     public playerController: PlayerController;
-    public controlOptions: ControlOptions = {
-        mouseSensitivity: 0.3
+    public options: ClientOptions = {
+        controls: {
+            mouseSensitivity: 0.3
+        },
+        viewDistance: 4
     };
     
     constructor(gameRoot: HTMLElement) {

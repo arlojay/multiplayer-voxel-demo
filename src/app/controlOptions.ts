@@ -1,3 +1,6 @@
-export interface ControlOptions {
-    mouseSensitivity: number;
+export interface Options {
+    controls: {
+        mouseSensitivity: number;
+    },
+    viewDistance: number;
 }

@@ -9,7 +9,7 @@ import { ServerPlayer } from "./serverPlayer";
 import { debugLog } from "../logging";
 
 interface ServerPeerEvents {
-    "getchunk": (packet: GetChunkPacket) => void;
+    "chunkrequest": (packet: GetChunkPacket) => void;
     "move": () => void;
     "disconnected": (cause: string) => void;
 }
@@ -29,6 +29,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     private pingPromise: Promise<number> = null;
     public ping: number = 0;
     private onPingResponse: () => void = null;
+    private lastPacketReceived: Map<number, number> = new Map;
 
 
     constructor(connection: MessagePortConnection, server: Server) {
@@ -88,13 +89,17 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         });
     }
 
+    private isPacketOld(packet: Packet) {
+        return this.lastPacketReceived.get(packet.id) > packet.timestamp;
+    }
+
     public handlePacket(data: ArrayBuffer) {
         const packet = Packet.createFromBinary(data);
 
         if(packet instanceof GetChunkPacket) {
-            this.emit("getchunk", packet);
+            this.emit("chunkrequest", packet);
         }
-        if(packet instanceof ClientMovePacket) {
+        if(packet instanceof ClientMovePacket && !this.isPacketOld(packet)) {
             this.player.position.set(packet.x, packet.y, packet.z);
             this.player.velocity.set(packet.vx, packet.vy, packet.vz);
             this.player.yaw = packet.yaw;
@@ -103,17 +108,20 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         }
         if(packet instanceof PlaceBlockPacket) {
             this.client.world.setColor(packet.x, packet.y, packet.z, this.client.world.getColorFromValue(packet.block));
+            this.server.savers.get(this.client.world.name).saveModified();
         }
         if(packet instanceof BreakBlockPacket) {
             this.client.world.clearColor(packet.x, packet.y, packet.z);
         }
-        if(packet instanceof PingResponsePacket) {
+        if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
         }
+
+        this.lastPacketReceived.set(packet.id, packet.timestamp);
     }
 
     public sendPacket(packet: Packet, instant: boolean = false) {
-        const buffer = new ArrayBuffer(packet.getExpectedSize() + U16);
+        const buffer = new ArrayBuffer(packet.getBufferSize());
         packet.write(new BinaryWriter(buffer));
 
         if(instant) {
@@ -187,7 +195,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 rej(new TimedOutError("Ping timed out"));
             }, 5000);
             
-            this.sendPacket(pingPacket);
+            this.sendPacket(pingPacket, true);
         }));
     }
 
