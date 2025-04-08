@@ -8,7 +8,7 @@ import "./style.css";
 const gameRoot = document.querySelector("#game") as HTMLElement;
 
 function createRandomServerId() {
-    const chars = "ACDEFGHJKMNPQRTWXYZ234679abcdefghijkmnpqrtwxyz".split("");
+    const chars = "ACDEFGHJKMNPQRTWXYZ234679".split("");
     let str = "";
 
     for(let i = 0; i < 4; i++) {
@@ -107,7 +107,7 @@ async function main() {
     
     async function connect(id: string) {
         gameSelect.classList.remove("visible");
-        const serverSession = await client.connect(id);
+        const serverSession = await client.connect("server-" + id.toUpperCase() + "-mvd");
         serverSession.addListener("disconnected", (reason) => {
             serverSelect.querySelector(".connect-error").textContent = "Kicked from server: " + reason;
             gameSelect.classList.add("visible");
@@ -128,11 +128,10 @@ async function main() {
         console.log(submitter);
 
         const serverId = data.get("id").toString();
-        const serverPeerId = "server-" + serverId + "-mvd";
         localStorage.setItem("lastserver", serverId);
 
         try {
-            await connect(serverPeerId);
+            await connect(serverId);
 
             gameSelect.classList.remove("visible");
             gameRoot.classList.remove("hidden");
