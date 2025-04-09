@@ -1,7 +1,7 @@
 import { Box3, Ray, Vector3 } from "three";
 import { World } from "./world";
 import { BLOCK_HITBOX } from "./entity/entity";
-import { AIR_BIT } from "./voxelMesher";
+import { SOLID_BITMASK } from "./voxelGrid";
 
 interface IntersectionResult {
     intersected: boolean,
@@ -36,7 +36,7 @@ export class WorldRaycaster {
         const hitbox = BLOCK_HITBOX;
 
         const block = this.world.getRawValue(x, y, z);
-        if(block & AIR_BIT) return false;
+        if(!(block & SOLID_BITMASK)) return false;
 
         x -= Math.floor(x);
         y -= Math.floor(y);
@@ -82,7 +82,7 @@ export class WorldRaycaster {
                 for(y = Math.floor(point.y); y < Math.ceil(point.y); y++) {
                     for(z = Math.floor(point.z); z < Math.ceil(point.z); z++) {
                         block = this.world.getRawValue(x, y, z);
-                        if(!(block & AIR_BIT)) continue;
+                        if(!(block & SOLID_BITMASK)) continue;
 
                         hitbox = BLOCK_HITBOX;
                         ray.origin.set(origin.x - x, origin.y - y, origin.z - z);

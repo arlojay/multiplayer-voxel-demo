@@ -1,4 +1,7 @@
-import { Uint16ArrayPool, AugmentedUint16Array } from "./arrayPool";
+import { AugmentedUint16Array, Uint16ArrayPool } from "./arrayPool";
+
+export const SOLID_BITMASK = 1 << 15;
+export const AIR_VALUE = ~SOLID_BITMASK;
 
 export const BLOCK_INC_SCL = 4;
 export const BLOCK_X_INC_BYTE = BLOCK_INC_SCL * 2;
@@ -75,16 +78,19 @@ export class VoxelGridRegion {
         return this.chunks[x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE] = new VoxelGridChunk(x + this.x * REGION_SIZE, y + this.y * REGION_SIZE, z + this.z * REGION_SIZE);
     }
 
-    get(x: number, y: number, z: number): number {
+    get(x: number, y: number, z: number, createChunk = true): number {
         const chunk = this.getChunk(
             x >> CHUNK_INC_SCL,
             y >> CHUNK_INC_SCL,
-            z >> CHUNK_INC_SCL
+            z >> CHUNK_INC_SCL,
+            createChunk
         );
+        if(chunk == null) return AIR_VALUE;
+
         return chunk.get(
             x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL),
             y - (y >> CHUNK_INC_SCL << CHUNK_INC_SCL),
-            z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL)
+            z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL),
         );
     }
     set(x: number, y: number, z: number, value: number): void {
@@ -163,7 +169,7 @@ export class VoxelGrid {
             create
         );
     }
-    get(x: number, y: number, z: number): number {
+    get(x: number, y: number, z: number, createChunk = true): number {
         const region = this.getRegion(
             x >> REGION_BLOCK_INC,
             y >> REGION_BLOCK_INC,
@@ -173,7 +179,8 @@ export class VoxelGrid {
         return region.get(
             x - (x >> REGION_BLOCK_INC << REGION_BLOCK_INC),
             y - (y >> REGION_BLOCK_INC << REGION_BLOCK_INC),
-            z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC)
+            z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            createChunk
         );
     }
     set(x: number, y: number, z: number, value: number): void {

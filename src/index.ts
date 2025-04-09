@@ -21,7 +21,6 @@ main();
 
 async function main() {
     const clientId = "client-" + Math.random().toString().slice(2) + "-mvd";
-    // const serverId = "server-" + Math.random().toString().slice(2) + "-mvd";
 
     const client = new Client(gameRoot);
     await client.init();
@@ -100,8 +99,6 @@ async function main() {
         const submitter = event.submitter as HTMLInputElement;
         const data = new FormData(event.target as HTMLFormElement);
 
-        console.log(submitter);
-
         const serverId = data.get("id").toString();
         localStorage.setItem("lastserver", serverId);
 
@@ -118,7 +115,6 @@ async function main() {
     })
     
     document.querySelector("#create-world-btn").addEventListener("click", () => {
-        console.log(serverSelect);
         worldCreation.classList.add("visible");
         gameSelect.classList.remove("visible");
     });
@@ -202,17 +198,12 @@ async function updateWorldListScreen() {
         playBtn.textContent = "Play";
         playBtn.classList.add("play");
 
-
-        playBtn.addEventListener("click", async () => {
-            const databaseName = crypto.randomUUID();
-    
+        playBtn.addEventListener("click", async () => {    
             let server: ServerManager;
     
             try {
                 worldCreation.classList.remove("visible");
                 server = await createServer(worldDescriptor);
-    
-                await Client.instance.gameData.createWorld(worldDescriptor.name, databaseName);
                 
                 const connection = await connectToServer(server.id);
                 connection.addListener("disconnected", () => {
@@ -228,8 +219,22 @@ async function updateWorldListScreen() {
             }
         });
 
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete";
+        deleteBtn.classList.add("delete");
 
-        listItem.append(itemName, time, playBtn);
+        deleteBtn.addEventListener("click", async () => {
+            const confirmed = confirm("Are you sure you want to delete the world \"" + worldDescriptor.name +"\"?");
+
+            if(confirmed) {
+                await Client.instance.gameData.deleteWorld(worldDescriptor);
+                await updateWorldListScreen();
+            }
+        });
+
+
+
+        listItem.append(itemName, time, playBtn, deleteBtn);
         children.push(listItem);
     }
     

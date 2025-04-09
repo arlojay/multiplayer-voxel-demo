@@ -28,7 +28,7 @@ export class WorldRenderer {
         }
 
         const geometry = this.mesher.mesh(chunk);
-        console.log("Render chunk @ " + chunk.x + ", " + chunk.y + ", " + chunk.z);
+        
         if(geometry.index.count == 0) {
             this.meshes.delete(chunk);
         } else {

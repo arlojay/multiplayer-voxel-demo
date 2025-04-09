@@ -80,8 +80,6 @@ async function init() {
             server.setErrorPort(errorPort);
             errorPort.start();
         
-            console.log(server.debugPort, server.errorPort);
-        
             postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
 
             server.start().then(() => {

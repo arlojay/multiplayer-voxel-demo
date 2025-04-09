@@ -1,7 +1,7 @@
 import { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryWriter, U16 } from "../binary";
-import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
+import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket } from "../packet/packet";
 import { World } from "../world";
 import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
@@ -113,6 +113,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             remotePlayer.velocity.set(packet.vx, packet.vy, packet.vz);
             remotePlayer.yaw = packet.yaw;
             remotePlayer.pitch = packet.pitch;
+            remotePlayer.setWorld(this.localWorld);
             this.players.set(packet.player, remotePlayer);
             debugLog("Player " + packet.player + " joined the game");
 
@@ -134,6 +135,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.emit("disconnected", packet.reason);
             this.kicked = true;
             this.serverConnection.close();
+        }
+        if(packet instanceof SetLocalPlayerPositionPacket) {
+            this.player.position.set(packet.x, packet.y, packet.z);
+            this.player.velocity.set(packet.vx, packet.vy, packet.vz);
+            this.player.pitch = packet.pitch;
+            this.player.yaw = packet.yaw;
         }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);

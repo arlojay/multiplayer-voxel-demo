@@ -187,6 +187,16 @@ abstract class PlayerInfo extends Packet {
     public yaw: number;
     public pitch: number;
 
+    public constructor(player?: ServerPlayer) {
+        super();
+
+        if(player == null) return;
+
+        [ this.x, this.y, this.z ] = player.position.toArray();
+        [ this.vx, this.vy, this.vz ] = player.velocity.toArray();
+        [ this.yaw, this.pitch ] = [ player.yaw, player.pitch ];
+    }
+
     protected serialize(writer: BinaryWriter): void {
         writer.write_f32(this.x);
         writer.write_f32(this.y);
@@ -237,16 +247,6 @@ export class PlayerMovePacket extends PlayerInfo {
 
     public player: string;
 
-    public constructor(player?: ServerPlayer) {
-        super();
-
-        if(player == null) return;
-
-        [ this.x, this.y, this.z ] = player.position.toArray();
-        [ this.vx, this.vy, this.vz ] = player.velocity.toArray();
-        [ this.yaw, this.pitch ] = [ player.yaw, player.pitch ];
-    }
-
     protected serialize(writer: BinaryWriter): void {
         super.serialize(writer);
         writer.write_string(this.player);
@@ -267,16 +267,6 @@ export class PlayerJoinPacket extends PlayerInfo {
     public id = PlayerJoinPacket.id;
 
     public player: string;
-
-    public constructor(player?: ServerPlayer) {
-        super();
-
-        if(player == null) return;
-
-        [ this.x, this.y, this.z ] = player.position.toArray();
-        [ this.vx, this.vy, this.vz ] = player.velocity.toArray();
-        [ this.yaw, this.pitch ] = [ player.yaw, player.pitch ];
-    }
 
     protected serialize(writer: BinaryWriter): void {
         super.serialize(writer);
@@ -312,7 +302,7 @@ export class PlayerLeavePacket extends Packet {
     }
 }
 
-export class PlaceBlockPacket extends Packet{
+export class PlaceBlockPacket extends Packet {
     static id = Packet.register(() => new this);
     public id = PlaceBlockPacket.id;
 
@@ -410,4 +400,9 @@ export class KickPacket extends Packet {
     protected getExpectedSize(): number {
         return BinaryWriter.stringByteCount(this.reason);
     }
+}
+
+export class SetLocalPlayerPositionPacket extends PlayerInfo {
+    static id = Packet.register(() => new this);
+    public id = SetLocalPlayerPositionPacket.id;
 }

@@ -1,6 +1,6 @@
 import { Box3, Vector3 } from "three";
 import { World } from "../world";
-import { AIR_BIT } from "../voxelMesher";
+import { SOLID_BITMASK } from "../voxelGrid";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);
@@ -68,7 +68,7 @@ export class Entity {
             for(let y = minY; y < maxY; y++) {
                 for(let z = minZ; z < maxZ; z++) {
                     block = this.world.getRawValue(x, y, z);
-                    if((block & AIR_BIT) == 0) continue;
+                    if(~block & SOLID_BITMASK) continue;
 
                     const hitbox = BLOCK_HITBOX;
                     if(!this.collidesWithHitbox(x, y, z, hitbox)) continue;

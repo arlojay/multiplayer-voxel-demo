@@ -6,6 +6,7 @@ import { Server } from "./server";
 import { ServerClient } from "./serverClient";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
+import { GRAVITY } from "../entity/entity";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -22,7 +23,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public connected: boolean = false;
     public id: string;
     public server: Server;
-    public client: ServerClient;
     public player: ServerPlayer = null;
     private packetQueue: Set<ArrayBuffer> = new Set;
     private pingPromise: Promise<number> = null;
@@ -37,8 +37,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         this.id = connection.peer;
         this.server = server;
 
-        this.client = new ServerClient;
-        this.player = new ServerPlayer;
+        this.player = new ServerPlayer(this);
 
         connection.addListener("open", () => {
             this.connected = true;
@@ -92,6 +91,8 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
 
+    private lastMove = -1000;
+
     public handlePacket(data: ArrayBuffer) {
         const packet = Packet.createFromBinary(data);
 
@@ -99,6 +100,38 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             this.emit("chunkrequest", packet);
         }
         if(packet instanceof ClientMovePacket && !this.isPacketOld(packet)) {
+            // ### TODO: fix this stuff
+
+            // const timePassed = Math.max(0.1, (performance.now() - this.lastMove) * 0.001);
+            // const distanceHoriz = Math.sqrt(
+            //     (packet.x - this.player.position.x) ** 2 +
+            //     (packet.z - this.player.position.y) ** 2
+            // ) / timePassed;
+            // const distanceVert = (packet.y - this.player.position.y) / timePassed;
+
+            // let cancelMove = false;
+
+            // if(distanceHoriz > 17.5) {
+            //     cancelMove = true;
+            //     console.log(this.player.peer.id + " is moving too fast horizontally (" + distanceHoriz + "m over " + timePassed + ")");
+            // }
+            // if(distanceVert > 4) {
+            //     console.log(this.player.peer.id + " is moving too fast upwards (" + distanceVert + "m over " + timePassed + ")");
+            //     cancelMove = true;
+            // }
+            // if(distanceVert < -10) {
+            //     console.log(this.player.peer.id + " is moving too fast downwards (" + distanceVert + "m over " + timePassed + ")");
+            //     cancelMove = true;
+            // }
+
+            // this.lastMove = performance.now();
+
+            // if(cancelMove) {
+            //     this.player.velocity.set(0, 0, 0);
+            //     this.player.syncPosition();
+            //     return;
+            // }
+
             this.player.position.set(packet.x, packet.y, packet.z);
             this.player.velocity.set(packet.vx, packet.vy, packet.vz);
             this.player.yaw = packet.yaw;
@@ -106,12 +139,12 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             this.emit("move");
         }
         if(packet instanceof PlaceBlockPacket) {
-            this.client.world.setColor(packet.x, packet.y, packet.z, this.client.world.getColorFromValue(packet.block));
-            this.server.savers.get(this.client.world.name).saveModified();
+            this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
+            this.server.savers.get(this.player.world.name).saveModified();
         }
         if(packet instanceof BreakBlockPacket) {
-            this.client.world.clearColor(packet.x, packet.y, packet.z);
-            this.server.savers.get(this.client.world.name).saveModified();
+            this.player.world.clearColor(packet.x, packet.y, packet.z);
+            this.server.savers.get(this.player.world.name).saveModified();
         }
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
@@ -218,5 +251,9 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             this.connection.close();
         }
         debugLog("Kicked " + this.id + " for: " + reason);
+    }
+
+    public update(dt: number) {
+        this.player.update(dt);
     }
 }

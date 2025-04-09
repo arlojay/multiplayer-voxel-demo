@@ -134,10 +134,6 @@ export class LocalPlayer extends Entity {
         } else {
             this.placeBlockCooldown = 0;
         }
-
-        if(this.position.y < -100) {
-            this.respawn();
-        }
     }
 
     public respawn() {

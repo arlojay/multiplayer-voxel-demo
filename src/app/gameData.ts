@@ -132,6 +132,23 @@ export class GameData {
         }
     }
 
+    public async deleteWorld(descriptor: WorldDescriptor) {
+        if(!this.worlds.has(descriptor.id)) throw new ReferenceError("No world with id " + descriptor.id + " exists");
+
+        const transaction = this.db.transaction("worlds", "readwrite");
+
+        transaction.objectStore("worlds").delete(descriptor.id);
+        debugLog("Deleting world " + descriptor.name + " (" + descriptor.id + ")");
+
+        try {
+            await this.waitForTransaction(transaction);
+        } catch(e) {
+            throw new Error("Failed to delete world " + descriptor.id + " (" + descriptor.name + ")", { cause: e });
+        }
+        this.worlds.delete(descriptor.id);
+        debugLog("Finished deleting world");
+    }
+
     public async loadWorlds() {
         const transaction = this.db.transaction("worlds", "readonly");
         const request = transaction.objectStore("worlds").getAll();

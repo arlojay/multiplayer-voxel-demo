@@ -1,7 +1,6 @@
-import { BufferGeometry, Float32BufferAttribute, Int16BufferAttribute, Int32BufferAttribute, TypedArray, Uint32BufferAttribute } from "three";
-import { CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
+import { BufferGeometry, Float32BufferAttribute, Int16BufferAttribute } from "three";
+import { CHUNK_SIZE, SOLID_BITMASK, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 
-export const AIR_BIT = 1 << 15;
 const chunkCacheBuffer = new Uint16Array((CHUNK_SIZE + 2) ** 3).buffer;
 const OFF_X = (CHUNK_SIZE + 2) ** 2;
 const OFF_Y = (CHUNK_SIZE + 2) ** 0;
@@ -50,14 +49,14 @@ export class VoxelMesher {
             for(z = 0, worldZ = baseZ; z < 16; z++, worldZ++) {
                 for(y = 0, worldY = baseY; y < 16; y++, worldY++, i++) {
                     block = chunkCache[i];
-                    if(!(block & AIR_BIT)) continue;
+                    if(~block & SOLID_BITMASK) continue;
 
                     colorR = ((block & 0b0111110000000000) >> 10) / 32;
                     colorG = ((block & 0b0000001111100000) >> 5) / 32;
                     colorB = ((block & 0b0000000000011111) >> 0) / 32;
 
                     // West
-                    if(!(chunkCache[i - OFF_X] & AIR_BIT)) {
+                    if(~chunkCache[i - OFF_X] & SOLID_BITMASK) {
                         vertices.push(
                             x, y + 1, z,
                             x, y + 1, z + 1,
@@ -84,7 +83,7 @@ export class VoxelMesher {
                     }
 
                     // East
-                    if(!(chunkCache[i + OFF_X] & AIR_BIT)) {
+                    if(~chunkCache[i + OFF_X] & SOLID_BITMASK) {
                         vertices.push(
                             x + 1, y + 1, z + 1,
                             x + 1, y + 1, z,
@@ -111,7 +110,7 @@ export class VoxelMesher {
                     }
 
                     // North
-                    if(!(chunkCache[i + OFF_Z] & AIR_BIT)) {
+                    if(~chunkCache[i + OFF_Z] & SOLID_BITMASK) {
                         vertices.push(
                             x, y + 1, z + 1,
                             x + 1, y + 1, z + 1,
@@ -138,7 +137,7 @@ export class VoxelMesher {
                     }
 
                     // South
-                    if(!(chunkCache[i - OFF_Z] & AIR_BIT)) {
+                    if(~chunkCache[i - OFF_Z] & SOLID_BITMASK) {
                         vertices.push(
                             x + 1, y + 1, z,
                             x, y + 1, z,
@@ -165,7 +164,7 @@ export class VoxelMesher {
                     }
 
                     // Up
-                    if(!(chunkCache[i + OFF_Y] & AIR_BIT)) {
+                    if(~chunkCache[i + OFF_Y] & SOLID_BITMASK) {
                         vertices.push(
                             x, y + 1, z,
                             x + 1, y + 1, z,
@@ -192,7 +191,7 @@ export class VoxelMesher {
                     }
 
                     // Down
-                    if(!(chunkCache[i - OFF_Y] & AIR_BIT)) {
+                    if(~chunkCache[i - OFF_Y] & SOLID_BITMASK) {
                         vertices.push(
                             x, y, z + 1,
                             x + 1, y, z + 1,

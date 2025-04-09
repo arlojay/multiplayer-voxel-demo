@@ -84,7 +84,7 @@ export class WorldSaver {
     }
 
     public async saveModified() {
-        console.log("Saving world " + this.name);
+        debugLog("Saving world " + this.name);
         await Promise.all([
             new Promise<void>((res, rej) => {
                 this.chunkObjectStore ??= this.db.transaction("data", "readwrite").objectStore("data");
@@ -95,7 +95,7 @@ export class WorldSaver {
     
                 this.chunkObjectStore.transaction.oncomplete = () => {
                     this.world.dirtyChunkQueue.clear();
-                    console.log("Done saving chunks for " + this.name);
+                    debugLog("Done saving chunks for " + this.name);
                     res();
                 }
                 this.chunkObjectStore.transaction.onerror = (e: ErrorEvent) => {
@@ -107,6 +107,6 @@ export class WorldSaver {
                 this.chunkObjectStore = null;
             })
         ]);
-        console.log("Saving world " + this.name + " complete");
+        debugLog("Saving world " + this.name + " complete");
     }
 }

@@ -16,7 +16,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public worldRenderer: WorldRenderer = null;
 
     public canvas: HTMLCanvasElement;
-    // public renderer: WebGLRenderer = null;
     public renderer: WebGPURenderer = null;
     public camera: Camera = new PerspectiveCamera(90, 1, 0.01, 3000);
     public scene: Scene = new Scene();
@@ -24,18 +23,14 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
     private terrainShader: MeshBasicNodeMaterial = null;
     private lastRenderTime: number = 0;
-    // public webGPURenderer: WebGPURenderer;
 
     constructor(canvas: HTMLCanvasElement) {
         super();
         
         this.canvas = canvas;
-        // this.webGPURenderer = new WebGPURenderer(canvas);
     }
     public async init() {
-        // await this.webGPURenderer.init();
         this.renderer = new WebGPURenderer({ canvas: this.canvas, powerPreference: "high-performance" });
-        // this.renderer = new WebGLRenderer({ canvas: this.canvas, powerPreference: "high-performance" });
 
         this.renderer.autoClearColor = false;
         this.renderer.autoClearDepth = false;
@@ -43,10 +38,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         this.resize();
         window.addEventListener("resize", () => this.resize());
-
-        // this.terrainShader = await loadShaderProgram("assets/shaders/terrain", {
-        //     time: { value: 0 }
-        // });
         
         await this.initMaterials();        
         await this.initSkybox();
@@ -75,8 +66,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
             await this.renderer.render(this.scene, this.camera);
         }
 
-        // this.webGPURenderer.render(time);
-
         requestAnimationFrame(time => this.render(time));
     }
     public resize() {
@@ -90,8 +79,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
             this.camera.aspect = innerWidth / innerHeight;
             this.camera.updateProjectionMatrix();
         }
-
-        // this.webGPURenderer.resize();
 
         this.emit("resize");
     }
