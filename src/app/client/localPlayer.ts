@@ -28,7 +28,7 @@ export class LocalPlayer extends Entity {
     private updateControls(dt: number) {
         const client = getClient();
         const receivingControls = this.controller.pointerCurrentlyLocked;
-        const controlOptions = client.options.controls;
+        const controlOptions = client.gameData.clientOptions.controls;
 
         const onGround = this.airTime < 0.01;
 

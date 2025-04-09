@@ -216,9 +216,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public updateViewDistance() {
-        const r = this.client.options.viewDistance;
+        const r = this.client.gameData.clientOptions.viewDistance;
 
-        if(this.lastViewDistance != this.client.options.viewDistance) {
+        if(this.lastViewDistance != this.client.gameData.clientOptions.viewDistance) {
             this.loadedChunks = new VoxelGridVolume(new Box3(
                 new Vector3(-r, -r, -r),
                 new Vector3( r,  r,  r)

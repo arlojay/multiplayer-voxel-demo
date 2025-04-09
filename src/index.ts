@@ -1,7 +1,7 @@
 import { Client } from "./app/client/client";
 import { ServerSession } from "./app/client/serverSession";
+import { WorldDescriptor } from "./app/gameData";
 import { debugLog } from "./app/logging";
-import { Server } from "./app/server/server";
 import { ServerManager, ServerPeerError } from "./app/server/serverManager";
 import "./style.css";
 
@@ -59,34 +59,22 @@ async function main() {
         const data = new FormData(event.target as HTMLFormElement);
 
         const worldName = data.get("name").toString();
+        const databaseName = crypto.randomUUID();
 
-        let errored = false;
-        let serverId: string = "";
-        let server: ServerManager = null;
-        worldCreation.classList.remove("visible");
+        let server: ServerManager;
+
         try {
-            do {
-                errored = false;
-                serverId = createRandomServerId();
-                
-                // Host server myself
-                server = new ServerManager(serverId, {
-                    worldName
-                });
+            worldCreation.classList.remove("visible");
+            server = await createServer({
+                name: worldName,
+                location: databaseName,
+                lastPlayed: null,
+                dateCreated: null
+            });
 
-                try {
-                    await server.start();
-                } catch(error) {
-                    if(error instanceof ServerPeerError) {
-                        console.log(error);
-                        errored = true;
-                    } else {
-                        throw error;
-                    }
-                }
-            } while(errored);
-
-            const connection = await connect(serverId);
+            await client.gameData.createWorld(worldName, databaseName);
+            
+            const connection = await connectToServer(server.id);
             connection.addListener("disconnected", () => {
                 server.close();
             });
@@ -104,19 +92,6 @@ async function main() {
 
     const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
     const serverSelect = document.querySelector('#join-game')!;
-    
-    async function connect(id: string) {
-        gameSelect.classList.remove("visible");
-        const serverSession = await client.connect("server-" + id.toUpperCase() + "-mvd");
-        serverSession.addListener("disconnected", (reason) => {
-            serverSelect.querySelector(".connect-error").textContent = "Kicked from server: " + reason;
-            gameSelect.classList.add("visible");
-            gameRoot.classList.add("hidden");
-        })
-        
-        loadChunks(serverSession);
-        return serverSession;
-    }
 
     (serverSelect.querySelector('[name="id"]') as HTMLInputElement).value = localStorage.getItem("lastserver") ?? "";
 
@@ -131,7 +106,7 @@ async function main() {
         localStorage.setItem("lastserver", serverId);
 
         try {
-            await connect(serverId);
+            await connectToServer(serverId);
 
             gameSelect.classList.remove("visible");
             gameRoot.classList.remove("hidden");
@@ -147,9 +122,119 @@ async function main() {
         worldCreation.classList.add("visible");
         gameSelect.classList.remove("visible");
     });
+
+    
     
 
     await client.login(clientId);
+    await updateWorldListScreen();
+}
+    
+async function connectToServer(id: string) {
+    const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
+
+    gameSelect.classList.remove("visible");
+    const serverSession = await Client.instance.connect("server-" + id.toUpperCase() + "-mvd");
+    serverSession.addListener("disconnected", (reason) => {
+        document.querySelector("#join-game .connect-error").textContent = "Kicked from server: " + reason;
+        gameSelect.classList.add("visible");
+        gameRoot.classList.add("hidden");
+    })
+    
+    loadChunks(serverSession);
+    return serverSession;
+}
+
+async function createServer(world: WorldDescriptor) {
+    let errored = false;
+    let serverId: string = "";
+    let server: ServerManager = null;
+
+    do {
+        errored = false;
+        serverId = createRandomServerId();
+        
+        // Host server myself
+        server = new ServerManager(serverId, {
+            worldName: world.location
+        });
+
+        try {
+            await server.start();
+        } catch(error) {
+            if(error instanceof ServerPeerError) {
+                console.log(error);
+                errored = true;
+            } else {
+                throw error;
+            }
+        }
+    } while(errored);
+
+    return server;
+}
+
+async function updateWorldListScreen() {
+    const worldCreation = document.querySelector('.modal[data-name="create-world"]')!;
+    const worldSelect = document.querySelector("#select-world")!;
+    const dateFormatter = new Intl.RelativeTimeFormat();
+
+    const children: Node[] = new Array;
+    for(const worldDescriptor of Client.instance.gameData.worlds.values()) {
+        const listItem = document.createElement("li");
+
+        const itemName = document.createElement("span");
+        itemName.classList.add("name");
+        itemName.textContent = worldDescriptor.name;
+
+
+        const time = document.createElement("time");
+        time.dateTime = "|";
+
+        const timePassed = (Date.now() - worldDescriptor.dateCreated.getTime()) / 1000;
+        if(timePassed < 60) time.textContent = dateFormatter.format(-Math.floor(timePassed), "second");
+        else if(timePassed < 60 * 60) time.textContent = dateFormatter.format(-Math.floor(timePassed / 60), "minute");
+        else if(timePassed < 60 * 60 * 24) time.textContent = dateFormatter.format(-Math.floor(timePassed / 60 / 60), "hour");
+        else time.textContent = dateFormatter.format(-Math.floor(timePassed / 60 / 60 / 24), "day");
+
+
+        const playBtn = document.createElement("button");
+        playBtn.textContent = "Play";
+        playBtn.classList.add("play");
+
+
+        playBtn.addEventListener("click", async () => {
+            const databaseName = crypto.randomUUID();
+    
+            let server: ServerManager;
+    
+            try {
+                worldCreation.classList.remove("visible");
+                server = await createServer(worldDescriptor);
+    
+                await Client.instance.gameData.createWorld(worldDescriptor.name, databaseName);
+                
+                const connection = await connectToServer(server.id);
+                connection.addListener("disconnected", () => {
+                    server.close();
+                });
+    
+                gameRoot.classList.remove("hidden");
+                gameRoot.focus();
+            } catch(e) {
+                worldCreation.classList.add("visible");
+                alert(e.message);
+                console.error(e);
+            }
+        });
+
+
+        listItem.append(itemName, time, playBtn);
+        children.push(listItem);
+    }
+    
+    const list = worldSelect.querySelector("ul");
+    list.replaceChildren(...children);
 }
 
 function loadChunks(serverSession: ServerSession) {

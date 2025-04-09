@@ -1,4 +1,3 @@
-import { AugmentedUint16Array } from "../arrayPool";
 import { debugLog } from "../logging";
 import { VoxelGridChunk } from "../voxelGrid";
 import { World } from "../world";
@@ -22,7 +21,7 @@ export class WorldSaver {
         this.world = world;
     }
     public async open() {
-        const db = await new Promise<IDBDatabase>((res, rej) => {
+        this.db = await new Promise<IDBDatabase>((res, rej) => {
             const request = indexedDB.open("world/" + this.name, WORLD_VERSION);
             request.onsuccess = () => {
                 res(request.result);
@@ -39,8 +38,6 @@ export class WorldSaver {
                 debugLog("Migration of world "  + this.name + " finished");
             };
         });
-
-        this.db = db;
     }
 
     private writeChunk(chunk: VoxelGridChunk) {

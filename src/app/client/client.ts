@@ -4,8 +4,9 @@ import { GameRenderer } from "../gameRenderer";
 import { createPeer } from "../turn";
 import { ServerSession } from "./serverSession";
 import { PlayerController } from "../playerController";
-import { Options as ClientOptions } from "../controlOptions";
+import { ClientOptions } from "../controlOptions";
 import { debugLog } from "../logging";
+import { GameData } from "../gameData";
 
 interface ClientEvents {
     "login": () => void;
@@ -25,12 +26,7 @@ export class Client extends TypedEmitter<ClientEvents> {
     public onlineId: string;
     public serverSession: ServerSession = null;
     public playerController: PlayerController;
-    public options: ClientOptions = {
-        controls: {
-            mouseSensitivity: 0.3
-        },
-        viewDistance: 4
-    };
+    public gameData = new GameData;
     
     constructor(gameRoot: HTMLElement) {
         super();
@@ -67,6 +63,10 @@ export class Client extends TypedEmitter<ClientEvents> {
     }
 
     public async init() {
+        await this.gameData.open();
+        await this.gameData.loadAll();
+        await this.gameData.saveAll();
+
         await this.gameRenderer.init();
     }
 

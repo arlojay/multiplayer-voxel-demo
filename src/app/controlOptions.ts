@@ -1,4 +1,4 @@
-export interface Options {
+export interface ClientOptions {
     controls: {
         mouseSensitivity: number;
     },
