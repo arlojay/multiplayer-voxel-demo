@@ -57,7 +57,7 @@ export class WorldRaycaster {
         const origin = this.origin.copy(ray.origin);
         const direction = this.direction.copy(ray.direction);
 
-        const step = 0.01; // TODO: Fix large step sizes
+        const step = 0.5;
 
         let distance = 0;
         let x = 0, y = 0, z = 0;
@@ -71,16 +71,14 @@ export class WorldRaycaster {
         let intersectionDistance = 0;
         let minIntersectionDistance = Infinity;
 
-
-        search:
         while(distance < length && !intersected) {
             point.x = origin.x + direction.x * distance;
             point.y = origin.y + direction.y * distance;
             point.z = origin.z + direction.z * distance;
             
-            for(x = Math.floor(point.x); x < Math.ceil(point.x); x++) {
-                for(y = Math.floor(point.y); y < Math.ceil(point.y); y++) {
-                    for(z = Math.floor(point.z); z < Math.ceil(point.z); z++) {
+            for(x = Math.floor(point.x - step); x <= Math.floor(point.x + step); x++) {
+                for(y = Math.floor(point.y - step); y <= Math.floor(point.y + step); y++) {
+                    for(z = Math.floor(point.z - step); z <= Math.floor(point.z + step); z++) {
                         block = this.world.getRawValue(x, y, z);
                         if(!(block & SOLID_BITMASK)) continue;
 
