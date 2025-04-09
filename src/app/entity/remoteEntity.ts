@@ -4,7 +4,7 @@ import { World } from "../world";
 export class RemoteEntity {
     public position = new Vector3;
     public velocity = new Vector3;
-    public hitbox: Box3;
+    public hitbox: Box3 = new Box3;
     public world: World = null;
     
     public renderPosition = new Vector3;

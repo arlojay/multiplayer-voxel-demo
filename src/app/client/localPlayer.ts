@@ -159,7 +159,7 @@ export class LocalPlayer extends Entity {
         const color = simpleHash(Client.instance.peer.id) & 0xffffff;
 
         const hitbox = BLOCK_HITBOX;
-        if(this.collidesWithHitbox(x, y, z, hitbox)) return;
+        if(this.collisionChecker.collidesWithHitbox(x, y, z, hitbox)) return;
 
         this.world.setColor(x, y, z, color);
 

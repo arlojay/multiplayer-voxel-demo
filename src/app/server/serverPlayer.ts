@@ -1,20 +1,38 @@
+import { Box3, Vector3 } from "three";
+import { CollisionChecker } from "../entity/collisionChecker";
 import { RemoteEntity } from "../entity/remoteEntity";
 import { SetLocalPlayerPositionPacket } from "../packet/packet";
 import { SOLID_BITMASK } from "../voxelGrid";
+import { World } from "../world";
 import { ServerPeer } from "./severPeer";
 
 export class ServerPlayer extends RemoteEntity {
     public peer: ServerPeer;
     public yaw: number = 0;
     public pitch: number = 0;
+    public hitbox: Box3 = new Box3(
+        new Vector3(-0.3, 0, -0.3),
+        new Vector3(0.3, 1.8, 0.3)
+    );
+    public collisionChecker: CollisionChecker;
 
     constructor(peer: ServerPeer) {
         super();
         this.peer = peer;
     }
 
+    public setWorld(world: World): void {
+        super.setWorld(world);
+        this.collisionChecker = new CollisionChecker(this.hitbox, this.position, world);
+        console.log(world);
+    }
+
     public update(dt: number): void {
         if(this.position.y < -100) {
+            this.respawn();
+        }
+
+        if(this.collisionChecker.isCollidingWithWorld(0.0)) {
             this.respawn();
         }
     }
@@ -32,9 +50,11 @@ export class ServerPlayer extends RemoteEntity {
             ) break;
         }
 
-        this.position.x = x;
-        this.position.y = y;
-        this.position.z = z;
+        this.position.set(x, y, z);
+        this.velocity.set(0, 0, 0);
+        this.pitch = 0;
+        this.yaw = 0;
+
         this.syncPosition();
     }
     public syncPosition() {
