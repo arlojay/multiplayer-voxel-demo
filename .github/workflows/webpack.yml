@@ -30,6 +30,7 @@ jobs:
     - uses: actions/upload-pages-artifact@3.0.1
     - name: Upload to pages
       with:
+        name: github-pages
         path: ./dist/
       
 
