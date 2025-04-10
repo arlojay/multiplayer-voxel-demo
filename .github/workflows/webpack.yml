@@ -22,10 +22,12 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
+    - uses: actions/upload-pages-artifact@3.0.1
     - name: Build
       run: |
         npm install
         npm run build
+      
 
   # Deploy job
   deploy:
