@@ -33,7 +33,7 @@ export class ServerPlayer extends RemoteEntity {
         }
 
         if(this.collisionChecker.isCollidingWithWorld(0.0)) {
-            this.respawn();
+            // this.respawn();
         }
     }
 
