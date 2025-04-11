@@ -1,5 +1,5 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { ServerPeer } from "./severPeer";
+import { ServerPeer } from "./serverPeer";
 import { ChunkDataPacket, Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";

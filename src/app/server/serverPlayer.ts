@@ -4,7 +4,7 @@ import { RemoteEntity } from "../entity/remoteEntity";
 import { SetLocalPlayerPositionPacket } from "../packet/packet";
 import { SOLID_BITMASK } from "../voxelGrid";
 import { World } from "../world";
-import { ServerPeer } from "./severPeer";
+import { ServerPeer } from "./serverPeer";
 
 export class ServerPlayer extends RemoteEntity {
     public peer: ServerPeer;
@@ -31,10 +31,6 @@ export class ServerPlayer extends RemoteEntity {
         if(this.position.y < -100) {
             this.respawn();
         }
-
-        if(this.collisionChecker.isCollidingWithWorld(0.0)) {
-            // this.respawn();
-        }
     }
 
     public respawn() {
@@ -50,7 +46,7 @@ export class ServerPlayer extends RemoteEntity {
             ) break;
         }
 
-        this.position.set(x, y, z);
+        this.position.set(x + 0.5, y, z + 0.5);
         this.velocity.set(0, 0, 0);
         this.pitch = 0;
         this.yaw = 0;
