@@ -2,17 +2,17 @@ import { Box3, Vector3 } from "three";
 
 export class VoxelGridVolume {
     public data: Uint16Array;
-    private volume: Box3;
-    private minX: number;
-    private minY: number;
-    private minZ: number;
-    private maxX: number;
-    private maxY: number;
-    private maxZ: number;
+    private volume: Box3 = new Box3;
+    private minX: number = 0;
+    private minY: number = 0;
+    private minZ: number = 0;
+    private maxX: number = 0;
+    private maxY: number = 0;
+    private maxZ: number = 0;
 
-    private sizeX: number;
-    private sizeY: number;
-    private sizeZ: number;
+    private sizeX: number = 0;
+    private sizeY: number = 0;
+    private sizeZ: number = 0;
 
     constructor(volume: Box3) {
         const size = new Vector3;

@@ -101,6 +101,8 @@ export class Client extends TypedEmitter<ClientEvents> {
             this.gameRenderer.scene.remove(player.mesh);
         });
 
+        this.gameRenderer.scene.clear();
+
         return serverSession;
     }
 

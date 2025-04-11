@@ -5,7 +5,7 @@ import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, Kick
 import { World } from "../world";
 import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
-import { Box3, Vector3 } from "three";
+import { Box3, Scene, Vector3 } from "three";
 import { RemotePlayer } from "./remotePlayer";
 import { debugLog } from "../logging";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -150,6 +150,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const buffer = new ArrayBuffer(packet.getBufferSize());
         packet.write(new BinaryWriter(buffer));
         this.serverConnection.send(buffer);
+        console.log(packet.id + ": " + buffer);
     }
 
     public fetchChunk(x: number, y: number, z: number) {
@@ -233,6 +234,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
 
         this.loadedChunks.fill(0);
+
+        console.log(this.loadedChunks);
 
         const localChunkX = this.player.position.x >> CHUNK_INC_SCL;
         const localChunkY = this.player.position.y >> CHUNK_INC_SCL;

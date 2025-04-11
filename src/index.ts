@@ -243,22 +243,23 @@ async function updateWorldListScreen() {
 }
 
 function loadChunks(serverSession: ServerSession) {
-    for(let x = -3; x < 3; x++) {
-        for(let y = -3; y < 3; y++) {
-            for(let z = -3; z < 3; z++) {
-                serverSession.fetchChunk(x, y, z).then(response => {
-                    const localChunk = serverSession.localWorld.blocks.getChunk(x, y, z);
-                    localChunk.data.set(response.data);
+    serverSession.updateViewDistance();
+    // for(let x = -3; x < 3; x++) {
+    //     for(let y = -3; y < 3; y++) {
+    //         for(let z = -3; z < 3; z++) {
+    //             serverSession.fetchChunk(x, y, z).then(response => {
+    //                 const localChunk = serverSession.localWorld.blocks.getChunk(x, y, z);
+    //                 localChunk.data.set(response.data);
 
-                    serverSession.localWorld.markChunkDirty(localChunk);
-                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x + 1, y, z));
-                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x - 1, y, z));
-                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y + 1, z));
-                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y - 1, z));
-                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z + 1));
-                    serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z - 1));
-                });
-            }
-        }
-    }
+    //                 serverSession.localWorld.markChunkDirty(localChunk);
+    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x + 1, y, z));
+    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x - 1, y, z));
+    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y + 1, z));
+    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y - 1, z));
+    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z + 1));
+    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z - 1));
+    //             });
+    //         }
+    //     }
+    // }
 }

@@ -45,7 +45,7 @@ export abstract class Packet {
     
     public write(writer: BinaryWriter) {
         writer.write_u16(this.id);
-        writer.write_u32(makeAdvancingTimestamp());
+        writer.write_u32(this.timestamp = makeAdvancingTimestamp());
         this.serialize(writer);
     }
 

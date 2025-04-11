@@ -96,7 +96,9 @@ export class Server extends TypedEmitter<ServerEvents> {
         const peer = new ServerPeer(connection, this);
         this.debugPort = connection.debugPort;
         this.errorPort = connection.errorPort;
+        
         peer.player.setWorld(this.worlds.get(this.defaultWorldName));
+        peer.player.respawn();
 
         peer.addListener("chunkrequest", async packet => {
             const world = peer.player.world;
