@@ -1,8 +1,7 @@
-import { BoxGeometry, Camera, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
+import { BoxGeometry, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { World } from "./world";
 import { WorldRenderer } from "./worldRenderer";
-import { WebGLRenderer } from "three";
 import { terrainColor } from "./shaders/terrain";
 import { skyColor } from "./shaders/sky";
 
@@ -17,7 +16,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
     public canvas: HTMLCanvasElement;
     public renderer: WebGPURenderer = null;
-    public camera: Camera = new PerspectiveCamera(90, 1, 0.01, 3000);
+    public camera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 3000);
     public scene: Scene = new Scene();
     public skybox: Scene = new Scene();
 

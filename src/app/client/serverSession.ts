@@ -10,6 +10,7 @@ import { RemotePlayer } from "./remotePlayer";
 import { debugLog } from "../logging";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { VoxelGridVolume } from "../voxelGridVolume";
+import { LoopingMusic } from "../sound/loopingMusic";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -38,6 +39,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public constructor(client: Client) {
         super();
         this.client = client;
+
+        const clip = client.audioManager.loadSound("assets/sounds/foxslit.wav");
+        const music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
+        music.volume = 0.1;
+        music.resume();
     }
     
     public async connect(serverId: string) {
@@ -167,13 +173,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public update(time: number, dt: number) {
         this.player.update(dt);
 
-        const renderer = this.client.gameRenderer;
-        renderer.camera.position.copy(this.player.position);
-        renderer.camera.position.y += this.player.eyeHeight;
+        const playerCamera = this.player.camera;
+        const rendererCamera = this.client.gameRenderer.camera;
 
-        renderer.camera.rotation.set(0, 0, 0);
-        renderer.camera.rotateY(-this.player.yaw);
-        renderer.camera.rotateX(-this.player.pitch);
+        rendererCamera.position.copy(playerCamera.position);
+        rendererCamera.quaternion.copy(playerCamera.quaternion);
+        rendererCamera.fov = playerCamera.fov;
+        rendererCamera.updateProjectionMatrix();
 
 
 

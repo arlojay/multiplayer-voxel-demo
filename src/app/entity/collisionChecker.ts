@@ -33,13 +33,13 @@ export class CollisionChecker {
         return true;
     }
 
-    public isCollidingWithWorld(expand: number = 0) {
-        const minX = Math.floor(this.position.x + this.hitbox.min.x - 0.01);
-        const maxX = Math.floor(this.position.x + this.hitbox.max.x + 0.01);
-        const minY = Math.floor(this.position.y + this.hitbox.min.y - 0.01);
-        const maxY = Math.floor(this.position.y + this.hitbox.max.y + 0.01);
-        const minZ = Math.floor(this.position.z + this.hitbox.min.z - 0.01);
-        const maxZ = Math.floor(this.position.z + this.hitbox.max.z + 0.01);
+    public isCollidingWithWorld(expand: number = 0, offsetX = 0, offsetY = 0, offsetZ = 0) {
+        const minX = Math.floor(this.position.x + this.hitbox.min.x - 0.01 + offsetX);
+        const maxX = Math.floor(this.position.x + this.hitbox.max.x + 0.01 + offsetX);
+        const minY = Math.floor(this.position.y + this.hitbox.min.y - 0.01 + offsetY);
+        const maxY = Math.floor(this.position.y + this.hitbox.max.y + 0.01 + offsetY);
+        const minZ = Math.floor(this.position.z + this.hitbox.min.z - 0.01 + offsetZ);
+        const maxZ = Math.floor(this.position.z + this.hitbox.max.z + 0.01 + offsetZ);
 
         let block = 0;
 
@@ -50,7 +50,7 @@ export class CollisionChecker {
                     if(~block & SOLID_BITMASK) continue;
 
                     const hitbox = BLOCK_HITBOX;
-                    if(!this.collidesWithHitbox(x, y, z, hitbox, expand)) continue;
+                    if(!this.collidesWithHitbox(x - offsetX, y - offsetY, z - offsetZ, hitbox, expand)) continue;
 
                     this.lastBlockCollision.x = x;
                     this.lastBlockCollision.y = y;
