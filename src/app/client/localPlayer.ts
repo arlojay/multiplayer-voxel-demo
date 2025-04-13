@@ -1,13 +1,25 @@
-import { Box3, Euler, Ray, Vector3 } from "three";
+import { Box3, Euler, PerspectiveCamera, Ray, Vector3 } from "three";
 import { BLOCK_HITBOX, Entity } from "../entity/entity";
 import { PlayerController } from "../playerController";
 import { dlerp } from "../math";
 import { Client, getClient } from "./client";
 import { BreakBlockPacket, PlaceBlockPacket } from "../packet/packet";
 import { simpleHash } from "./remotePlayer";
+import { ClientSounds } from "./clientSounds";
 
 
 export class LocalPlayer extends Entity {
+    public static readonly eyeHeightStanding = 1.7;
+    public static readonly eyeHeightCrouching = 1.35;
+    public static readonly hitboxStanding: Box3 = Object.freeze(new Box3(
+        new Vector3(-0.3, 0, -0.3),
+        new Vector3(0.3, 1.8, 0.3)
+    ));
+    public static readonly hitboxCrouching: Box3 = Object.freeze(new Box3(
+        new Vector3(-0.3, 0, -0.3),
+        new Vector3(0.3, 1.45, 0.3)
+    ));
+
     public hitbox: Box3 = new Box3(
         new Vector3(-0.3, 0, -0.3),
         new Vector3(0.3, 1.8, 0.3)
@@ -19,6 +31,16 @@ export class LocalPlayer extends Entity {
     public pitch: number = 0;
     public placeBlockCooldown: number;
     public visionRay: Ray;
+    public camera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 100);
+    public crouching: boolean;
+    public sprinting: boolean;
+
+    private viewBobTime = 0.0;
+    private viewBobIntensity = 0.0;
+    private panRoll = 0;
+    private pitchOffset = 0;
+    private fovMultiplier = 1;
+    private fovBase = 90;
 
     public update(dt: number) {
         this.updateControls(dt);
@@ -46,9 +68,25 @@ export class LocalPlayer extends Entity {
             if(this.controller.keyDown("shift")) {
                 speed *= 1.5;
                 maxHorizontalSpeed *= 1.5;
+                this.sprinting = true;
+            } else {
+                this.sprinting = false;
             }
+
             if(this.controller.keyDown("c")) {
                 speed *= 0.5;
+                maxHorizontalSpeed *= 0.5;
+                this.crouching = true;
+            } else {
+                this.hitbox.copy(LocalPlayer.hitboxStanding);
+                if(this.collisionChecker.isCollidingWithWorld()) {
+                    this.hitbox.copy(LocalPlayer.hitboxCrouching);
+                } else {
+                    this.crouching = false;
+                }
+            }
+
+            if(!onGround) {
                 maxHorizontalSpeed *= 0.5;
             }
 
@@ -90,9 +128,13 @@ export class LocalPlayer extends Entity {
         }
 
 
+        this.panRoll = dlerp(this.panRoll, 0, dt, 50);
         if(receivingControls) {
             this.yaw += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
             this.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180);
+
+            const panRollVelocity = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2) + 2;
+            this.panRoll += this.controller.pointerMovement.x * controlOptions.mouseSensitivity / dt * 0.00001 * panRollVelocity;
         }
 
         if(this.pitch > Math.PI * 0.5) this.pitch = Math.PI * 0.5;
@@ -100,10 +142,73 @@ export class LocalPlayer extends Entity {
 
         this.controller.resetPointerMovement();
 
+        if(this.crouching) {
+            this.hitbox.copy(LocalPlayer.hitboxCrouching);
+        } else {
+            this.hitbox.copy(LocalPlayer.hitboxStanding);
+        }
+        this.eyeHeight = dlerp(this.eyeHeight, this.crouching ? LocalPlayer.eyeHeightCrouching : LocalPlayer.eyeHeightStanding, dt, 50);
+
+        let fovm = 1;
+
+        if(this.sprinting) fovm *= 1.1;
+        else if(this.crouching) fovm /= 1.3;
+
+        this.fovMultiplier = dlerp(this.fovMultiplier, fovm, dt, 25);
+
+        this.pitchOffset = dlerp(this.pitchOffset, Math.atan(this.velocity.y * 0.03) * 0.2, dt, 25);
+
+        this.camera.position.copy(this.position);
+        this.camera.position.y += this.eyeHeight;
+        this.camera.fov = this.fovBase * this.fovMultiplier;
+
+        let yaw = -this.yaw;
+        let pitch = -this.pitch;
+        let roll = 0;
+
+        pitch += this.pitchOffset;
+
+        if(onGround) {
+            const velocityXZ = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
+            this.viewBobTime += velocityXZ * dt * 2;
+
+            this.viewBobIntensity = dlerp(this.viewBobIntensity, Math.atan(velocityXZ * 0.2) / 10, dt, 10);
+        }
+
+
+        let cameraOffsetX = 0;
+        let cameraOffsetY = 0;
+        let cameraOffsetZ = 0;
+
+        cameraOffsetX += Math.cos(this.viewBobTime) * this.viewBobIntensity * 0.5;
+        cameraOffsetY += (0.5 - Math.abs(Math.sin(this.viewBobTime))) * this.viewBobIntensity;
+
+        this.camera.position.x += Math.sin(this.yaw) * cameraOffsetZ + Math.cos(this.yaw) * cameraOffsetX;
+        this.camera.position.y += cameraOffsetY;
+        this.camera.position.z -= Math.cos(this.yaw) * cameraOffsetZ - Math.sin(this.yaw) * cameraOffsetX;
+
+        roll += -Math.atan(this.panRoll) * 0.25;
+        roll += Math.cos(this.viewBobTime) * this.viewBobIntensity * 0.2;
+
+        this.camera.rotation.set(0, 0, 0);
+        this.camera.rotateY(yaw);
+        this.camera.rotateX(pitch);
+        this.camera.rotateZ(roll);
+
+
+        if(this.crouching && this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, 0)) {
+            if(!this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, this.velocity.z * 0.01)) {
+                this.velocity.z = 0;
+            }
+            if(!this.collisionChecker.isCollidingWithWorld(0, this.velocity.x * 0.01, -0.01, 0)) {
+                this.velocity.x = 0;
+            }
+        }
+
 
         this.visionRay = new Ray(
-            this.position.clone().add(new Vector3(0, this.eyeHeight, 0)),
-            new Vector3(0, 0, 1).applyEuler(new Euler(this.pitch, this.yaw, 0, "YXZ"))
+            this.camera.position.clone(),
+            new Vector3(0, 0, -1).applyEuler(new Euler(pitch, Math.PI - yaw, roll, "YXZ"))
         );
         this.visionRay.direction.z *= -1;
         const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
@@ -153,6 +258,10 @@ export class LocalPlayer extends Entity {
 
         // TODO: Make specific to the session the player belongs to
         Client.instance.serverSession.sendPacket(packet);
+
+        ClientSounds.blockBreak().play().then(sound => {
+            sound.pitch = Math.random() * 0.2 + 0.4;
+        })
     }
 
     public placeBlock(x: number, y: number, z: number) {
@@ -171,6 +280,10 @@ export class LocalPlayer extends Entity {
 
         // TODO: Make specific to the session the player belongs to
         Client.instance.serverSession.sendPacket(packet);
+
+        ClientSounds.blockPlace().play().then(sound => {
+            sound.pitch = Math.random() * 0.2 + 0.9;
+        })
     }
     
     public setController(controller: PlayerController) {

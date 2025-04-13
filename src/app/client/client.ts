@@ -4,9 +4,10 @@ import { GameRenderer } from "../gameRenderer";
 import { createPeer } from "../turn";
 import { ServerSession } from "./serverSession";
 import { PlayerController } from "../playerController";
-import { ClientOptions } from "../controlOptions";
 import { debugLog } from "../logging";
 import { GameData } from "../gameData";
+import { AudioManager } from "../sound/soundManager";
+import { ClientSounds } from "./clientSounds";
 
 interface ClientEvents {
     "login": () => void;
@@ -27,6 +28,7 @@ export class Client extends TypedEmitter<ClientEvents> {
     public serverSession: ServerSession = null;
     public playerController: PlayerController;
     public gameData = new GameData;
+    public audioManager = new AudioManager;
     
     constructor(gameRoot: HTMLElement) {
         super();
@@ -63,6 +65,9 @@ export class Client extends TypedEmitter<ClientEvents> {
     }
 
     public async init() {
+        await this.audioManager.init();
+        ClientSounds.init(this.audioManager);
+
         await this.gameData.open();
         await this.gameData.loadAll();
         await this.gameData.saveAll();
