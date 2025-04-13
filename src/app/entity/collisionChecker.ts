@@ -20,7 +20,7 @@ export class CollisionChecker {
         this.position = position;
         this.world = world;
     }
-    public collidesWithHitbox(x: number, y: number, z: number, hitbox: Box3, expand: number = 0.001) {
+    public collidesWithHitbox(x: number, y: number, z: number, hitbox: Box3, expand: number = 0) {
         if(this.position.x + this.hitbox.min.x >= x + hitbox.max.x + expand) return false;
         if(this.position.x + this.hitbox.max.x <= x + hitbox.min.x - expand) return false;
 
