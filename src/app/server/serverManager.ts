@@ -1,4 +1,5 @@
 import Peer, { DataConnection } from "peerjs";
+import { deserializeError } from "serialize-error";
 import { createPeer } from "../turn";
 import { debugLog } from "../logging";
 import { ServerOptions } from "./server";
@@ -91,6 +92,10 @@ export class ServerManager {
                 if(name == "ready") {
                     cleanupCallbacks();
                     res();
+                }
+                if(name == "crash") {
+                    this.worker.terminate();
+                    rej(new Error("Server crashed", { cause: deserializeError(params[0]) }));
                 }
             }
 

@@ -202,7 +202,7 @@ async function updateWorldListScreen() {
             let server: ServerManager;
     
             try {
-                worldCreation.classList.remove("visible");
+                worldSelect.classList.remove("visible");
                 server = await createServer(worldDescriptor);
                 
                 const connection = await connectToServer(server.id);
@@ -213,7 +213,7 @@ async function updateWorldListScreen() {
                 gameRoot.classList.remove("hidden");
                 gameRoot.focus();
             } catch(e) {
-                worldCreation.classList.add("visible");
+                worldSelect.classList.add("visible");
                 alert(e.message);
                 console.error(e);
             }
@@ -244,6 +244,9 @@ async function updateWorldListScreen() {
 
 function loadChunks(serverSession: ServerSession) {
     serverSession.updateViewDistance();
+    setInterval(() => {
+        serverSession.updateViewDistance();
+    }, 2000);
     // for(let x = -3; x < 3; x++) {
     //     for(let y = -3; y < 3; y++) {
     //         for(let z = -3; z < 3; z++) {

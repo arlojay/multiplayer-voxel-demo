@@ -1,6 +1,6 @@
 import { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { BinaryWriter, U16 } from "../binary";
+import { BinaryBuffer, U16 } from "../binary";
 import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket } from "../packet/packet";
 import { World } from "../world";
 import { Client } from "./client";
@@ -99,8 +99,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.localWorld.setRawValue(packet.x, packet.y, packet.z, packet.block);
         }
         if(packet instanceof ChunkDataPacket) {
-            const promise = this.waitingChunks.get(packet.x + ";" + packet.y + ";" + packet.z);
+            const key = packet.x + ";" + packet.y + ";" + packet.z;
+            const promise = this.waitingChunks.get(key);
             if(promise != null) promise(packet);
+            this.waitingChunks.delete(key);
         }
         if(packet instanceof PlayerMovePacket && !this.isPacketOld(packet)) {
             const player = this.players.get(packet.player);
@@ -154,9 +156,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     public sendPacket(packet: Packet) {
         const buffer = new ArrayBuffer(packet.getBufferSize());
-        packet.write(new BinaryWriter(buffer));
+        packet.write(new BinaryBuffer(buffer));
         this.serverConnection.send(buffer);
-        console.log(packet.id + ": " + buffer);
     }
 
     public fetchChunk(x: number, y: number, z: number) {
@@ -167,8 +168,15 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         this.sendPacket(packet);
 
+        const key = x + ";" + y + ";" + z;
+
+        const previousResolve = this.waitingChunks.get(key);
+
         return new Promise<ChunkDataPacket>(res => {
-            this.waitingChunks.set(x + ";" + y + ";" + z, packet => res(packet));
+            this.waitingChunks.set(key, packet => {
+                previousResolve?.(packet);
+                res(packet);
+            });
         });
     }
     public update(time: number, dt: number) {
@@ -232,85 +240,96 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public updateViewDistance() {
         const r = this.client.gameData.clientOptions.viewDistance;
 
-        if(this.lastViewDistance != this.client.gameData.clientOptions.viewDistance) {
-            this.loadedChunks = new VoxelGridVolume(new Box3(
-                new Vector3(-r, -r, -r),
-                new Vector3( r,  r,  r)
-            ));
-        }
+        const loadedChunks = new VoxelGridVolume(new Box3(
+            new Vector3(-r - 1, -r - 1, -r - 1),
+            new Vector3( r + 1,  r + 1,  r + 1)
+        ));
 
-        this.loadedChunks.fill(0);
+        loadedChunks.fill(0b00000000);
 
-        console.log(this.loadedChunks);
+        console.log(loadedChunks);
 
-        const localChunkX = this.player.position.x >> CHUNK_INC_SCL;
-        const localChunkY = this.player.position.y >> CHUNK_INC_SCL;
-        const localChunkZ = this.player.position.z >> CHUNK_INC_SCL;
+        const centerX = this.player.chunkX;
+        const centerY = this.player.chunkY;
+        const centerZ = this.player.chunkZ;
 
         const onFetchResponse = (response: ChunkDataPacket) => {
             const { x, y, z } = response;
 
-            const localChunk = this.localWorld.blocks.getChunk(x, y, z);
+            const localChunk = this.localWorld.blocks.getChunk(x, y, z, true);
             localChunk.data.set(response.data);
 
-            const nx = this.loadedChunks.get(x - 1, y, z);
-            const px = this.loadedChunks.get(x + 1, y, z);
-            const ny = this.loadedChunks.get(x, y - 1, z);
-            const py = this.loadedChunks.get(x, y + 1, z);
-            const nz = this.loadedChunks.get(x, y, z - 1);
-            const pz = this.loadedChunks.get(x, y, z + 1);
+            const rx = x - centerX;
+            const ry = y - centerY;
+            const rz = z - centerZ;
 
-            if(nx == 0) return;
-            if(px == 0) return;
-            if(ny == 0) return;
-            if(py == 0) return;
-            if(nz == 0) return;
-            if(pz == 0) return;
+            const nx = loadedChunks.get(rx - 1, ry, rz);
+            const px = loadedChunks.get(rx + 1, ry, rz);
+            const ny = loadedChunks.get(rx, ry - 1, rz);
+            const py = loadedChunks.get(rx, ry + 1, rz);
+            const nz = loadedChunks.get(rx, ry, rz - 1);
+            const pz = loadedChunks.get(rx, ry, rz + 1);
 
-            this.localWorld.markChunkDirty(localChunk);
+            let surrounded = true;
+            if(nx & 0b00100000) {
+                if(~(nx & 0b00111111) & 0b00000010) this.localWorld.markDirtyByPos(x - 1, y, z);
+            } else surrounded = false;
+            if(px & 0b00100000) {
+                if(~(px & 0b00111111) & 0b00000001) this.localWorld.markDirtyByPos(x + 1, y, z);
+            } else surrounded = false;
+            if(ny & 0b00100000) {
+                if(~(ny & 0b00111111) & 0b00001000) this.localWorld.markDirtyByPos(x, y - 1, z);
+            } else surrounded = false;
+            if(py & 0b00100000) {
+                if(~(py & 0b00111111) & 0b00000100) this.localWorld.markDirtyByPos(x, y + 1, z);
+            } else surrounded = false;
+            if(nz & 0b00100000) {
+                if(~(nz & 0b00111111) & 0b00100000) this.localWorld.markDirtyByPos(x, y, z - 1);
+            } else surrounded = false;
+            if(pz & 0b00100000) {
+                if(~(pz & 0b00111111) & 0b00010000) this.localWorld.markDirtyByPos(x, y, z + 1);
+            } else surrounded = false;
 
-            if(nx == 5) this.localWorld.markChunkDirty(this.localWorld.blocks.getChunk(x - 1, y, z));
-            if(px == 5) this.localWorld.markChunkDirty(this.localWorld.blocks.getChunk(x + 1, y, z));
-            if(ny == 5) this.localWorld.markChunkDirty(this.localWorld.blocks.getChunk(x, y - 1, z));
-            if(py == 5) this.localWorld.markChunkDirty(this.localWorld.blocks.getChunk(x, y + 1, z));
-            if(nz == 5) this.localWorld.markChunkDirty(this.localWorld.blocks.getChunk(x, y, z - 1));
-            if(pz == 5) this.localWorld.markChunkDirty(this.localWorld.blocks.getChunk(x, y, z + 1));
+            if(surrounded) this.localWorld.markChunkDirty(localChunk);            
 
-            this.loadedChunks.set(x - 1, y, z, nx + 1);
-            this.loadedChunks.set(x + 1, y, z, px + 1);
-            this.loadedChunks.set(x, y - 1, z, ny + 1);
-            this.loadedChunks.set(x, y + 1, z, py + 1);
-            this.loadedChunks.set(x, y, z - 1, nz + 1);
-            this.loadedChunks.set(x, y, z + 1, pz + 1);
+            loadedChunks.set(rx - 1, ry, rz, nx | 0b00000010);
+            loadedChunks.set(rx + 1, ry, rz, px | 0b00000001);
+            loadedChunks.set(rx, ry - 1, rz, ny | 0b00001000);
+            loadedChunks.set(rx, ry + 1, rz, py | 0b00000100);
+            loadedChunks.set(rx, ry, rz - 1, nz | 0b00100000);
+            loadedChunks.set(rx, ry, rz + 1, pz | 0b00010000);
         }
 
-        for(let x = localChunkX - r; x <= localChunkX + r; x++) {
-            for(let y = localChunkY - r; y <= localChunkY + r; y++) {
-                for(let z = localChunkZ - r; z <= localChunkZ + r; z++) {
-                    if(!this.localWorld.blocks.chunkExists(x, y, z)) continue;
+        for(let x = -r - 1; x < r + 1; x++) {
+            for(let y = -r - 1; y < r + 1; y++) {
+                for(let z = -r - 1; z < r + 1; z++) {
+                    if(!this.localWorld.blocks.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
 
-                    this.loadedChunks.set(x, y, z, 1);
+                    loadedChunks.set(x, y, z, 0b01000000);
                 }
             }
         }
 
-        for(let x = localChunkX - r; x <= localChunkX + r; x++) {
-            for(let y = localChunkY - r; y <= localChunkY + r; y++) {
-                for(let z = localChunkZ - r; z <= localChunkZ + r; z++) {
-                    let count = 0;
-                    if(this.loadedChunks.get(x - 1, y, z) > 0) count++;
-                    if(this.loadedChunks.get(x - 1, y, z) > 0) count++;
-                    if(this.loadedChunks.get(x - 1, y, z) > 0) count++;
-                    if(this.loadedChunks.get(x - 1, y, z) > 0) count++;
-                    if(this.loadedChunks.get(x - 1, y, z) > 0) count++;
-                    if(this.loadedChunks.get(x - 1, y, z) > 0) count++;
-                    this.loadedChunks.set(x, y, z, count);
+        let fetchCount = 0;
+        for(let x = -r; x < r; x++) {
+            for(let y = -r; y < r; y++) {
+                for(let z = -r; z < r; z++) {
+                    let count = loadedChunks.get(x, y, z);
+                    if(loadedChunks.get(x - 1, y, z) & 0b01000000) count |= 0b00000001;
+                    if(loadedChunks.get(x + 1, y, z) & 0b01000000) count |= 0b00000010;
+                    if(loadedChunks.get(x, y - 1, z) & 0b01000000) count |= 0b00000100;
+                    if(loadedChunks.get(x, y + 1, z) & 0b01000000) count |= 0b00001000;
+                    if(loadedChunks.get(x, y, z - 1) & 0b01000000) count |= 0b00010000;
+                    if(loadedChunks.get(x, y, z + 1) & 0b01000000) count |= 0b00100000;
+                    loadedChunks.set(x, y, z, count);
 
-                    if(count > 0) continue;
+                    if(count & 0b01000000) continue;
                     
-                    this.fetchChunk(x, y, z).then(onFetchResponse);
+                    this.fetchChunk(x + centerX, y + centerY, z + centerZ).then(onFetchResponse);
+                    fetchCount++;
                 }
             }
         }
+        console.log("Fetching " + fetchCount + " chunk(s) from server");
     }
 }

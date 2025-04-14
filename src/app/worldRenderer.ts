@@ -48,7 +48,7 @@ export class WorldRenderer {
         
         for(const chunk of dirtyChunkQueue.keys().take(count)) {
             dirtyChunkQueue.delete(chunk);
-
+            
             this.renderChunk(chunk);
         }
     }

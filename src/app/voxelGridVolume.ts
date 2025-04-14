@@ -49,9 +49,9 @@ export class VoxelGridVolume {
         if(z > this.maxZ) return 0;
 
         return this.data[
-            (x + this.minX) * (this.sizeY * this.sizeZ) +
-            (y + this.minY) * (this.sizeZ) +
-            (z + this.minZ)
+            (x - this.minX) * (this.sizeY * this.sizeZ) +
+            (y - this.minY) * (this.sizeZ) +
+            (z - this.minZ)
         ];
     }
 
@@ -64,9 +64,9 @@ export class VoxelGridVolume {
         if(z > this.maxZ) return;
 
         this.data[
-            (x + this.minX) * (this.sizeY * this.sizeZ) +
-            (y + this.minY) * (this.sizeZ) +
-            (z + this.minZ)
+            (x - this.minX) * (this.sizeY * this.sizeZ) +
+            (y - this.minY) * (this.sizeZ) +
+            (z - this.minZ)
         ] = value;
     }
 

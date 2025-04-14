@@ -39,6 +39,7 @@ export class ServerPlayer extends RemoteEntity {
         let z = 0;
 
         const minY = -20;
+        let attempts = 0;
 
         do {
             x = Math.round(Math.random() * 32 - 16);
@@ -50,6 +51,14 @@ export class ServerPlayer extends RemoteEntity {
                     (~this.world.getRawValue(x, y, z) & SOLID_BITMASK) &&
                     (~this.world.getRawValue(x, y + 1, z) & SOLID_BITMASK)
                 ) break;
+            }
+
+            attempts++;
+
+            if(attempts >= 64) {
+                x = 0;
+                y = 10;
+                z = 0;
             }
         } while(y <= minY);
 

@@ -46,8 +46,8 @@ export class World {
         return (r << 9) | (g << 6) | (b << 3);
     }
 
-    public getRawValue(x: number, y: number, z: number) {
-        return this.blocks.get(x, y, z);
+    public getRawValue(x: number, y: number, z: number, createChunk = false) {
+        return this.blocks.get(x, y, z, createChunk);
     }
 
     public setColor(x: number, y: number, z: number, color: ColorType, update = true) {
@@ -93,6 +93,12 @@ export class World {
         if(this.server != null) {
             this.server.updateBlock(this, x, y, z);
         }
+    }
+
+    public markDirtyByPos(x: number, y: number, z: number) {
+        const chunk = this.blocks.getChunk(x, y, z, false);
+        if(chunk == null) return;
+        this.markChunkDirty(chunk);
     }
 
     public markChunkDirty(chunk: VoxelGridChunk) {
