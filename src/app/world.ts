@@ -55,7 +55,8 @@ export class Chunk {
     }
 
     public isFullySurrounded() {
-        return this.hasPosX && this.hasPosY && this.hasPosZ && this.hasNegX && this.hasNegY && this.hasNegZ;
+        return true;
+        // return this.hasPosX && this.hasPosY && this.hasPosZ && this.hasNegX && this.hasNegY && this.hasNegZ;
     }
 }
 
