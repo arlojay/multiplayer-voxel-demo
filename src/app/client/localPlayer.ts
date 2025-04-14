@@ -163,7 +163,7 @@ export class LocalPlayer extends Entity {
         this.panRoll = dlerp(this.panRoll, 0, dt, 50);
         if(receivingControls) {
             this.yaw += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
-            this.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180);
+            this.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
 
             const panRollVelocity = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2) + 2;
             this.panRoll += this.controller.pointerMovement.x * controlOptions.mouseSensitivity / dt * 0.00001 * panRollVelocity;

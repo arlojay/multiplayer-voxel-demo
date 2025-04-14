@@ -23,7 +23,8 @@ export class GameData {
     public db: IDBDatabase;
     public clientOptions: ClientOptions = {
         controls: {
-            mouseSensitivity: 0.3
+            mouseSensitivity: 0.3,
+            invertY: false
         },
         viewDistance: 8
     };
