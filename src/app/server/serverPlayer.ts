@@ -24,7 +24,6 @@ export class ServerPlayer extends RemoteEntity {
     public setWorld(world: World): void {
         super.setWorld(world);
         this.collisionChecker = new CollisionChecker(this.hitbox, this.position, world);
-        console.log(world);
     }
 
     public update(dt: number): void {
@@ -38,13 +37,29 @@ export class ServerPlayer extends RemoteEntity {
         let y = 100;
         let z = 0;
 
-        for(y = 100; y > -20; y--) {
-            if(~this.world.getRawValue(x, y - 1, z) & SOLID_BITMASK) continue;
-            if(
-                (~this.world.getRawValue(x, y, z) & SOLID_BITMASK) &&
-                (~this.world.getRawValue(x, y + 1, z) & SOLID_BITMASK)
-            ) break;
-        }
+        const minY = -20;
+        let attempts = 0;
+
+        do {
+            x = Math.round(Math.random() * 32 - 16);
+            z = Math.round(Math.random() * 32 - 16);
+
+            for(y = 100; y > minY; y--) {
+                if(~this.world.getRawValue(x, y - 1, z) & SOLID_BITMASK) continue;
+                if(
+                    (~this.world.getRawValue(x, y, z) & SOLID_BITMASK) &&
+                    (~this.world.getRawValue(x, y + 1, z) & SOLID_BITMASK)
+                ) break;
+            }
+
+            attempts++;
+
+            if(attempts >= 64) {
+                x = 0;
+                y = 10;
+                z = 0;
+            }
+        } while(y <= minY);
 
         this.position.set(x + 0.5, y, z + 0.5);
         this.velocity.set(0, 0, 0);

@@ -1,12 +1,11 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { ServerPeer } from "./serverPeer";
-import { ChunkDataPacket, Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
+import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
 import { Color } from "three";
 import { debugLog } from "../logging";
 import { WorldSaver } from "./worldSaver";
-import { VoxelGridChunk } from "../voxelGrid";
 
 interface ServerEvents {
     "connection": (peer: ServerPeer) => void;
@@ -96,34 +95,10 @@ export class Server extends TypedEmitter<ServerEvents> {
         const peer = new ServerPeer(connection, this);
         this.debugPort = connection.debugPort;
         this.errorPort = connection.errorPort;
+        
         peer.player.setWorld(this.worlds.get(this.defaultWorldName));
+        peer.player.respawn();
 
-        peer.addListener("chunkrequest", async packet => {
-            const world = peer.player.world;
-            const voxelWorld = world.blocks;
-            let chunk: VoxelGridChunk = voxelWorld.getChunk(packet.x, packet.y, packet.z, false);
-
-            if(chunk == null) {
-                chunk = voxelWorld.getChunk(packet.x, packet.y, packet.z, true);
-
-                const saver = this.savers.get(world.name);
-                const data = await saver.getChunkData(packet.x, packet.y, packet.z);
-                if(data == null) {
-                    world.generateChunk(packet.x, packet.y, packet.z);
-                    saver.saveChunk(chunk);
-                } else {
-                    chunk.data.set(new Uint16Array(data));
-                }
-            }
-
-            const responsePacket = new ChunkDataPacket;
-            responsePacket.x = packet.x;
-            responsePacket.y = packet.y;
-            responsePacket.z = packet.z;
-            responsePacket.data.set(chunk.data);
-            
-            peer.sendPacket(responsePacket);
-        });
         peer.addListener("move", () => {
             const packet = new PlayerMovePacket(peer.player);
             packet.player = peer.id;
@@ -188,6 +163,24 @@ export class Server extends TypedEmitter<ServerEvents> {
         }
     }
 
+    public async loadChunk(world: World, chunkX: number, chunkY: number, chunkZ: number) {
+        let chunk = world.getChunk(chunkX, chunkY, chunkZ, false);
+
+        if(chunk == null) {
+            chunk = world.getChunk(chunkX, chunkY, chunkZ, true);
+
+            const saver = this.savers.get(world.name);
+            const data = await saver.getChunkData(chunkX, chunkY, chunkZ);
+            if(data == null) {
+                world.generateChunk(chunkX, chunkY, chunkZ);
+                saver.saveChunk(chunk);
+            } else {
+                chunk.data.set(new Uint16Array(data));
+            }
+        }
+
+        return chunk;
+    }
 
 
     public updateBlock(world: World, x: number, y: number, z: number) {

@@ -6,6 +6,7 @@ import { Client, getClient } from "./client";
 import { BreakBlockPacket, PlaceBlockPacket } from "../packet/packet";
 import { simpleHash } from "./remotePlayer";
 import { ClientSounds } from "./clientSounds";
+import { CHUNK_INC_SCL } from "../voxelGrid";
 
 
 export class LocalPlayer extends Entity {
@@ -41,10 +42,42 @@ export class LocalPlayer extends Entity {
     private pitchOffset = 0;
     private fovMultiplier = 1;
     private fovBase = 90;
+    private waitingForChunk = false;
 
     public update(dt: number) {
         this.updateControls(dt);
-        super.update(dt);
+
+        if(!this.waitingForChunk) super.update(dt);
+
+        if(!this.world.blocks.chunkExists(this.chunkX, this.chunkY, this.chunkZ)) {
+            if(!this.waitingForChunk) {
+                this.waitingForChunk = true;
+                
+                // getClient().serverSession.fetchChunk(this.chunkX, this.chunkY, this.chunkZ).then((chunk) => {
+                //     const localChunk = this.world.blocks.getChunk(this.chunkX, this.chunkY, this.chunkZ);
+                //     localChunk.data.set(chunk.data);
+
+                //     this.world.markChunkDirty(localChunk);
+
+                //     const tryChunkDirty = (x: number, y: number, z: number) => {
+                //         const chunk = this.world.blocks.getChunk(x, y, z);
+                //         if(chunk == null) return;
+                //         this.world.markChunkDirty(chunk);
+                //     }
+                //     tryChunkDirty(this.chunkX - 1, this.chunkY, this.chunkZ);
+                //     tryChunkDirty(this.chunkX + 1, this.chunkY, this.chunkZ);
+                //     tryChunkDirty(this.chunkX, this.chunkY - 1, this.chunkZ);
+                //     tryChunkDirty(this.chunkX, this.chunkY + 1, this.chunkZ);
+                //     tryChunkDirty(this.chunkX, this.chunkY, this.chunkZ - 1);
+                //     tryChunkDirty(this.chunkX, this.chunkY, this.chunkZ + 1);
+
+                //     this.waitingForChunk = false;
+                // })
+            }
+            return;
+        } else {
+            this.waitingForChunk = false;
+        }
     }
 
     private updateControls(dt: number) {
@@ -53,7 +86,6 @@ export class LocalPlayer extends Entity {
         const controlOptions = client.gameData.clientOptions.controls;
 
         const onGround = this.airTime < 0.01;
-
 
         let dx = 0;
         let dz = 0;
@@ -197,10 +229,14 @@ export class LocalPlayer extends Entity {
 
 
         if(this.crouching && this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, 0)) {
-            if(!this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, this.velocity.z * 0.01)) {
+            if(!this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, this.velocity.z * dt)) {
                 this.velocity.z = 0;
             }
-            if(!this.collisionChecker.isCollidingWithWorld(0, this.velocity.x * 0.01, -0.01, 0)) {
+            if(!this.collisionChecker.isCollidingWithWorld(0, this.velocity.x * dt, -0.01, 0)) {
+                this.velocity.x = 0;
+            }
+            if(!this.collisionChecker.isCollidingWithWorld(0, this.velocity.x * dt, -0.01, this.velocity.z * dt)) {
+                this.velocity.z = 0;
                 this.velocity.x = 0;
             }
         }
@@ -249,6 +285,8 @@ export class LocalPlayer extends Entity {
     }
 
     public breakBlock(x: number, y: number, z: number) {
+        if(!this.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
+
         this.world.clearColor(x, y, z);
 
         const packet = new BreakBlockPacket;
@@ -265,6 +303,8 @@ export class LocalPlayer extends Entity {
     }
 
     public placeBlock(x: number, y: number, z: number) {
+        if(!this.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
+
         const color = simpleHash(Client.instance.peer.id) & 0xffffff;
 
         const hitbox = BLOCK_HITBOX;

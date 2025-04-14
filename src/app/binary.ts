@@ -54,7 +54,7 @@ export const MAX_F64 = 1.7976931348623157e+308;
 export const SMALLEST_F64 = 5e-324;
 
 
-export class BinaryWriter {
+export class BinaryBuffer {
     public buffer: ArrayBuffer;
     public view: DataView<ArrayBuffer>;
     public index: number = 0;

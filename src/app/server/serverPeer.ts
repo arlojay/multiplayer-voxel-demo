@@ -1,7 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { BinaryWriter } from "../binary";
+import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet/packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
@@ -90,15 +90,23 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
 
-    private lastMove = -1000;
-
     public handlePacket(data: ArrayBuffer) {
         const packet = Packet.createFromBinary(data);
 
         if(packet instanceof GetChunkPacket) {
-            this.emit("chunkrequest", packet);
+            this.server.loadChunk(this.player.world, packet.x, packet.y, packet.z).then(chunk => {
+                const responsePacket = new ChunkDataPacket(packet); // shorthand response
+                responsePacket.data.set(chunk.data);
+                
+                this.sendPacket(responsePacket);
+            })
         }
         if(packet instanceof ClientMovePacket && !this.isPacketOld(packet)) {
+            if(!this.player.world.blocks.chunkExists(packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL)) {
+                this.player.syncPosition();
+                return;
+            }
+
             const wasColliding = this.player.collisionChecker.isCollidingWithWorld(-0.01);
             const oldPosition = this.player.position.clone();
             this.player.position.set(packet.x, packet.y, packet.z);
@@ -121,12 +129,16 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             this.emit("move");
         }
         if(packet instanceof PlaceBlockPacket) {
-            this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
-            this.server.savers.get(this.player.world.name).saveModified();
+            this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
+                this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
+                this.server.savers.get(this.player.world.name).saveModified();
+            });
         }
         if(packet instanceof BreakBlockPacket) {
-            this.player.world.clearColor(packet.x, packet.y, packet.z);
-            this.server.savers.get(this.player.world.name).saveModified();
+            this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
+                this.player.world.clearColor(packet.x, packet.y, packet.z);
+                this.server.savers.get(this.player.world.name).saveModified();
+            });
         }
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
@@ -137,7 +149,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     public sendPacket(packet: Packet, instant: boolean = false) {
         const buffer = new ArrayBuffer(packet.getBufferSize());
-        packet.write(new BinaryWriter(buffer));
+        packet.write(new BinaryBuffer(buffer));
 
         if(instant) {
             if(this.connected) {
@@ -220,8 +232,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             const packet = new KickPacket();
             packet.reason = reason;
             this.sendPacket(packet, true);
-
-            console.log(packet);
 
             this.emit("disconnected", reason);
             this.connected = false; // Stop interpreting packets

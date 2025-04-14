@@ -1,8 +1,34 @@
 import { PeerError } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
+import { serializeError } from "serialize-error";
 import { Server, ServerOptions } from "./server";
 
-init();
+let server: Server;
+let crashMessages: Error[] = new Array;
+let crashing = false;
+
+try {
+    init().catch(e => {
+        serverCrash(e);
+    })
+} catch(e) {
+    serverCrash(e);
+}
+
+export function serverCrash(error: Error) {
+    crashMessages.push(error);
+    console.error(new Error("Server crashed", { cause: error }));
+
+    if(crashing) return;
+
+    crashing = true;
+    
+    Promise.allSettled([server?.close()]).then(() => {
+        for(const crashError of crashMessages) {
+            postMessage(["crash", serializeError(crashError)]);
+        }
+    });
+}
 
 interface MessagePortConnectionEvents {
     "open": () => void;
@@ -59,8 +85,6 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
 }
 
 async function init() {
-    let server: Server;
-    
     addEventListener("message", event => {
         const name: string = event.data[0];
         const params: any[] = event.data.slice(1);
@@ -92,7 +116,11 @@ async function init() {
             options.data.start();
             options.command.start();
 
-            server.handleConnection(connection);
+            try {
+                server.handleConnection(connection);
+            } catch(e) {
+                serverCrash(e);
+            }
         }
         if(name == "close") {
             server.close().then(() => {

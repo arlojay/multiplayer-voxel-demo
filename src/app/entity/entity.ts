@@ -1,6 +1,7 @@
 import { Box3, Vector3 } from "three";
 import { World } from "../world";
 import { CollisionChecker } from "./collisionChecker";
+import { CHUNK_INC_SCL } from "../voxelGrid";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);
@@ -71,5 +72,15 @@ export class Entity {
         } else if(dz > 0) {
             this.position.z += lastCollision.z + lastCollision.hitbox.min.z - (this.position.z + this.hitbox.max.z);
         }
+    }
+
+    public get chunkX() {
+        return this.position.x >> CHUNK_INC_SCL;
+    }
+    public get chunkY() {
+        return this.position.y >> CHUNK_INC_SCL;
+    }
+    public get chunkZ() {
+        return this.position.z >> CHUNK_INC_SCL;
     }
 }

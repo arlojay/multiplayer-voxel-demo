@@ -6,13 +6,69 @@ import { clamp } from "./math";
 
 export type ColorType = Color | number | null;
 
+export class Chunk {
+    public voxelChunk: VoxelGridChunk;
+    public x: number;
+    public y: number;
+    public z: number;
+    public blockX: number;
+    public blockY: number;
+    public blockZ: number;
+    public mesh: Mesh | null;
+
+    public hasPosX = false;
+    public hasPosY = false;
+    public hasPosZ = false;
+    public hasNegX = false;
+    public hasNegY = false;
+    public hasNegZ = false;
+
+    constructor(voxelChunk: VoxelGridChunk) {
+        this.voxelChunk = voxelChunk;
+        this.x = voxelChunk.x;
+        this.y = voxelChunk.y;
+        this.z = voxelChunk.z;
+        this.blockX = voxelChunk.x << CHUNK_INC_SCL;
+        this.blockY = voxelChunk.y << CHUNK_INC_SCL;
+        this.blockZ = voxelChunk.z << CHUNK_INC_SCL;
+    }
+
+    public get get() {
+        return this.voxelChunk.get;
+    }
+    public get set() {
+        return this.voxelChunk.set;
+    }
+    public get data() {
+        return this.voxelChunk.data;
+    }
+
+    public hasMesh() {
+        return this.mesh != null;
+    }
+    public setMesh(mesh: Mesh) {
+        this.mesh = mesh;
+    }
+    public deleteMesh() {
+        this.mesh.geometry.dispose();
+        this.mesh = null;
+    }
+
+    // TODO: Fix this in regard to chunk rendering after fetches (medium-bad code smell)
+    public isFullySurrounded() {
+        return true;
+        // return this.hasPosX && this.hasPosY && this.hasPosZ && this.hasNegX && this.hasNegY && this.hasNegZ;
+    }
+}
+
 export class World {
     public server: Server = null;
     public blocks: VoxelGrid = new VoxelGrid;
-    public meshes: Map<VoxelGridChunk, Mesh> = new Map;
-    public dirtyChunkQueue: Set<VoxelGridChunk> = new Set;
+    public dirtyChunkQueue: Set<Chunk> = new Set;
     public raycaster = new WorldRaycaster(this);
     public name: string;
+
+    public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
 
     public constructor(name = "world", server?: Server) {
         this.name = name;
@@ -46,8 +102,8 @@ export class World {
         return (r << 9) | (g << 6) | (b << 3);
     }
 
-    public getRawValue(x: number, y: number, z: number) {
-        return this.blocks.get(x, y, z);
+    public getRawValue(x: number, y: number, z: number, createChunk = false) {
+        return this.blocks.get(x, y, z, createChunk);
     }
 
     public setColor(x: number, y: number, z: number, color: ColorType, update = true) {
@@ -59,7 +115,7 @@ export class World {
     }
 
     public setRawValue(x: number, y: number, z: number, value: number, update = true) {
-        const chunk = this.blocks.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
+        const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
         const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
         const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
@@ -72,7 +128,7 @@ export class World {
         if(update) this.updateBlock(x, y, z, chunk);
     }
 
-    public updateBlock(x: number, y: number, z: number, chunk: VoxelGridChunk) {
+    public updateBlock(x: number, y: number, z: number, chunk: Chunk) {
         const chunkX = x >> CHUNK_BLOCK_INC_BYTE;
         const chunkY = y >> CHUNK_BLOCK_INC_BYTE;
         const chunkZ = z >> CHUNK_BLOCK_INC_BYTE;
@@ -83,20 +139,43 @@ export class World {
 
         this.markChunkDirty(chunk);
 
-        if(relativeX == 0) this.markChunkDirty(this.blocks.getChunk(chunkX - 1, chunkY, chunkZ));
-        if(relativeX == 15) this.markChunkDirty(this.blocks.getChunk(chunkX + 1, chunkY, chunkZ));
-        if(relativeY == 0) this.markChunkDirty(this.blocks.getChunk(chunkX, chunkY - 1, chunkZ));
-        if(relativeY == 15) this.markChunkDirty(this.blocks.getChunk(chunkX, chunkY + 1, chunkZ));
-        if(relativeZ == 0) this.markChunkDirty(this.blocks.getChunk(chunkX, chunkY, chunkZ - 1));
-        if(relativeZ == 15) this.markChunkDirty(this.blocks.getChunk(chunkX, chunkY, chunkZ + 1));
+        if(relativeX == 0) this.markDirtyByPos(chunkX - 1, chunkY, chunkZ);
+        if(relativeX == 15) this.markDirtyByPos(chunkX + 1, chunkY, chunkZ);
+        if(relativeY == 0) this.markDirtyByPos(chunkX, chunkY - 1, chunkZ);
+        if(relativeY == 15) this.markDirtyByPos(chunkX, chunkY + 1, chunkZ);
+        if(relativeZ == 0) this.markDirtyByPos(chunkX, chunkY, chunkZ - 1);
+        if(relativeZ == 15) this.markDirtyByPos(chunkX, chunkY, chunkZ + 1);
 
         if(this.server != null) {
             this.server.updateBlock(this, x, y, z);
         }
     }
 
-    public markChunkDirty(chunk: VoxelGridChunk) {
+    public markDirtyByPos(x: number, y: number, z: number) {
+        const chunk = this.getChunk(x, y, z, false);
+        if(chunk == null) return;
+        this.markChunkDirty(chunk);
+    }
+
+    public markChunkDirty(chunk: Chunk) {
         this.dirtyChunkQueue.add(chunk);
+    }
+
+    public chunkExists(x: number, y: number, z: number) {
+        return this.blocks.chunkExists(x, y, z);
+    }
+
+    public getChunk(x: number, y: number, z: number, create = false) {
+        const voxelChunk = this.blocks.getChunk(x, y, z, create);
+        if(voxelChunk == null) return null;
+
+        let chunk = this.chunkMap.get(voxelChunk);
+        if(chunk == null && create) {
+            chunk = new Chunk(voxelChunk);
+            this.chunkMap.set(voxelChunk, chunk);
+        }
+
+        return chunk;
     }
     
     public generateChunk(x: number, y: number, z: number) {
