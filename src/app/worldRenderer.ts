@@ -21,7 +21,6 @@ export class WorldRenderer {
 
     public renderChunk(chunk: Chunk) {
         let mesh = chunk.mesh;
-        console.log(chunk);
         if(mesh != null) {
             this.scene.remove(mesh);
             chunk.deleteMesh();

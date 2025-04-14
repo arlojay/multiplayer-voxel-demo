@@ -233,8 +233,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             packet.reason = reason;
             this.sendPacket(packet, true);
 
-            console.log(packet);
-
             this.emit("disconnected", reason);
             this.connected = false; // Stop interpreting packets
 

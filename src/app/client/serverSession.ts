@@ -10,6 +10,7 @@ import { World } from "../world";
 import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
 import { RemotePlayer } from "./remotePlayer";
+import { CHUNK_INC_SCL } from "../voxelGrid";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -97,7 +98,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }
         }
         if(packet instanceof SetBlockPacket) {
-            this.localWorld.setRawValue(packet.x, packet.y, packet.z, packet.block);
+            if(this.localWorld.chunkExists(packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL)) {
+                this.localWorld.setRawValue(packet.x, packet.y, packet.z, packet.block);
+            }
         }
         if(packet instanceof ChunkDataPacket) {
             const key = packet.x + ";" + packet.y + ";" + packet.z;
@@ -166,7 +169,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             const packet = this.chunkFetchingQueue.poll();
             if(packet == null) return;
 
-            console.log(packet);
             this.sendPacket(packet);
         }
         this.chunkFetchingQueue.trim();
@@ -199,37 +201,37 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const localChunk = this.localWorld.getChunk(x, y, z, true);
         localChunk.data.set(chunkDataPacket.data);
         
-        const nx = this.localWorld.getChunk(x - 1, y, z);
+        const nx = this.localWorld.getChunk(x - 1, y, z, false);
         if(nx != null) {
             localChunk.hasNegX = true;
             nx.hasPosX = true;
             if(nx.isFullySurrounded()) this.player.world.markChunkDirty(nx);
         }
-        const px = this.localWorld.getChunk(x + 1, y, z);
+        const px = this.localWorld.getChunk(x + 1, y, z, false);
         if(px != null) {
             localChunk.hasPosX = true;
             px.hasNegX = true;
             if(px.isFullySurrounded()) this.player.world.markChunkDirty(px);
         }
-        const ny = this.localWorld.getChunk(y - 1, y, z);
+        const ny = this.localWorld.getChunk(y - 1, y, z, false);
         if(ny != null) {
             localChunk.hasNegY = true;
             ny.hasPosY = true;
             if(ny.isFullySurrounded()) this.player.world.markChunkDirty(ny);
         }
-        const py = this.localWorld.getChunk(y + 1, y, z);
+        const py = this.localWorld.getChunk(y + 1, y, z, false);
         if(py != null) {
             localChunk.hasPosY = true;
             py.hasNegY = true;
             if(py.isFullySurrounded()) this.player.world.markChunkDirty(py);
         }
-        const nz = this.localWorld.getChunk(z - 1, y, z);
+        const nz = this.localWorld.getChunk(z - 1, y, z, false);
         if(nz != null) {
             localChunk.hasNegZ = true;
             nz.hasPosZ = true;
             if(nz.isFullySurrounded()) this.player.world.markChunkDirty(nz);
         }
-        const pz = this.localWorld.getChunk(z + 1, y, z);
+        const pz = this.localWorld.getChunk(z + 1, y, z, false);
         if(pz != null) {
             localChunk.hasPosZ = true;
             pz.hasNegZ = true;
@@ -301,15 +303,17 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public updateViewDistance() {
-        const r = this.client.gameData.clientOptions.viewDistance;
+        const r = this.client.gameData.clientOptions.viewDistance + 1;
+        const rsq = r * r;
 
         const centerX = this.player.chunkX;
         const centerY = this.player.chunkY;
         const centerZ = this.player.chunkZ;
 
-        for(let x = -r - 1; x < r + 1; x++) {
-            for(let y = -r - 1; y < r + 1; y++) {
-                for(let z = -r - 1; z < r + 1; z++) {
+        for(let x = -r; x < r; x++) {
+            for(let y = -r; y < r; y++) {
+                for(let z = -r; z < r; z++) {
+                    if(x * x + y * y + z * z > rsq) continue;
                     if(this.localWorld.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
 
                     this.fetchChunk(x + centerX, y + centerY, z + centerZ);

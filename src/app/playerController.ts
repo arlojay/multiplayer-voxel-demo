@@ -1,5 +1,4 @@
 import { Vector2 } from "three";
-import { TypedEmitter } from "tiny-typed-emitter";
 
 export class PlayerController {
     public pointerRoot: HTMLElement;

@@ -25,7 +25,7 @@ export class GameData {
         controls: {
             mouseSensitivity: 0.3
         },
-        viewDistance: 4
+        viewDistance: 8
     };
     public worlds: Map<number, WorldDescriptor> = new Map;
     

@@ -54,6 +54,7 @@ export class Chunk {
         this.mesh = null;
     }
 
+    // TODO: Fix this in regard to chunk rendering after fetches (medium-bad code smell)
     public isFullySurrounded() {
         return true;
         // return this.hasPosX && this.hasPosY && this.hasPosZ && this.hasNegX && this.hasNegY && this.hasNegZ;
@@ -138,12 +139,12 @@ export class World {
 
         this.markChunkDirty(chunk);
 
-        if(relativeX == 0) this.markChunkDirty(this.getChunk(chunkX - 1, chunkY, chunkZ));
-        if(relativeX == 15) this.markChunkDirty(this.getChunk(chunkX + 1, chunkY, chunkZ));
-        if(relativeY == 0) this.markChunkDirty(this.getChunk(chunkX, chunkY - 1, chunkZ));
-        if(relativeY == 15) this.markChunkDirty(this.getChunk(chunkX, chunkY + 1, chunkZ));
-        if(relativeZ == 0) this.markChunkDirty(this.getChunk(chunkX, chunkY, chunkZ - 1));
-        if(relativeZ == 15) this.markChunkDirty(this.getChunk(chunkX, chunkY, chunkZ + 1));
+        if(relativeX == 0) this.markDirtyByPos(chunkX - 1, chunkY, chunkZ);
+        if(relativeX == 15) this.markDirtyByPos(chunkX + 1, chunkY, chunkZ);
+        if(relativeY == 0) this.markDirtyByPos(chunkX, chunkY - 1, chunkZ);
+        if(relativeY == 15) this.markDirtyByPos(chunkX, chunkY + 1, chunkZ);
+        if(relativeZ == 0) this.markDirtyByPos(chunkX, chunkY, chunkZ - 1);
+        if(relativeZ == 15) this.markDirtyByPos(chunkX, chunkY, chunkZ + 1);
 
         if(this.server != null) {
             this.server.updateBlock(this, x, y, z);
@@ -169,8 +170,10 @@ export class World {
         if(voxelChunk == null) return null;
 
         let chunk = this.chunkMap.get(voxelChunk);
-        if(chunk == null) chunk = new Chunk(voxelChunk);
-        this.chunkMap.set(voxelChunk, chunk);
+        if(chunk == null && create) {
+            chunk = new Chunk(voxelChunk);
+            this.chunkMap.set(voxelChunk, chunk);
+        }
 
         return chunk;
     }

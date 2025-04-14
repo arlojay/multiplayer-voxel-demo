@@ -24,7 +24,6 @@ export class ServerPlayer extends RemoteEntity {
     public setWorld(world: World): void {
         super.setWorld(world);
         this.collisionChecker = new CollisionChecker(this.hitbox, this.position, world);
-        console.log(world);
     }
 
     public update(dt: number): void {

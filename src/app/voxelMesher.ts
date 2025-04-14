@@ -36,7 +36,7 @@ export class VoxelMesher {
         for(x = -1, i = 0, worldX = baseX - 1, i = 0; x < 17; x++, worldX++) {
             for(z = -1, worldZ = baseZ - 1; z < 17; z++, worldZ++) {
                 for(y = -1, worldY = baseY - 1; y < 17; y++, worldY++, i++) {
-                    chunkCache[i] = this.world.get(worldX, worldY, worldZ);
+                    chunkCache[i] = this.world.get(worldX, worldY, worldZ, false); // oh my god this was why
                 }
             }
         }
