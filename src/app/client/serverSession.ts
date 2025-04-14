@@ -40,7 +40,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         super();
         this.client = client;
 
-        const clip = client.audioManager.loadSound("assets/sounds/foxslit.wav");
+        const clip = client.audioManager.loadSound("assets/sounds/foxslit.mp3");
         const music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
         music.volume = 0.1;
         music.resume();
@@ -170,14 +170,62 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         const key = x + ";" + y + ";" + z;
 
-        const previousResolve = this.waitingChunks.get(key);
+        // const previousResolve = this.waitingChunks.get(key);
 
         return new Promise<ChunkDataPacket>(res => {
             this.waitingChunks.set(key, packet => {
-                previousResolve?.(packet);
-                res(packet);
+                this.addChunkData(packet);
+                // previousResolve?.(packet);
+                // res(packet);
             });
         });
+    }
+    public addChunkData(chunkDataPacket: ChunkDataPacket) {
+        const { x, y, z } = chunkDataPacket;
+
+        const localChunk = this.localWorld.getChunk(x, y, z, true);
+        localChunk.data.set(chunkDataPacket.data);
+        
+        const nx = this.localWorld.getChunk(x - 1, y, z);
+        if(nx != null) {
+            localChunk.hasNegX = true;
+            nx.hasPosX = true;
+            if(nx.isFullySurrounded()) this.player.world.markChunkDirty(nx);
+        }
+        const px = this.localWorld.getChunk(x + 1, y, z);
+        if(px != null) {
+            localChunk.hasPosX = true;
+            px.hasNegX = true;
+            if(px.isFullySurrounded()) this.player.world.markChunkDirty(px);
+        }
+        const ny = this.localWorld.getChunk(y - 1, y, z);
+        if(ny != null) {
+            localChunk.hasNegY = true;
+            ny.hasPosY = true;
+            if(ny.isFullySurrounded()) this.player.world.markChunkDirty(ny);
+        }
+        const py = this.localWorld.getChunk(y + 1, y, z);
+        if(py != null) {
+            localChunk.hasPosY = true;
+            py.hasNegY = true;
+            if(py.isFullySurrounded()) this.player.world.markChunkDirty(py);
+        }
+        const nz = this.localWorld.getChunk(z - 1, y, z);
+        if(nz != null) {
+            localChunk.hasNegZ = true;
+            nz.hasPosZ = true;
+            if(nz.isFullySurrounded()) this.player.world.markChunkDirty(nz);
+        }
+        const pz = this.localWorld.getChunk(z + 1, y, z);
+        if(pz != null) {
+            localChunk.hasPosZ = true;
+            pz.hasNegZ = true;
+            if(pz.isFullySurrounded()) this.player.world.markChunkDirty(pz);
+        }
+
+        if(localChunk.isFullySurrounded()) {
+            this.player.world.markChunkDirty(localChunk);
+        }
     }
     public update(time: number, dt: number) {
         this.player.update(dt);
@@ -240,96 +288,106 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public updateViewDistance() {
         const r = this.client.gameData.clientOptions.viewDistance;
 
-        const loadedChunks = new VoxelGridVolume(new Box3(
-            new Vector3(-r - 1, -r - 1, -r - 1),
-            new Vector3( r + 1,  r + 1,  r + 1)
-        ));
+        // const loadedChunks = new VoxelGridVolume(new Box3(
+        //     new Vector3(-r - 1, -r - 1, -r - 1),
+        //     new Vector3( r + 1,  r + 1,  r + 1)
+        // ));
 
-        loadedChunks.fill(0b00000000);
+        // loadedChunks.fill(0b00000000);
 
-        console.log(loadedChunks);
+        // console.log(loadedChunks);
 
         const centerX = this.player.chunkX;
         const centerY = this.player.chunkY;
         const centerZ = this.player.chunkZ;
 
-        const onFetchResponse = (response: ChunkDataPacket) => {
-            const { x, y, z } = response;
+        // const onFetchResponse = (response: ChunkDataPacket) => {
+        //     const { x, y, z } = response;
 
-            const localChunk = this.localWorld.blocks.getChunk(x, y, z, true);
-            localChunk.data.set(response.data);
+        //     const localChunk = this.localWorld.blocks.getChunk(x, y, z, true);
+        //     localChunk.data.set(response.data);
 
-            const rx = x - centerX;
-            const ry = y - centerY;
-            const rz = z - centerZ;
+        //     const rx = x - centerX;
+        //     const ry = y - centerY;
+        //     const rz = z - centerZ;
 
-            const nx = loadedChunks.get(rx - 1, ry, rz);
-            const px = loadedChunks.get(rx + 1, ry, rz);
-            const ny = loadedChunks.get(rx, ry - 1, rz);
-            const py = loadedChunks.get(rx, ry + 1, rz);
-            const nz = loadedChunks.get(rx, ry, rz - 1);
-            const pz = loadedChunks.get(rx, ry, rz + 1);
+        //     const nx = loadedChunks.get(rx - 1, ry, rz);
+        //     const px = loadedChunks.get(rx + 1, ry, rz);
+        //     const ny = loadedChunks.get(rx, ry - 1, rz);
+        //     const py = loadedChunks.get(rx, ry + 1, rz);
+        //     const nz = loadedChunks.get(rx, ry, rz - 1);
+        //     const pz = loadedChunks.get(rx, ry, rz + 1);
 
-            let surrounded = true;
-            if(nx & 0b00100000) {
-                if(~(nx & 0b00111111) & 0b00000010) this.localWorld.markDirtyByPos(x - 1, y, z);
-            } else surrounded = false;
-            if(px & 0b00100000) {
-                if(~(px & 0b00111111) & 0b00000001) this.localWorld.markDirtyByPos(x + 1, y, z);
-            } else surrounded = false;
-            if(ny & 0b00100000) {
-                if(~(ny & 0b00111111) & 0b00001000) this.localWorld.markDirtyByPos(x, y - 1, z);
-            } else surrounded = false;
-            if(py & 0b00100000) {
-                if(~(py & 0b00111111) & 0b00000100) this.localWorld.markDirtyByPos(x, y + 1, z);
-            } else surrounded = false;
-            if(nz & 0b00100000) {
-                if(~(nz & 0b00111111) & 0b00100000) this.localWorld.markDirtyByPos(x, y, z - 1);
-            } else surrounded = false;
-            if(pz & 0b00100000) {
-                if(~(pz & 0b00111111) & 0b00010000) this.localWorld.markDirtyByPos(x, y, z + 1);
-            } else surrounded = false;
+        //     let surrounded = true;
+        //     if(nx & 0b00100000) {
+        //         if(~(nx & 0b00111111) & 0b00000010) this.localWorld.markDirtyByPos(x - 1, y, z);
+        //     } else surrounded = false;
+        //     if(px & 0b00100000) {
+        //         if(~(px & 0b00111111) & 0b00000001) this.localWorld.markDirtyByPos(x + 1, y, z);
+        //     } else surrounded = false;
+        //     if(ny & 0b00100000) {
+        //         if(~(ny & 0b00111111) & 0b00001000) this.localWorld.markDirtyByPos(x, y - 1, z);
+        //     } else surrounded = false;
+        //     if(py & 0b00100000) {
+        //         if(~(py & 0b00111111) & 0b00000100) this.localWorld.markDirtyByPos(x, y + 1, z);
+        //     } else surrounded = false;
+        //     if(nz & 0b00100000) {
+        //         if(~(nz & 0b00111111) & 0b00100000) this.localWorld.markDirtyByPos(x, y, z - 1);
+        //     } else surrounded = false;
+        //     if(pz & 0b00100000) {
+        //         if(~(pz & 0b00111111) & 0b00010000) this.localWorld.markDirtyByPos(x, y, z + 1);
+        //     } else surrounded = false;
 
-            if(surrounded) this.localWorld.markChunkDirty(localChunk);            
+        //     if(surrounded) this.localWorld.markChunkDirty(localChunk);            
 
-            loadedChunks.set(rx - 1, ry, rz, nx | 0b00000010);
-            loadedChunks.set(rx + 1, ry, rz, px | 0b00000001);
-            loadedChunks.set(rx, ry - 1, rz, ny | 0b00001000);
-            loadedChunks.set(rx, ry + 1, rz, py | 0b00000100);
-            loadedChunks.set(rx, ry, rz - 1, nz | 0b00100000);
-            loadedChunks.set(rx, ry, rz + 1, pz | 0b00010000);
-        }
+        //     loadedChunks.set(rx - 1, ry, rz, nx | 0b00000010);
+        //     loadedChunks.set(rx + 1, ry, rz, px | 0b00000001);
+        //     loadedChunks.set(rx, ry - 1, rz, ny | 0b00001000);
+        //     loadedChunks.set(rx, ry + 1, rz, py | 0b00000100);
+        //     loadedChunks.set(rx, ry, rz - 1, nz | 0b00100000);
+        //     loadedChunks.set(rx, ry, rz + 1, pz | 0b00010000);
+        // }
+
+        // for(let x = -r - 1; x < r + 1; x++) {
+        //     for(let y = -r - 1; y < r + 1; y++) {
+        //         for(let z = -r - 1; z < r + 1; z++) {
+        //             if(!this.localWorld.blocks.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
+
+        //             loadedChunks.set(x, y, z, 0b01000000);
+        //         }
+        //     }
+        // }
+
+        // let fetchCount = 0;
+        // for(let x = -r; x < r; x++) {
+        //     for(let y = -r; y < r; y++) {
+        //         for(let z = -r; z < r; z++) {
+        //             let count = loadedChunks.get(x, y, z);
+        //             if(loadedChunks.get(x - 1, y, z) & 0b01000000) count |= 0b00000001;
+        //             if(loadedChunks.get(x + 1, y, z) & 0b01000000) count |= 0b00000010;
+        //             if(loadedChunks.get(x, y - 1, z) & 0b01000000) count |= 0b00000100;
+        //             if(loadedChunks.get(x, y + 1, z) & 0b01000000) count |= 0b00001000;
+        //             if(loadedChunks.get(x, y, z - 1) & 0b01000000) count |= 0b00010000;
+        //             if(loadedChunks.get(x, y, z + 1) & 0b01000000) count |= 0b00100000;
+        //             loadedChunks.set(x, y, z, count);
+
+        //             if(count & 0b01000000) continue;
+                    
+        //             this.fetchChunk(x + centerX, y + centerY, z + centerZ).then(onFetchResponse);
+        //             fetchCount++;
+        //         }
+        //     }
+        // }
+        // console.log("Fetching " + fetchCount + " chunk(s) from server");
 
         for(let x = -r - 1; x < r + 1; x++) {
             for(let y = -r - 1; y < r + 1; y++) {
                 for(let z = -r - 1; z < r + 1; z++) {
-                    if(!this.localWorld.blocks.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
+                    if(this.localWorld.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
 
-                    loadedChunks.set(x, y, z, 0b01000000);
+                    this.fetchChunk(x + centerX, y + centerY, z + centerZ);
                 }
             }
         }
-
-        let fetchCount = 0;
-        for(let x = -r; x < r; x++) {
-            for(let y = -r; y < r; y++) {
-                for(let z = -r; z < r; z++) {
-                    let count = loadedChunks.get(x, y, z);
-                    if(loadedChunks.get(x - 1, y, z) & 0b01000000) count |= 0b00000001;
-                    if(loadedChunks.get(x + 1, y, z) & 0b01000000) count |= 0b00000010;
-                    if(loadedChunks.get(x, y - 1, z) & 0b01000000) count |= 0b00000100;
-                    if(loadedChunks.get(x, y + 1, z) & 0b01000000) count |= 0b00001000;
-                    if(loadedChunks.get(x, y, z - 1) & 0b01000000) count |= 0b00010000;
-                    if(loadedChunks.get(x, y, z + 1) & 0b01000000) count |= 0b00100000;
-                    loadedChunks.set(x, y, z, count);
-
-                    if(count & 0b01000000) continue;
-                    
-                    this.fetchChunk(x + centerX, y + centerY, z + centerZ).then(onFetchResponse);
-                    fetchCount++;
-                }
-            }
-        }
-        console.log("Fetching " + fetchCount + " chunk(s) from server");
     }
 }

@@ -1,12 +1,11 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { ServerPeer } from "./serverPeer";
-import { ChunkDataPacket, Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
+import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
 import { Color } from "three";
 import { debugLog } from "../logging";
 import { WorldSaver } from "./worldSaver";
-import { VoxelGridChunk } from "../voxelGrid";
 
 interface ServerEvents {
     "connection": (peer: ServerPeer) => void;
@@ -165,11 +164,10 @@ export class Server extends TypedEmitter<ServerEvents> {
     }
 
     public async loadChunk(world: World, chunkX: number, chunkY: number, chunkZ: number) {
-        const voxelWorld = world.blocks;
-        let chunk: VoxelGridChunk = voxelWorld.getChunk(chunkX, chunkY, chunkZ, false);
+        let chunk = world.getChunk(chunkX, chunkY, chunkZ, false);
 
         if(chunk == null) {
-            chunk = voxelWorld.getChunk(chunkX, chunkY, chunkZ, true);
+            chunk = world.getChunk(chunkX, chunkY, chunkZ, true);
 
             const saver = this.savers.get(world.name);
             const data = await saver.getChunkData(chunkX, chunkY, chunkZ);

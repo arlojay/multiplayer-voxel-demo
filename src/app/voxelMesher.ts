@@ -1,5 +1,6 @@
 import { BufferGeometry, Float32BufferAttribute, Int16BufferAttribute } from "three";
-import { CHUNK_SIZE, SOLID_BITMASK, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
+import { CHUNK_SIZE, SOLID_BITMASK, VoxelGrid } from "./voxelGrid";
+import { Chunk } from "./world";
 
 const chunkCacheBuffer = new Uint16Array((CHUNK_SIZE + 2) ** 3).buffer;
 const OFF_X = (CHUNK_SIZE + 2) ** 2;
@@ -13,11 +14,7 @@ export class VoxelMesher {
         this.world = world;
     }
 
-    public mesh(chunk: VoxelGridChunk): BufferGeometry {
-        const chunkX = chunk.x;
-        const chunkY = chunk.y;
-        const chunkZ = chunk.z;
-
+    public mesh(chunk: Chunk): BufferGeometry {
         let x = 0, y = 0, z = 0;
         let i = 0;
         let worldX = 0, worldY = 0, worldZ = 0;
@@ -25,9 +22,9 @@ export class VoxelMesher {
         let block = 0;
         let vertexCount = 0;
 
-        const baseX = chunkX * CHUNK_SIZE;
-        const baseY = chunkY * CHUNK_SIZE;
-        const baseZ = chunkZ * CHUNK_SIZE;
+        const baseX = chunk.blockX;
+        const baseY = chunk.blockY;
+        const baseZ = chunk.blockZ;
 
         const vertices = new Array;
         const indices = new Array;

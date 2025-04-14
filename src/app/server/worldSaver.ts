@@ -1,6 +1,5 @@
 import { debugLog } from "../logging";
-import { VoxelGridChunk } from "../voxelGrid";
-import { World } from "../world";
+import { Chunk, World } from "../world";
 
 export const WORLD_VERSION = 1;
 
@@ -40,7 +39,7 @@ export class WorldSaver {
         });
     }
 
-    private writeChunk(chunk: VoxelGridChunk) {
+    private writeChunk(chunk: Chunk) {
         this.chunkObjectStore.put({
             position: [ chunk.x, chunk.y, chunk.z ],
             data: chunk.data.buffer
@@ -64,7 +63,7 @@ export class WorldSaver {
         });
     }
 
-    public saveChunk(chunk: VoxelGridChunk) {
+    public saveChunk(chunk: Chunk) {
         return new Promise<void>((res, rej) => {
             this.chunkObjectStore ??= this.db.transaction("data", "readwrite").objectStore("data");
 
