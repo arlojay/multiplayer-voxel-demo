@@ -229,10 +229,14 @@ export class LocalPlayer extends Entity {
 
 
         if(this.crouching && this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, 0)) {
-            if(!this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, this.velocity.z * 0.01)) {
+            if(!this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, this.velocity.z * dt)) {
                 this.velocity.z = 0;
             }
-            if(!this.collisionChecker.isCollidingWithWorld(0, this.velocity.x * 0.01, -0.01, 0)) {
+            if(!this.collisionChecker.isCollidingWithWorld(0, this.velocity.x * dt, -0.01, 0)) {
+                this.velocity.x = 0;
+            }
+            if(!this.collisionChecker.isCollidingWithWorld(0, this.velocity.x * dt, -0.01, this.velocity.z * dt)) {
+                this.velocity.z = 0;
                 this.velocity.x = 0;
             }
         }
