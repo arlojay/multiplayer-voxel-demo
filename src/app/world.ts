@@ -177,6 +177,11 @@ export class World {
 
         return chunk;
     }
+
+    public deleteChunk(x: number, y: number, z: number) {
+        const chunk = this.blocks.deleteChunk(x, y, z);
+        this.chunkMap.delete(chunk);
+    }
     
     public generateChunk(x: number, y: number, z: number) {
         const chunk = this.blocks.getChunk(x, y, z);

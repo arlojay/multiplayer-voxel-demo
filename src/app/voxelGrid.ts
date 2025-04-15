@@ -74,6 +74,12 @@ export class VoxelGridRegion {
         }
         return chunk;
     }
+    deleteChunk(x: number, y: number, z: number) {
+        const n = x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE;
+        const old = this.chunks[n];
+        delete this.chunks[n];
+        return old;
+    }
     createChunk(x: number, y: number, z: number): VoxelGridChunk {
         return this.chunks[x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE] = new VoxelGridChunk(x + this.x * REGION_SIZE, y + this.y * REGION_SIZE, z + this.z * REGION_SIZE);
     }
@@ -167,6 +173,19 @@ export class VoxelGrid {
             y - (y >> REGION_INC_SCL << REGION_INC_SCL),
             z - (z >> REGION_INC_SCL << REGION_INC_SCL),
             create
+        );
+    }
+    deleteChunk(x: number, y: number, z: number) {
+        const region = this.getRegion(
+            x >> REGION_INC_SCL,
+            y >> REGION_INC_SCL,
+            z >> REGION_INC_SCL
+        );
+
+        return region.deleteChunk(
+            x - (x >> REGION_INC_SCL << REGION_INC_SCL),
+            y - (y >> REGION_INC_SCL << REGION_INC_SCL),
+            z - (z >> REGION_INC_SCL << REGION_INC_SCL)
         );
     }
     get(x: number, y: number, z: number, createChunk = true): number {
