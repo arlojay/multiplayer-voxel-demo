@@ -4,6 +4,8 @@ import { World } from "./world";
 import { WorldRenderer } from "./worldRenderer";
 import { terrainColor } from "./shaders/terrain";
 import { skyColor } from "./shaders/sky";
+import { UIElement } from "./ui/UIElement";
+import { UIContainer } from "./ui/UIContainer";
 
 interface GameRendererEvents {
     "frame": (time: number, dt: number) => void;
@@ -15,6 +17,8 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public worldRenderer: WorldRenderer = null;
 
     public canvas: HTMLCanvasElement;
+    public UIRoot: HTMLDivElement;
+    public showingUIs: Set<UIContainer> = new Set;
     public renderer: WebGPURenderer = null;
     public camera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 3000);
     public scene: Scene = new Scene();
@@ -23,10 +27,11 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     private terrainShader: MeshBasicNodeMaterial = null;
     private lastRenderTime: number = 0;
 
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(canvas: HTMLCanvasElement, UIRoot: HTMLDivElement) {
         super();
         
         this.canvas = canvas;
+        this.UIRoot = UIRoot;
     }
     public async init() {
         this.renderer = new WebGPURenderer({ canvas: this.canvas, powerPreference: "high-performance" });
@@ -105,5 +110,14 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         this.world = world;
         this.worldRenderer = new WorldRenderer(this.world, this.scene, this.terrainShader);
+    }
+
+    public async showUI(container: UIContainer) {
+        this.showingUIs.add(container);
+        this.UIRoot.appendChild(await container.update());
+    }
+    public hideUI(container: UIContainer) {
+        this.showingUIs.delete(container);
+        this.UIRoot.removeChild(container.element);
     }
 }

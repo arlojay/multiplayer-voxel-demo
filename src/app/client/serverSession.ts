@@ -11,6 +11,9 @@ import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
 import { RemotePlayer } from "./remotePlayer";
 import { CHUNK_INC_SCL } from "../voxelGrid";
+import { UIContainer } from "../ui/UIContainer";
+import { UIText } from "../ui/UIText";
+import { UIButton } from "../ui/UIButton";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -300,6 +303,20 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.player.setWorld(this.localWorld);
         this.player.position.set(0, 10, 0);
         this.player.setController(this.client.playerController);
+
+        const demoUI = new UIContainer;
+        const textElement = new UIText("click the button to start");
+        const buttonElement = new UIButton("click me!");
+        let i = 0;
+        buttonElement.onClick(() => {
+            i++;
+            textElement.text = i + " clicks";
+            textElement.update();
+        })
+        demoUI.addElement(textElement);
+        demoUI.addElement(buttonElement);
+
+        this.client.gameRenderer.showUI(demoUI);
     }
 
     public updateViewDistance() {
