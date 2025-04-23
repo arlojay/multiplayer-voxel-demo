@@ -2,6 +2,8 @@ import { CHUNK_SIZE } from "../voxelGrid";
 import { BinaryBuffer, F32, I32, U16, U32 } from "../binary";
 import { ServerPlayer } from "../server/serverPlayer";
 import { makeAdvancingTimestamp } from "../timestamp";
+import { UIElement } from "../ui/UIElement";
+import { UIContainer } from "../ui/UIContainer";
 
 export abstract class Packet {
     private static packetTypes: Map<number, () => Packet> = new Map;
@@ -415,4 +417,23 @@ export class KickPacket extends Packet {
 export class SetLocalPlayerPositionPacket extends PlayerInfo {
     static id = Packet.register(() => new this);
     public id = SetLocalPlayerPositionPacket.id;
+}
+
+export class ShowUIPacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = ShowUIPacket.id;
+
+    public ui: UIContainer;
+
+    protected serialize(bin: BinaryBuffer): void {
+        const uiData = JSON.stringify(this.ui.serialize());
+        bin.write_string(uiData);
+    }
+    protected deserialize(bin: BinaryBuffer): void {
+        const uiData = JSON.parse(bin.read_string());
+        this.ui = UIElement.deserialize(uiData) as UIContainer;
+    }
+    protected getExpectedSize(): number {
+        throw new Error("Method not implemented.");
+    }
 }

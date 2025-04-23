@@ -1,6 +1,10 @@
 import { UIElement } from "./UIElement";
 
 export class UIButton extends UIElement {
+    public static type = UIElement.register("btn", () => new this);
+    public type = UIButton.type;
+
+    
     public text: string = "";
     private onClickCallback: (event: Event) => void;
 

@@ -313,8 +313,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             textElement.text = i + " clicks";
             textElement.update();
         })
+        textElement.style.background = "#ff0000";
         demoUI.addElement(textElement);
         demoUI.addElement(buttonElement);
+
+        console.log(demoUI);
 
         this.client.gameRenderer.showUI(demoUI);
     }
