@@ -1,16 +1,19 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, OpenUIPacket } from "../packet/packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
 import { CHUNK_INC_SCL } from "../voxelGrid";
+import { UIContainer } from "../ui/UIContainer";
+import { ServerUI } from "./serverUI";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
     "move": () => void;
     "disconnected": (cause: string) => void;
+    "packet": (packet: Packet) => void;
 }
 
 export class TimedOutError extends Error {
@@ -144,9 +147,12 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             if(this.onPingResponse != null) this.onPingResponse();
         }
 
+        this.emit("packet", packet);
+
         this.lastPacketReceived.set(packet.id, packet.timestamp);
     }
 
+    // TODO: refactor for "add to queue" instead of "send instantly" flag
     public sendPacket(packet: Packet, instant: boolean = false) {
         const buffer = new ArrayBuffer(packet.getBufferSize());
         packet.write(new BinaryBuffer(buffer));
@@ -201,6 +207,13 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 });
             }
         }
+    }
+
+    public showUI(ui: UIContainer): ServerUI {
+        const uiInstance = new ServerUI(this, ui);
+        uiInstance.open();
+
+        return uiInstance;
     }
 
     public async sendPing() {

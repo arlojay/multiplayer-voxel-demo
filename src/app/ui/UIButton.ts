@@ -26,6 +26,10 @@ export class UIButton extends UIElement {
         return element;
     }
 
+    public click() {
+        this.onClickCallback(new PointerEvent("click"));
+    }
+
     public onClick(callback: () => void) {
         const newCallback = (e: Event) => {
             e.preventDefault();

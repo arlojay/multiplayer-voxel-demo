@@ -4,7 +4,7 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket } from "../packet/packet";
+import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket } from "../packet/packet";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { World } from "../world";
 import { Client } from "./client";
@@ -14,6 +14,7 @@ import { CHUNK_INC_SCL } from "../voxelGrid";
 import { UIContainer } from "../ui/UIContainer";
 import { UIText } from "../ui/UIText";
 import { UIButton } from "../ui/UIButton";
+import { NetworkUI } from "../ui/networkUI";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -27,6 +28,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public player: LocalPlayer;
     public localWorld = new World;
     public players: Map<string, RemotePlayer> = new Map;
+    public interfaces: Map<string, NetworkUI> = new Map;
 
     private lastPlayerPosition: Vector3 = new Vector3;
     private lastPlayerVelocity: Vector3 = new Vector3;
@@ -157,8 +159,28 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.player.pitch = packet.pitch;
             this.player.yaw = packet.yaw;
         }
+        if(packet instanceof OpenUIPacket) {
+            const ui = new NetworkUI(packet.ui, packet.interfaceId);
+            this.interfaces.set(packet.interfaceId, ui);
+
+            this.showUI(ui);
+        }
+        if(packet instanceof CloseUIPacket) {
+            this.hideUI(packet.interfaceId);
+        }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);
+    }
+
+    private showUI(ui: NetworkUI) {
+        this.client.gameRenderer.showUI(ui.root);
+    }
+    private hideUI(ui: NetworkUI | string) {
+        if(ui instanceof NetworkUI) {
+            this.client.gameRenderer.hideUI(ui.root);
+        } else if(typeof ui == "string") {
+            this.hideUI(this.interfaces.get(ui));
+        }
     }
 
     public sendPacket(packet: Packet) {

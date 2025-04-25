@@ -3,7 +3,7 @@ import { BinaryBuffer, F32, I32, U16, U32 } from "../binary";
 import { ServerPlayer } from "../server/serverPlayer";
 import { makeAdvancingTimestamp } from "../timestamp";
 import { UIElement } from "../ui/UIElement";
-import { UIContainer } from "../ui/UIContainer";
+import { SerializedUIContainer, UIContainer } from "../ui/UIContainer";
 
 export abstract class Packet {
     private static packetTypes: Map<number, () => Packet> = new Map;
@@ -419,21 +419,82 @@ export class SetLocalPlayerPositionPacket extends PlayerInfo {
     public id = SetLocalPlayerPositionPacket.id;
 }
 
-export class ShowUIPacket extends Packet {
+export class OpenUIPacket extends Packet {
     static id = Packet.register(() => new this);
-    public id = ShowUIPacket.id;
+    public id = OpenUIPacket.id;
 
-    public ui: UIContainer;
+    public ui: SerializedUIContainer;
+    public interfaceId: string;
+
+    constructor(ui?: SerializedUIContainer, interfaceId?: string) {
+        super();
+        if(ui != null) this.ui = ui;
+        if(interfaceId != null) this.interfaceId = interfaceId;
+    }
 
     protected serialize(bin: BinaryBuffer): void {
-        const uiData = JSON.stringify(this.ui.serialize());
-        bin.write_string(uiData);
+        bin.write_string(JSON.stringify(this.ui));
+        bin.write_string(this.interfaceId);
     }
     protected deserialize(bin: BinaryBuffer): void {
-        const uiData = JSON.parse(bin.read_string());
-        this.ui = UIElement.deserialize(uiData) as UIContainer;
+        this.ui = JSON.parse(bin.read_string());
+        this.interfaceId = bin.read_string();
     }
     protected getExpectedSize(): number {
-        throw new Error("Method not implemented.");
+        return (
+            BinaryBuffer.stringByteCount(JSON.stringify(this.ui)) +
+            BinaryBuffer.stringByteCount(this.interfaceId)
+        );
+    }
+}
+
+export class CloseUIPacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = OpenUIPacket.id;
+
+    public interfaceId: string;
+    
+    constructor(interfaceId?: string) {
+        super();
+        if(interfaceId != null) this.interfaceId = interfaceId;
+    }
+
+    protected serialize(bin: BinaryBuffer): void {
+        bin.write_string(this.interfaceId);
+    }
+    protected deserialize(bin: BinaryBuffer): void {
+        this.interfaceId = bin.read_string();
+    }
+    protected getExpectedSize(): number {
+        return (
+            BinaryBuffer.stringByteCount(this.interfaceId)
+        );
+    }
+}
+
+export class UIInteractionPacket extends Packet {
+    static id = Packet.register(() => new this);
+    public id = UIInteractionPacket.id;
+
+    public path: number[];
+    public interfaceId: string;
+    public interaction: number;
+
+    protected serialize(bin: BinaryBuffer): void {
+        bin.write_string(this.interfaceId);
+        bin.write_buffer(new Uint32Array(this.path).buffer);
+        bin.write_i32(this.interaction);
+    }
+    protected deserialize(bin: BinaryBuffer): void {
+        this.interfaceId = bin.read_string();
+        this.path = Array.from(new Uint32Array(bin.read_buffer()));
+        this.interaction = bin.read_i32();
+    }
+    protected getExpectedSize(): number {
+        return (
+            BinaryBuffer.stringByteCount(this.interfaceId) +
+            BinaryBuffer.bufferByteCount(new Uint32Array(this.path).buffer) +
+            I32
+        );
     }
 }

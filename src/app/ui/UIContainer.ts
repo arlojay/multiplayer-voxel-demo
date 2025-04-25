@@ -44,4 +44,59 @@ export class UIContainer extends UIElement<SerializedUIContainer> {
             this.elements.add(UIElement.deserialize(element));
         }
     }
+    public getElement(index: number) {
+        return this.elements.values().find((_, i) => i == index);
+    }
+    public getPathOfElement(locatingElement: UIElement): number[] {
+        let i = 0;
+        for(const element of this.elements) {
+            if(element == locatingElement) {
+                return [i];
+            }
+            if(element instanceof UIContainer) {
+                const subResult = element.getPathOfElement(locatingElement);
+                if(subResult != null) return [i, ...subResult];
+            }
+        }
+    }
+    public getElementByPath(path: number[]): UIElement | null {
+        if(path.length == 0) return this;
+
+
+        path = Array.from(path); // clone path array
+        const element = this.getElement(path.shift());
+
+        if(path.length == 0) return element;
+        if(element == null) return null;
+
+        if(element instanceof UIContainer) {
+            return element.getElementByPath(path);
+        }
+    }
+    public getAllElements() {
+        const elements: Set<UIElement> = new Set;
+        for(const element of this.elements) {
+            elements.add(element);
+            if(element instanceof UIContainer) {
+                for(const subElement of element.getAllElements()) {
+                    elements.add(subElement);
+                }
+            }
+        }
+        return elements;
+    }
+    public getAllElementsOfType<T extends UIElement>(type: new (...args: any[]) => T) {
+        const elements: Set<T> = new Set;
+        for(const element of this.elements) {
+            if(element instanceof type) {
+                elements.add(element as T);
+            }
+            if(element instanceof UIContainer) {
+                for(const subElement of element.getAllElementsOfType<T>(type)) {
+                    elements.add(subElement);
+                }
+            }
+        }
+        return elements;
+    }
 }
