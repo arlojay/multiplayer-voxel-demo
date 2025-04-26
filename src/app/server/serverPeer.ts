@@ -1,13 +1,13 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, OpenUIPacket } from "../packet/packet";
+import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
 import { CHUNK_INC_SCL } from "../voxelGrid";
-import { UIContainer } from "../ui/UIContainer";
 import { ServerUI } from "./serverUI";
+import { UIContainer } from "../ui";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -147,8 +147,8 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             if(this.onPingResponse != null) this.onPingResponse();
         }
 
+        
         this.emit("packet", packet);
-
         this.lastPacketReceived.set(packet.id, packet.timestamp);
     }
 

@@ -3,7 +3,7 @@ import { BLOCK_HITBOX, Entity } from "../entity/entity";
 import { PlayerController } from "../playerController";
 import { dlerp } from "../math";
 import { Client, getClient } from "./client";
-import { BreakBlockPacket, PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, PlaceBlockPacket } from "../packet";
 import { simpleHash } from "./remotePlayer";
 import { ClientSounds } from "./clientSounds";
 import { CHUNK_INC_SCL } from "../voxelGrid";

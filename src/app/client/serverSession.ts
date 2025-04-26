@@ -4,17 +4,14 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket } from "../packet/packet";
+import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket } from "../packet";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { World } from "../world";
 import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
 import { RemotePlayer } from "./remotePlayer";
 import { CHUNK_INC_SCL } from "../voxelGrid";
-import { UIContainer } from "../ui/UIContainer";
-import { UIText } from "../ui/UIText";
-import { UIButton } from "../ui/UIButton";
-import { NetworkUI } from "../ui/networkUI";
+import { NetworkUI } from "../client/networkUI";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -174,6 +171,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     private showUI(ui: NetworkUI) {
         this.client.gameRenderer.showUI(ui.root);
+        ui.addListener("interaction", (path, interaction) => {
+            const packet = new UIInteractionPacket();
+            packet.interfaceId = ui.id;
+            packet.path = path;
+            packet.interaction = interaction;
+            this.sendPacket(packet);
+        });
     }
     private hideUI(ui: NetworkUI | string) {
         if(ui instanceof NetworkUI) {
@@ -298,16 +302,18 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             playerMoved = true;
         }
 
-        const movementPacket = new ClientMovePacket;
-        movementPacket.x = this.player.position.x;
-        movementPacket.y = this.player.position.y;
-        movementPacket.z = this.player.position.z;
-        movementPacket.vx = this.player.velocity.x;
-        movementPacket.vy = this.player.velocity.y;
-        movementPacket.vz = this.player.velocity.z;
-        movementPacket.yaw = this.player.yaw;
-        movementPacket.pitch = this.player.pitch;
-        this.sendPacket(movementPacket);
+        if(playerMoved) {
+            const movementPacket = new ClientMovePacket;
+            movementPacket.x = this.player.position.x;
+            movementPacket.y = this.player.position.y;
+            movementPacket.z = this.player.position.z;
+            movementPacket.vx = this.player.velocity.x;
+            movementPacket.vy = this.player.velocity.y;
+            movementPacket.vz = this.player.velocity.z;
+            movementPacket.yaw = this.player.yaw;
+            movementPacket.pitch = this.player.pitch;
+            this.sendPacket(movementPacket);
+        }
 
 
 
@@ -325,23 +331,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.player.setWorld(this.localWorld);
         this.player.position.set(0, 10, 0);
         this.player.setController(this.client.playerController);
-
-        const demoUI = new UIContainer;
-        const textElement = new UIText("click the button to start");
-        const buttonElement = new UIButton("click me!");
-        let i = 0;
-        buttonElement.onClick(() => {
-            i++;
-            textElement.text = i + " clicks";
-            textElement.update();
-        })
-        textElement.style.background = "#ff0000";
-        demoUI.addElement(textElement);
-        demoUI.addElement(buttonElement);
-
-        console.log(demoUI);
-
-        this.client.gameRenderer.showUI(demoUI);
     }
 
     public updateViewDistance() {

@@ -4,8 +4,7 @@ import { World } from "./world";
 import { WorldRenderer } from "./worldRenderer";
 import { terrainColor } from "./shaders/terrain";
 import { skyColor } from "./shaders/sky";
-import { UIElement } from "./ui/UIElement";
-import { UIContainer } from "./ui/UIContainer";
+import { UIContainer } from "./ui";
 
 interface GameRendererEvents {
     "frame": (time: number, dt: number) => void;

@@ -1,12 +1,15 @@
-import { UIElement } from "./UIElement";
+import { SerializedUIElement, UIElement } from "./UIElement";
 
-export class UIButton extends UIElement {
+export interface SerializedUIButton extends SerializedUIElement {
+    text: string;
+}
+export class UIButton extends UIElement<SerializedUIButton> {
     public static type = UIElement.register("btn", () => new this);
     public type = UIButton.type;
 
     
     public text: string = "";
-    private onClickCallback: (event: Event) => void;
+    private onClickCallback: (event?: Event) => void;
 
     public constructor(text?: string) {
         super();
@@ -27,12 +30,12 @@ export class UIButton extends UIElement {
     }
 
     public click() {
-        this.onClickCallback(new PointerEvent("click"));
+        this.onClickCallback();
     }
 
     public onClick(callback: () => void) {
-        const newCallback = (e: Event) => {
-            e.preventDefault();
+        const newCallback = (event?: Event) => {
+            if(event != null) event.preventDefault();
             callback();
         };
 
@@ -43,5 +46,14 @@ export class UIButton extends UIElement {
             this.element.removeEventListener("click", oldCallback);
             this.element.addEventListener("click", newCallback);
         }
+    }
+    public serialize() {
+        const data = super.serialize();
+        data.text = this.text;
+        return data;
+    }
+    public deserialize(data: SerializedUIButton): void {
+        super.deserialize(data);
+        this.text = data.text;
     }
 }

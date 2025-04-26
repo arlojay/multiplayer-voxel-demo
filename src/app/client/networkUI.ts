@@ -1,8 +1,5 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { UIButton } from "./UIButton";
-import { SerializedUIContainer, UIContainer } from "./UIContainer";
-import { UIElement } from "./UIElement";
-import { UIInteractionPacket } from "../packet/packet";
+import { SerializedUIContainer, UIButton, UIContainer, UIElement } from "../ui";
 
 export enum UIInteractions {
     CLICK

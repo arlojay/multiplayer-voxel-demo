@@ -4,7 +4,7 @@ export interface SerializedUIContainer extends SerializedUIElement {
     elements: SerializedUIElement[];
 }
 export class UIContainer extends UIElement<SerializedUIContainer> {
-    public static type = UIElement.register("cntr", () => new this);
+    public static type = UIElement.register("ctnr", () => new this);
     public type = UIContainer.type;
 
     public elements: Set<UIElement> = new Set;
@@ -57,6 +57,7 @@ export class UIContainer extends UIElement<SerializedUIContainer> {
                 const subResult = element.getPathOfElement(locatingElement);
                 if(subResult != null) return [i, ...subResult];
             }
+            i++;
         }
     }
     public getElementByPath(path: number[]): UIElement | null {

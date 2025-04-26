@@ -1,8 +1,8 @@
-import { CloseUIPacket, Packet, OpenUIPacket, UIInteractionPacket } from "../packet/packet";
-import { UIInteractions } from "../ui/networkUI";
-import { UIButton } from "../ui/UIButton";
-import { UIContainer } from "../ui/UIContainer";
+import { CloseUIPacket, Packet, OpenUIPacket, UIInteractionPacket } from "../packet";
+import { UIInteractions } from "../client/networkUI";
 import { ServerPeer } from "./serverPeer";
+import { UIButton, UIContainer } from "../ui";
+import { $enum } from "ts-enum-util";
 
 export class ServerUI {
     public peer: ServerPeer;
@@ -25,6 +25,8 @@ export class ServerUI {
     }
 
     public close() {
+        console.log("close ui " + this.interfaceId);
+
         const packet = new CloseUIPacket(this.interfaceId);
         this.peer.sendPacket(packet, true);
         this.destroy();
@@ -39,9 +41,10 @@ export class ServerUI {
             if(element == null) throw new Error("Invalid UI interaction (" + packet.path.join(" ") + " does not exist)");
             
             if(element instanceof UIButton) {
-                if(packet.interaction == UIInteractions.CLICK) element.click();
-                else throw new Error("Invalid UI interaction (" + element?.constructor?.name + " cannot handle interaction " + packet.interaction + ")");
+                if(packet.interaction == UIInteractions.CLICK) return element.click();
             }
+
+            throw new Error("Invalid UI interaction (" + element?.constructor?.name + " cannot handle interaction " + $enum(UIInteractions).getKeyOrThrow(packet.interaction) + ")");
         })
     }
 
