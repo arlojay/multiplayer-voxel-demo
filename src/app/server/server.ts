@@ -1,21 +1,18 @@
-import { TypedEmitter } from "tiny-typed-emitter";
 import { ServerPeer } from "./serverPeer";
-import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
 import { Color } from "three";
 import { debugLog } from "../logging";
 import { WorldSaver } from "./worldSaver";
-
-interface ServerEvents {
-    "connection": (peer: ServerPeer) => void;
-}
+import { UIButton, UIContainer, UIText } from "../ui";
+import { ServerPlugin } from "./serverPlugin";
+import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
 
 export interface ServerOptions {
     worldName?: string;
 }
 
-export class Server extends TypedEmitter<ServerEvents> {
+export class Server {
     public worlds: Map<string, World> = new Map;
     public savers: Map<string, WorldSaver> = new Map;
     public peers: Map<string, ServerPeer> = new Map;
@@ -23,9 +20,9 @@ export class Server extends TypedEmitter<ServerEvents> {
     public errorPort: MessagePort = null;
     public options: ServerOptions;
     public defaultWorldName: string = "world";
+    public plugins: Set<ServerPlugin> = new Set;
 
     public constructor(options: ServerOptions) {
-        super();
         this.options = options;
         if(options.worldName != null) this.defaultWorldName = options.worldName;
     }
@@ -119,8 +116,13 @@ export class Server extends TypedEmitter<ServerEvents> {
         })
 
         connection.addListener("data", data => {
-            if(data instanceof ArrayBuffer) {
-                peer.handlePacket(data);
+            try {
+                if(data instanceof ArrayBuffer) {
+                    peer.handlePacket(data);
+                }
+            } catch(e) {
+                console.error(e);
+                peer.kick(e.message);
             }
         });
 
@@ -141,7 +143,30 @@ export class Server extends TypedEmitter<ServerEvents> {
         });
 
         this.peers.set(peer.id, peer);
-        this.emit("connection", peer);
+
+
+
+        
+
+        const ui = new UIContainer;
+        ui.style.alignSelf = "start";
+        ui.style.justifySelf = "end";
+
+        const text = new UIText("Hello world!");
+        ui.addElement(text);
+
+        const dismiss = new UIButton("Dismiss");
+        ui.addElement(dismiss);
+
+        let session = peer.showUI(ui);
+        let i = 0;
+        dismiss.onClick(() => {
+            session.close();
+
+            i++;
+            text.text = "Clicked " + i + " time(s)";
+            session = peer.showUI(ui);
+        });
     }
 
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {

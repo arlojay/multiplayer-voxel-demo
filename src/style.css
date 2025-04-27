@@ -16,10 +16,51 @@ html, body, canvas {
     background: transparent;
 }
 
+@property --angle {
+    syntax: "<angle>";
+    initial-value: 100deg;
+    inherits: false;
+}
+
+@keyframes rotate {
+    0% {
+        --angle: 0deg;
+    }
+    100% {
+        --angle: 360deg;
+    }
+}
+
 body {
     display: grid;
     font: 1rem Arial, sans-serif;
     user-select: none;
+    
+    color: white;
+    
+    /* animation: rotate 4s linear forwards infinite; */
+
+    --angle: 135deg;
+    --background-color-a: #272727;
+    --background-color-b: #1b1b1b;
+
+    background:
+        linear-gradient(var(--angle),
+            var(--background-color-a) 25%, var(--background-color-b) 25%,
+            var(--background-color-b) 50%, var(--background-color-a) 50%,
+            var(--background-color-a) 75%, var(--background-color-b) 75%
+        )
+    ;
+    background-size: 1rem calc(1rem / tan(var(--angle) - 90deg));
+    /* background-position: 50% 50%; */
+    background-size: 1rem 1rem;
+    
+    --outline: 1px;
+    text-shadow:
+        var(--outline)              var(--outline)              var(--outline)  #000,
+        calc(-1 * var(--outline))   var(--outline)              var(--outline)  #000,
+        var(--outline)              calc(-1 * var(--outline))   var(--outline)  #000,
+        calc(-1 * var(--outline))   calc(-1 * var(--outline))   var(--outline)  #000;
 }
 
 #ui, #game {
@@ -57,12 +98,6 @@ body {
 
     padding: 0.5rem;
     font-weight: bold;
-    --outline: 1px;
-    text-shadow:
-        var(--outline)              var(--outline)              var(--outline)  #000,
-        calc(-1 * var(--outline))   var(--outline)              var(--outline)  #000,
-        var(--outline)              calc(-1 * var(--outline))   var(--outline)  #000,
-        calc(-1 * var(--outline))   calc(-1 * var(--outline))   var(--outline)  #000;
 
     pointer-events: none;
     overflow-y: auto;
@@ -127,4 +162,28 @@ body {
         justify-self: center;
     }
     grid-area: 1 / 1 / 2 / 2;
+}
+
+#game-ui {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+
+    pointer-events: none;
+
+    div {
+        pointer-events: none;
+    }
+    :not(div) {
+        pointer-events: all;
+    }
+    
+    & > * {
+        grid-area: 1 / 1 / 2 / 2;
+        align-self: center;
+        justify-self: center;
+    }
 }

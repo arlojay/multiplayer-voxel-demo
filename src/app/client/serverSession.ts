@@ -4,13 +4,14 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket } from "../packet/packet";
+import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket } from "../packet";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { World } from "../world";
 import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
 import { RemotePlayer } from "./remotePlayer";
 import { CHUNK_INC_SCL } from "../voxelGrid";
+import { NetworkUI } from "../client/networkUI";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -24,6 +25,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public player: LocalPlayer;
     public localWorld = new World;
     public players: Map<string, RemotePlayer> = new Map;
+    public interfaces: Map<string, NetworkUI> = new Map;
 
     private lastPlayerPosition: Vector3 = new Vector3;
     private lastPlayerVelocity: Vector3 = new Vector3;
@@ -154,8 +156,35 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.player.pitch = packet.pitch;
             this.player.yaw = packet.yaw;
         }
+        if(packet instanceof OpenUIPacket) {
+            const ui = new NetworkUI(packet.ui, packet.interfaceId);
+            this.interfaces.set(packet.interfaceId, ui);
+
+            this.showUI(ui);
+        }
+        if(packet instanceof CloseUIPacket) {
+            this.hideUI(packet.interfaceId);
+        }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);
+    }
+
+    private showUI(ui: NetworkUI) {
+        this.client.gameRenderer.showUI(ui.root);
+        ui.addListener("interaction", (path, interaction) => {
+            const packet = new UIInteractionPacket();
+            packet.interfaceId = ui.id;
+            packet.path = path;
+            packet.interaction = interaction;
+            this.sendPacket(packet);
+        });
+    }
+    private hideUI(ui: NetworkUI | string) {
+        if(ui instanceof NetworkUI) {
+            this.client.gameRenderer.hideUI(ui.root);
+        } else if(typeof ui == "string") {
+            this.hideUI(this.interfaces.get(ui));
+        }
     }
 
     public sendPacket(packet: Packet) {
@@ -273,16 +302,18 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             playerMoved = true;
         }
 
-        const movementPacket = new ClientMovePacket;
-        movementPacket.x = this.player.position.x;
-        movementPacket.y = this.player.position.y;
-        movementPacket.z = this.player.position.z;
-        movementPacket.vx = this.player.velocity.x;
-        movementPacket.vy = this.player.velocity.y;
-        movementPacket.vz = this.player.velocity.z;
-        movementPacket.yaw = this.player.yaw;
-        movementPacket.pitch = this.player.pitch;
-        this.sendPacket(movementPacket);
+        if(playerMoved) {
+            const movementPacket = new ClientMovePacket;
+            movementPacket.x = this.player.position.x;
+            movementPacket.y = this.player.position.y;
+            movementPacket.z = this.player.position.z;
+            movementPacket.vx = this.player.velocity.x;
+            movementPacket.vy = this.player.velocity.y;
+            movementPacket.vz = this.player.velocity.z;
+            movementPacket.yaw = this.player.yaw;
+            movementPacket.pitch = this.player.pitch;
+            this.sendPacket(movementPacket);
+        }
 
 
 
