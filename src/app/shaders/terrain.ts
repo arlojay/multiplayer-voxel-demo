@@ -1,5 +1,7 @@
 import { abs, attribute, color, dot, float, Fn, If, mix, normalize, select, uniform, vec2, vec3, vertexColor } from "three/src/nodes/TSL";
 
+export const sunPos = normalize(vec3(0.3, 1.0, 0.6));
+
 export const terrainColor = Fn(() => {
     const time = uniform(0);
     time.onFrameUpdate(n => n.time);
@@ -48,8 +50,7 @@ export const terrainColor = Fn(() => {
         float(0.0)
     );
 
-    const sunPos = vec3(0.3, 1.0, 0.6);
-    const shadow = dot(normal, normalize(sunPos)).mul(0.5).add(0.5);
+    const shadow = dot(normal, sunPos).mul(0.5).add(0.5);
     const isLightColor = lum({ c: vColor }).greaterThan(float(0.25));
     const outColor = mix(vColor, vec3(select(isLightColor, float(0.0), float(0.5))), edgeFactor.mul(float(0.5))).mul(shadow);
 

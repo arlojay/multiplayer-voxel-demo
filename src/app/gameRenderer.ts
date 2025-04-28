@@ -1,4 +1,4 @@
-import { BoxGeometry, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
+import { BoxGeometry, HemisphereLight, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { World } from "./world";
 import { WorldRenderer } from "./worldRenderer";
@@ -33,7 +33,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         this.UIRoot = UIRoot;
     }
     public async init() {
-        this.renderer = new WebGPURenderer({ canvas: this.canvas, powerPreference: "high-performance" });
+        this.renderer = new WebGPURenderer({ canvas: this.canvas, powerPreference: "high-performance", antialias: true });
 
         this.renderer.autoClearColor = false;
         this.renderer.autoClearDepth = false;
@@ -41,6 +41,8 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         this.resize();
         window.addEventListener("resize", () => this.resize());
+
+        this.scene.add(new HemisphereLight(0xffffff, 0x000000));
         
         await this.initMaterials();        
         await this.initSkybox();

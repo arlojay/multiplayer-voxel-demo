@@ -4,15 +4,16 @@ import { MessagePortConnection } from "./thread";
 import { Color } from "three";
 import { debugLog } from "../logging";
 import { WorldSaver } from "./worldSaver";
-import { UIButton, UIContainer, UIText } from "../ui";
-import { ServerPlugin } from "./serverPlugin";
 import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
+import { PlayerJoinEvent, PlayerLeaveEvent } from "./pluginEvents";
+import { EventPublisher } from "./events";
+import { ServerPlugin } from "./serverPlugin";
 
 export interface ServerOptions {
     worldName?: string;
 }
 
-export class Server {
+export class Server extends EventPublisher {
     public worlds: Map<string, World> = new Map;
     public savers: Map<string, WorldSaver> = new Map;
     public peers: Map<string, ServerPeer> = new Map;
@@ -23,6 +24,8 @@ export class Server {
     public plugins: Set<ServerPlugin> = new Set;
 
     public constructor(options: ServerOptions) {
+        super();
+
         this.options = options;
         if(options.worldName != null) this.defaultWorldName = options.worldName;
     }
@@ -93,19 +96,22 @@ export class Server {
         this.debugPort = connection.debugPort;
         this.errorPort = connection.errorPort;
         
-        peer.player.setWorld(this.worlds.get(this.defaultWorldName));
-        peer.player.respawn();
+        const world = this.worlds.get(this.defaultWorldName);
+        peer.player.setWorld(world);
 
-        peer.addListener("move", () => {
-            const packet = new PlayerMovePacket(peer.player);
-            packet.player = peer.id;
+        this.peers.set(peer.id, peer);
 
-            for(const otherId of this.peers.keys()) {
-                if(otherId == peer.id) continue;
+        const joinEvent = new PlayerJoinEvent(this);
+        joinEvent.peer = peer;
+        joinEvent.player = peer.player;
+        joinEvent.world = world;
+        this.emit(joinEvent);
 
-                this.peers.get(otherId).sendPacket(packet, true);
-            }
-        })
+        if(joinEvent.isCancelled()) {
+            connection.close();
+            this.peers.delete(peer.id);
+            return;
+        }
 
         await new Promise<void>((res, rej) => {
             connection.once("open", () => res());
@@ -128,49 +134,32 @@ export class Server {
 
         const joinPacket = new PlayerJoinPacket(peer.player);
         joinPacket.player = peer.id;
-        this.broadcastPacket(joinPacket, null, true);
 
         for(const otherId of this.peers.keys()) {
-            const joinPacket = new PlayerJoinPacket(this.peers.get(otherId).player);
-            joinPacket.player = otherId;
+            const otherPeer = this.peers.get(otherId);
+            if(otherPeer == peer) continue;
 
-            peer.sendPacket(joinPacket, true);
+            const otherJoinPacket = new PlayerJoinPacket(otherPeer.player);
+            otherJoinPacket.player = otherId;
+
+            peer.sendPacket(otherJoinPacket, true);
+            otherPeer.sendPacket(joinPacket, true);
         }
 
         peer.addListener("disconnected", (cause) => {
             this.handleDisconnection(peer, cause);
             this.peers.delete(peer.id);
         });
-
-        this.peers.set(peer.id, peer);
-
-
-
-        
-
-        const ui = new UIContainer;
-        ui.style.alignSelf = "start";
-        ui.style.justifySelf = "end";
-
-        const text = new UIText("Hello world!");
-        ui.addElement(text);
-
-        const dismiss = new UIButton("Dismiss");
-        ui.addElement(dismiss);
-
-        let session = peer.showUI(ui);
-        let i = 0;
-        dismiss.onClick(() => {
-            session.close();
-
-            i++;
-            text.text = "Clicked " + i + " time(s)";
-            session = peer.showUI(ui);
-        });
     }
 
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
         debugLog("Peer " + peer.id + " disconnected: " + cause.toString());
+
+        const event = new PlayerLeaveEvent(this);
+        event.peer = peer;
+        event.player = peer.player;
+        event.world = peer.player.world;
+        this.emit(event);
 
         this.peers.delete(peer.id);
         

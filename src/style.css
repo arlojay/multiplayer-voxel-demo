@@ -5,6 +5,10 @@ html, body, canvas {
     overflow: hidden;
 }
 
+canvas {
+    image-rendering: pixelated;
+}
+
 #crosshair {
     position: fixed;
     top: calc(50% - 4px);

@@ -12,10 +12,6 @@ export class UIContainer extends UIElement<SerializedUIContainer> {
     async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("div");
 
-        console.log(this.elements);
-        if(this.elements == null) {
-            console.trace(this.elements);
-        }
         const builtElements = await Promise.all(this.elements.values().map(v => v.update()));
         element.append(...builtElements);
 

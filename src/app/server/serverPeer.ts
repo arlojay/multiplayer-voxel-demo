@@ -1,17 +1,17 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet";
+import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerMovePacket, SetBlockPacket } from "../packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { ServerUI } from "./serverUI";
 import { UIContainer } from "../ui";
+import { PlayerBreakBlockEvent, PlayerMoveEvent, PlayerPlaceBlockEvent } from "./pluginEvents";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
-    "move": () => void;
     "disconnected": (cause: string) => void;
     "packet": (packet: Packet) => void;
 }
@@ -128,20 +128,76 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 this.player.yaw = packet.yaw;
                 this.player.pitch = packet.pitch;
             }
+
+            
+            const event = new PlayerMoveEvent(this.server);
+            event.peer = this;
+            event.player = this.player;
+            event.world = this.player.world;
+            event.x = packet.x;
+            event.y = packet.y;
+            event.z = packet.z;
+            event.vx = packet.vx;
+            event.vy = packet.vy;
+            event.vz = packet.vz;
+            event.yaw = packet.yaw;
+            event.pitch = packet.pitch;
+            this.server.emit(event);
+
+            if(event.isCancelled()) {
+                this.player.velocity.set(0, 0, 0);
+                this.player.position.copy(oldPosition);
+                this.player.syncPosition();
+            } else {
+                const broadcastPacket = new PlayerMovePacket(this.player);
+                broadcastPacket.player = this.id;
     
-            this.emit("move");
+                for(const otherPeer of this.server.peers.values()) {
+                    if(otherPeer == this) continue;
+                    if(otherPeer.player.world != this.player.world) continue;
+    
+                    otherPeer.sendPacket(broadcastPacket, true);
+                }
+            }
         }
         if(packet instanceof PlaceBlockPacket) {
-            this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
-                this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
-                this.server.savers.get(this.player.world.name).saveModified();
-            });
+            const event = new PlayerPlaceBlockEvent(this.server);
+            event.peer = this;
+            event.player = this.player;
+            event.world = this.player.world;
+            event.x = packet.x;
+            event.y = packet.y;
+            event.z = packet.z;
+            event.block = packet.block;
+            this.server.emit(event);
+
+            if(event.isCancelled()) {
+                this.updateBlock(packet.x, packet.y, packet.z);
+            } else {
+                this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
+                    this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
+                    this.server.savers.get(this.player.world.name).saveModified();
+                });
+            }
         }
         if(packet instanceof BreakBlockPacket) {
-            this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
-                this.player.world.clearColor(packet.x, packet.y, packet.z);
-                this.server.savers.get(this.player.world.name).saveModified();
-            });
+            const event = new PlayerBreakBlockEvent(this.server);
+            event.peer = this;
+            event.player = this.player;
+            event.world = this.player.world;
+            event.x = packet.x;
+            event.y = packet.y;
+            event.z = packet.z;
+            this.server.emit(event);
+
+            if(event.isCancelled()) {
+                this.updateBlock(packet.x, packet.y, packet.z);
+            } else {
+                this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
+                    this.player.world.clearColor(packet.x, packet.y, packet.z);
+                    this.server.savers.get(this.player.world.name).saveModified();
+                });
+            }
         }
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
@@ -168,6 +224,15 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         } else {
             this.packetQueue.add(buffer);
         }
+    }
+
+    public updateBlock(x: number, y: number, z: number) {
+        const packet = new SetBlockPacket();
+        packet.x = x;
+        packet.y = y;
+        packet.z = z;
+        packet.block = this.player.world.getRawValue(x, y, z, false);
+        this.sendPacket(packet);
     }
 
     public flushPacketQueue() {

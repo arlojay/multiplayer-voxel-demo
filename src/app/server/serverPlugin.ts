@@ -1,7 +1,5 @@
-import { ServerPeer } from "./serverPeer";
+import { EventSubscriber } from "./events";
 
-export abstract class ServerPlugin {
-    public onPeerConnected(peer: ServerPeer) {
-
-    }
+export abstract class ServerPlugin extends EventSubscriber {
+    
 }

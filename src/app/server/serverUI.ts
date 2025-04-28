@@ -25,8 +25,6 @@ export class ServerUI {
     }
 
     public close() {
-        console.log("close ui " + this.interfaceId);
-
         const packet = new CloseUIPacket(this.interfaceId);
         this.peer.sendPacket(packet, true);
         this.destroy();

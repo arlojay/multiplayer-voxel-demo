@@ -16,7 +16,6 @@ export class UIText extends UIElement<SerializedUIText> {
 
     protected async buildElement(): Promise<HTMLElement> {
         if(this.element == null) {
-            console.trace("create new text element");
             const element = document.createElement("span");
             element.textContent = this.text;
 

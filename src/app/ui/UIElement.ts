@@ -22,7 +22,6 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public static deserialize(data: SerializedUIElement) {
         const factory = this.registry.get(data.type);
         if(factory == null) throw new ReferenceError("UI element " + data.type + " is not registered");
-        console.log(data);
 
         const element = factory();
         element.deserialize(data);
