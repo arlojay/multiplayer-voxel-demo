@@ -110,7 +110,13 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         if(this.world == world) return;
 
         this.world = world;
-        this.worldRenderer = new WorldRenderer(this.world, this.scene, this.terrainShader);
+        
+        if(this.worldRenderer != null) {
+            this.scene.remove(this.worldRenderer.root);
+            this.worldRenderer.destroy();
+        }
+        this.worldRenderer = new WorldRenderer(this.world, this.terrainShader);
+        this.scene.add(this.worldRenderer.root);
     }
 
     public async showUI(container: UIContainer) {

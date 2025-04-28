@@ -5,12 +5,14 @@ import { Color } from "three";
 import { debugLog } from "../logging";
 import { WorldSaver } from "./worldSaver";
 import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
-import { PlayerJoinEvent, PlayerLeaveEvent } from "./pluginEvents";
+import { PlayerJoinEvent, PlayerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
 import { EventPublisher } from "./events";
 import { ServerPlugin } from "./serverPlugin";
+import { WorldGenerator } from "../worldGenerator";
 
 export interface ServerOptions {
     worldName?: string;
+    plugins?: ServerPlugin[];
 }
 
 export class Server extends EventPublisher {
@@ -27,6 +29,9 @@ export class Server extends EventPublisher {
         super();
 
         this.options = options;
+        if(options.plugins != null) for(const plugin of options.plugins) {
+            this.addPlugin(plugin);
+        }
         if(options.worldName != null) this.defaultWorldName = options.worldName;
     }
 
@@ -37,26 +42,38 @@ export class Server extends EventPublisher {
         this.errorPort = port;
     }
 
-    public async createWorld(name: string) {
+    public async createWorld(name: string, saving = true) {
         const world = new World(name, this);
         const saver = new WorldSaver(name, world);
 
-        await saver.open();
+        const event = new WorldCreateEvent(this);
+        event.world = world;
+        event.worldName = name;
+        this.emit(event);
+
+        if(event.isCancelled()) throw new Error("World creation cancelled");
 
         this.worlds.set(name, world);
-        this.savers.set(name, saver);
+
+        if(saving) {
+            await saver.open();
+            this.savers.set(name, saver);
+        }
+
+        return world;
     }
 
     public async start() {
-        await this.createWorld(this.defaultWorldName);
+        this.emit(new ServerPreinitEvent(this));
+        const defaultWorld = await this.createWorld(this.defaultWorldName);
+        defaultWorld.setGenerator(new WorldGenerator(defaultWorld));
         this.startLoop();
 
+        this.emit(new ServerLoadedEvent(this));
         debugLog("Server loaded!");
     }
 
     private startLoop() {
-        const mainWorld = this.worlds.get(this.defaultWorldName);
-        const color = new Color;
         setInterval(() => {
             this.flushWorldUpdateQueue();
         }, 1000 / 2);
@@ -184,12 +201,16 @@ export class Server extends EventPublisher {
             chunk = world.getChunk(chunkX, chunkY, chunkZ, true);
 
             const saver = this.savers.get(world.name);
-            const data = await saver.getChunkData(chunkX, chunkY, chunkZ);
-            if(data == null) {
+            if(saver == null) {
                 world.generateChunk(chunkX, chunkY, chunkZ);
-                saver.saveChunk(chunk);
             } else {
-                chunk.data.set(new Uint16Array(data));
+                const data = await saver.getChunkData(chunkX, chunkY, chunkZ);
+                if(data == null) {
+                    world.generateChunk(chunkX, chunkY, chunkZ);
+                    saver.saveChunk(chunk);
+                } else {
+                    chunk.data.set(new Uint16Array(data));
+                }
             }
         }
 
@@ -221,5 +242,20 @@ export class Server extends EventPublisher {
         for await(const saver of this.savers.values()) {
             await saver.saveModified();
         }
+    }
+
+    public addPlugin(plugin: ServerPlugin) {
+        plugin.setServer(this);
+
+        this.addSubscriber(plugin);
+        this.plugins.add(plugin);
+    }
+    public removePlugin(plugin: ServerPlugin) {
+        this.removeSubscriber(plugin);
+        this.plugins.delete(plugin);
+    }
+
+    public getDefaultWorld() {
+        return this.worlds.get(this.defaultWorldName);
     }
 }

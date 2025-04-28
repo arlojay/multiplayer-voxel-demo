@@ -9,6 +9,9 @@ export enum PluginEvents {
     PLAYER_LEAVE = "playerLeave",
     PLACE_BLOCK = "placeBlock",
     BREAK_BLOCK = "breakBlock",
+    WORLD_CREATE = "worldCreate",
+    SERVER_PREINIT = "serverPreinit",
+    SERVER_LOADED = "serverLoaded",
 }
 
 abstract class ServerPluginEvent extends EmittedEvent {
@@ -75,4 +78,22 @@ export class PlayerMoveEvent extends ServerPluginPlayerEvent {
 
     public yaw: number;
     public pitch: number;
+}
+
+export class WorldCreateEvent extends ServerPluginEvent {
+    public readonly name = PluginEvents.WORLD_CREATE;
+    public readonly cancellable = true;
+
+    public world: World;
+    public worldName: string;
+}
+
+export class ServerPreinitEvent extends ServerPluginEvent {
+    public readonly name = PluginEvents.SERVER_PREINIT;
+    public readonly cancellable = true;
+}
+
+export class ServerLoadedEvent extends ServerPluginEvent {
+    public readonly name = PluginEvents.SERVER_LOADED;
+    public readonly cancellable = true;
 }

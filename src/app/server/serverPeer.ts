@@ -1,7 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerMovePacket, SetBlockPacket } from "../packet";
+import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerMovePacket, SetBlockPacket } from "../packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
@@ -9,6 +9,7 @@ import { CHUNK_INC_SCL } from "../voxelGrid";
 import { ServerUI } from "./serverUI";
 import { UIContainer } from "../ui";
 import { PlayerBreakBlockEvent, PlayerMoveEvent, PlayerPlaceBlockEvent } from "./pluginEvents";
+import { World } from "../world";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -176,7 +177,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             } else {
                 this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
                     this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
-                    this.server.savers.get(this.player.world.name).saveModified();
+                    this.server.savers.get(this.player.world.name)?.saveModified();
                 });
             }
         }
@@ -195,7 +196,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             } else {
                 this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
                     this.player.world.clearColor(packet.x, packet.y, packet.z);
-                    this.server.savers.get(this.player.world.name).saveModified();
+                    this.server.savers.get(this.player.world.name)?.saveModified();
                 });
             }
         }
@@ -325,5 +326,10 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     public update(dt: number) {
         this.player.update(dt);
+    }
+
+    public sendToWorld(world: World) {
+        this.player.setWorld(world);
+        this.sendPacket(new ChangeWorldPacket(world));
     }
 }

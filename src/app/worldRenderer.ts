@@ -2,17 +2,16 @@ import { Mesh, Scene } from "three";
 import { CHUNK_BLOCK_INC_BYTE } from "./voxelGrid";
 import { VoxelMesher } from "./voxelMesher";
 import { Chunk, World } from "./world";
-import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
+import { BufferGeometry, MaterialNode, MeshBasicNodeMaterial, Object3D } from "three/src/Three.WebGPU";
 
 export class WorldRenderer {
     public world: World;
     public mesher: VoxelMesher;
-    public scene: Scene;
+    public root: Object3D = new Object3D;
     public terrainShader: MeshBasicNodeMaterial;
 
-    constructor(world: World, scene: Scene, terrainShader: MeshBasicNodeMaterial) {
+    constructor(world: World, terrainShader: MeshBasicNodeMaterial) {
         this.world = world;
-        this.scene = scene;
         this.terrainShader = terrainShader;
         
         this.mesher = new VoxelMesher(this.world.blocks);
@@ -22,7 +21,7 @@ export class WorldRenderer {
     public renderChunk(chunk: Chunk) {
         let mesh = chunk.mesh;
         if(mesh != null) {
-            this.scene.remove(mesh);
+            this.root.remove(mesh);
             chunk.deleteMesh();
         }
 
@@ -33,7 +32,7 @@ export class WorldRenderer {
             mesh.position.set(chunk.x << CHUNK_BLOCK_INC_BYTE, chunk.y << CHUNK_BLOCK_INC_BYTE, chunk.z << CHUNK_BLOCK_INC_BYTE);
             mesh.matrixAutoUpdate = false;
             mesh.updateMatrix();
-            this.scene.add(mesh);
+            this.root.add(mesh);
 
             chunk.setMesh(mesh);
         }
@@ -47,6 +46,30 @@ export class WorldRenderer {
             dirtyChunkQueue.delete(chunk);
 
             this.renderChunk(chunk);
+        }
+    }
+
+    public destroy() {
+        const objects: Set<Object3D> = new Set;
+        const geometries: Set<BufferGeometry> = new Set;
+        const materials: Set<MaterialNode> = new Set;
+        this.root.traverse(o => {
+            if("geometry" in o && o.geometry instanceof BufferGeometry) {
+                geometries.add(o.geometry);
+            }
+            if("material" in o && o.material instanceof MaterialNode) {
+                materials.add(o.material);
+            }
+            objects.add(o);
+        });
+        for(const geometry of geometries) {
+            geometry.dispose();
+        }
+        for(const material of materials) {
+            material.dispose();
+        }
+        for(const object of objects) {
+            object.remove();
         }
     }
 }

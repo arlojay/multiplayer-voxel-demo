@@ -3,6 +3,7 @@ import { Server } from "./server/server";
 import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldRaycaster } from "./worldRaycaster";
 import { clamp } from "./math";
+import { WorldGenerator } from "./worldGenerator";
 
 export type ColorType = Color | number | null;
 
@@ -67,6 +68,7 @@ export class World {
     public dirtyChunkQueue: Set<Chunk> = new Set;
     public raycaster = new WorldRaycaster(this);
     public name: string;
+    public generator: WorldGenerator;
 
     public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
 
@@ -177,29 +179,19 @@ export class World {
 
         return chunk;
     }
-    
+
+    public setGenerator(generator: WorldGenerator) {
+        this.generator = generator;
+    }
+    private warnedAboutNullGenerator = false;
     public generateChunk(x: number, y: number, z: number) {
-        const chunk = this.blocks.getChunk(x, y, z);
-        let globalX = x << CHUNK_INC_SCL;
-        let globalY = y << CHUNK_INC_SCL;
-        let globalZ = z << CHUNK_INC_SCL;
-
-        for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
-            for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
-                for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
-                    let color = 0x000000;
-
-                    if(globalY < -5) color = 0x888888;
-                    else if(globalY < -1) color = 0xCC9966;
-                    else if(globalY < 0) color = 0xBBFF99;
-
-                    if(color != 0x000000) chunk.set(x, y, z, this.getValueFromColor(color));
-                }
-                globalZ -= CHUNK_SIZE;
+        if(this.generator == null) {
+            if(!this.warnedAboutNullGenerator) {
+                console.warn("Generator is null for world " + this.name + "; generating empty chunks");
+                this.warnedAboutNullGenerator = true;
             }
-            globalY -= CHUNK_SIZE;
+            return this.getChunk(x, y, z, true);
         }
-
-        return chunk;
+        return this.generator.generateChunk(x, y, z);
     }
 }

@@ -13,6 +13,7 @@ export * from "./playerJoinPacket";
 export * from "./playerLeavePacket";
 export * from "./playerMovePacket";
 export * from "./setLocalPlayerPositionPacket";
+export * from "./changeWorldPacket";
 
 export * from "./pingPacket";
 export * from "./kickPacket";

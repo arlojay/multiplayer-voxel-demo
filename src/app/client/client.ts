@@ -106,6 +106,9 @@ export class Client extends TypedEmitter<ClientEvents> {
         serverSession.addListener("playerleave", player => {
             this.gameRenderer.scene.remove(player.mesh);
         });
+        serverSession.addListener("changeworld", world => {
+            this.gameRenderer.setWorld(world);
+        })
 
         this.gameRenderer.scene.clear();
 

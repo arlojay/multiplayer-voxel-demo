@@ -4,7 +4,7 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket } from "../packet";
+import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket, ChangeWorldPacket } from "../packet";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { World } from "../world";
 import { Client } from "./client";
@@ -17,8 +17,8 @@ interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
     "playerjoin": (player: RemotePlayer) => void;
     "playerleave": (player: RemotePlayer) => void;
+    "changeworld": (world: World) => void;
 }
-
 export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public client: Client;
     public serverConnection: DataConnection;
@@ -37,7 +37,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private fetchingChunks: Map<string, Promise<ChunkDataPacket>> = new Map;
     private chunkFetchingQueue: FastPriorityQueue<GetChunkPacket> = new FastPriorityQueue(
         (a, b) => (a.x * a.x + a.y * a.y + a.z * a.z) < (b.x * b.x + b.y * b.y + b.z * b.z)
-    );
+    )
     private kicked: boolean;
 
     public constructor(client: Client) {
@@ -165,6 +165,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof CloseUIPacket) {
             this.hideUI(packet.interfaceId);
         }
+        if(packet instanceof ChangeWorldPacket) {
+            this.resetLocalWorld();
+        }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);
     }
@@ -201,6 +204,14 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.sendPacket(packet);
         }
         this.chunkFetchingQueue.trim();
+    }
+
+    public resetLocalWorld() {
+        this.localWorld = new World;
+        this.fetchingChunks.clear();
+        this.chunkFetchingQueue.removeMany(() => true);
+        this.player.setWorld(this.localWorld);
+        this.emit("changeworld", this.localWorld);
     }
 
     public fetchChunk(x: number, y: number, z: number) {
