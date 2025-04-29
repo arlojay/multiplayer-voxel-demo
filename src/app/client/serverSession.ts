@@ -125,6 +125,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof PlayerJoinPacket) {
             const remotePlayer = new RemotePlayer(packet.player);
+            remotePlayer
             remotePlayer.position.set(packet.x, packet.y, packet.z);
             remotePlayer.velocity.set(packet.vx, packet.vy, packet.vz);
             remotePlayer.yaw = packet.yaw;

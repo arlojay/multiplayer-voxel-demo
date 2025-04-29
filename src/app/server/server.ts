@@ -118,6 +118,21 @@ export class Server extends EventPublisher {
 
         peer.player.setWorld(world);
 
+        await new Promise<void>((res, rej) => {
+            connection.once("open", () => res());
+            connection.once("error", e => {
+                this.handleDisconnection(peer, e);
+                rej(e);
+            });
+        });
+        await new Promise((res, rej) => {
+            peer.once("clientready", packet => res(packet));
+
+            setTimeout(() => {
+                rej(new Error("Connection timed out while handshaking"))
+            }, 5000);
+        });
+
         const joinEvent = new PlayerJoinEvent(this);
         joinEvent.peer = peer;
         joinEvent.player = peer.player;
@@ -129,14 +144,6 @@ export class Server extends EventPublisher {
             this.peers.delete(peer.id);
             return;
         }
-
-        await new Promise<void>((res, rej) => {
-            connection.once("open", () => res());
-            connection.once("error", e => {
-                this.handleDisconnection(peer, e);
-                rej(e);
-            });
-        })
 
         // Send join messages
         peer.sendToWorld(world);

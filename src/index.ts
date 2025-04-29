@@ -1,5 +1,6 @@
 import { Client, getClient } from "./app/client/client";
 import { ServerSession } from "./app/client/serverSession";
+import { ClientCustomizationOptions } from "./app/controlOptions";
 import { WorldDescriptor } from "./app/gameData";
 import { debugLog } from "./app/logging";
 import { ClientReadyPacket } from "./app/packet/clientReadyPacket";
@@ -120,6 +121,13 @@ async function main() {
         gameSelect.classList.remove("visible");
     });
 
+    document.querySelector("#player-username").addEventListener("change", () => {
+        saveConnectionOptions();
+    });
+    document.querySelector("#player-color").addEventListener("change", () => {
+        saveConnectionOptions();
+    });
+    await loadConnectionOptions();
     
     
 
@@ -127,26 +135,31 @@ async function main() {
     await updateWorldListScreen();
 }
 
-function saveConnectionOptions() {
+async function saveConnectionOptions() {
     const gameData = getClient().gameData;
 
-    gameData.setPlayerUsername((document.querySelector("#player-username") as HTMLInputElement).value);
-    gameData.setPlayerColor((document.querySelector("#player-color") as HTMLInputElement).value);
+    gameData.clientOptions.customization.username = (document.querySelector("#player-username") as HTMLInputElement).value;
+    gameData.clientOptions.customization.color = (document.querySelector("#player-color") as HTMLInputElement).value;
+
+    gameData.saveClientOptions();
 }
 
-function getConnectionOptions(): ConnectionOptions {
+async function loadConnectionOptions() {
+    const gameData = getClient().gameData;
+    await gameData.loadClientOptions();
+
+    (document.querySelector("#player-username") as HTMLInputElement).value = gameData.clientOptions.customization.username;
+    (document.querySelector("#player-color") as HTMLInputElement).value = gameData.clientOptions.customization.color;
+}
+
+function getConnectionOptions(): ClientCustomizationOptions {
     return {
         username: (document.querySelector("#player-username") as HTMLInputElement).value,
         color: (document.querySelector("#player-color") as HTMLInputElement).value
     }
 }
 
-export interface ConnectionOptions {
-    username: string;
-    color: string;
-}
-
-async function connectToServer(id: string, connectionOptions: ConnectionOptions) {
+async function connectToServer(id: string, connectionOptions: ClientCustomizationOptions) {
     const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
 
     gameSelect.classList.remove("visible");
@@ -159,6 +172,7 @@ async function connectToServer(id: string, connectionOptions: ConnectionOptions)
 
     const readyPacket = new ClientReadyPacket();
     readyPacket.username = connectionOptions.username;
+    readyPacket.color = connectionOptions.color;
     serverSession.sendPacket(readyPacket);
     
     loadChunks(serverSession);

@@ -170,13 +170,6 @@ export class GameData {
         }
     }
 
-    public async setPlayerUsername(username: string) {
-
-    }
-    public async setPlayerColor(color: string) {
-        
-    }
-
     public async loadAll() {
         await this.loadClientOptions();
         await this.loadWorlds();

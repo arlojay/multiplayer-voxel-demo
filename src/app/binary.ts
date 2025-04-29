@@ -1,6 +1,8 @@
 const textEncoder = new TextEncoder;
 const textDecoder = new TextDecoder;
 
+export const CHAR = textEncoder.encode("A").byteLength;
+
 
 export const U8 = 1;
 export const I8 = 1;
@@ -71,8 +73,8 @@ export class BinaryBuffer {
         return size + U32;
     }
     public static stringByteCount(size: number | string) {
-        if(typeof size == "string") return size.length + U32;
-        return size + U32;
+        if(typeof size == "string") return size.length + CHAR;
+        return size + CHAR;
     }
 
     public read_u8() {
@@ -145,23 +147,23 @@ export class BinaryBuffer {
         return this.view.setUint8((this.index += 1) - 1, value ? 0xff : 0x00);
     }
 
-    public read_buffer() {
-        const length = this.view.getUint32((this.index += 4) - 4, this.littleEndian);
-        return this.buffer.slice(this.index, this.index += length);
+    public read_buffer(length = -1) {
+        const byteLength = this.view.getUint32((this.index += 4) - 4, this.littleEndian);
+        return this.buffer.slice(this.index, this.index += byteLength);
     }
-    public write_buffer(buffer: ArrayBuffer | Uint8Array) {
-        this.view.setUint32(this.index, buffer.byteLength, this.littleEndian);
+    public write_buffer(buffer: ArrayBuffer | Uint8Array, length = buffer.byteLength) {
+        this.view.setUint32(this.index, length, this.littleEndian);
         if(buffer instanceof Uint8Array) {
-            this.array.set(buffer, this.index + 4);
+            this.array.set(buffer.slice(0, length), this.index + 4);
         } else {
-            this.array.set(new Uint8Array(buffer), this.index + 4);
+            this.array.set(new Uint8Array(buffer.slice(0, length)), this.index + 4);
         }
-        this.index += buffer.byteLength + 4;
+        this.index += length + 4;
     }
-    public read_string() {
-        return textDecoder.decode(this.read_buffer());
+    public read_string(length = -1) {
+        return textDecoder.decode(this.read_buffer(length * CHAR));
     }
-    public write_string(value: string) {
-        this.write_buffer(textEncoder.encode(value));
+    public write_string(value: string, length = value.length) {
+        this.write_buffer(textEncoder.encode(length != value.length ? value.slice(0, length) : value));
     }
 }

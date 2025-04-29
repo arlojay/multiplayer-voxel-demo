@@ -10,11 +10,13 @@ import { ServerUI } from "./serverUI";
 import { UIContainer } from "../ui";
 import { PlayerBreakBlockEvent, PlayerMoveEvent, PlayerPlaceBlockEvent } from "./pluginEvents";
 import { World } from "../world";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
     "disconnected": (cause: string) => void;
     "packet": (packet: Packet) => void;
+    "clientready": (packet: ClientReadyPacket) => void;
 }
 
 export class TimedOutError extends Error {
@@ -33,6 +35,8 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     private onPingResponse: () => void = null;
     private lastPacketReceived: Map<number, number> = new Map;
     private visiblePeers: Set<ServerPeer> = new Set;
+    public username = "anonymous";
+    public color = "#ffffff";
 
 
     constructor(connection: MessagePortConnection, server: Server) {
@@ -204,6 +208,11 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
         }
+        if(packet instanceof ClientReadyPacket) {
+            this.username = packet.username;
+            this.color = packet.color;
+            this.emit("clientready", packet);
+        }
 
         
         this.emit("packet", packet);
@@ -348,7 +357,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         if(peer == this) return;
         if(this.visiblePeers.has(peer)) return;
 
-        const joinPacket = new PlayerJoinPacket(peer.player);
+        const joinPacket = new PlayerJoinPacket(peer);
         joinPacket.player = peer.id;
         this.visiblePeers.add(peer);
 
