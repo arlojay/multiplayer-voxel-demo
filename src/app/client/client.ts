@@ -92,7 +92,6 @@ export class Client extends TypedEmitter<ClientEvents> {
         const serverSession = new ServerSession(this);
         await serverSession.connect(id);
         
-        this.gameRenderer.setWorld(serverSession.localWorld);
         this.serverSession = serverSession;
 
         this.playerController.setPointerLocked(true);
@@ -110,7 +109,7 @@ export class Client extends TypedEmitter<ClientEvents> {
             this.gameRenderer.setWorld(world);
         })
 
-        this.gameRenderer.scene.clear();
+        this.gameRenderer.setWorld(serverSession.localWorld);
 
         return serverSession;
     }
