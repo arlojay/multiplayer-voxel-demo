@@ -26,6 +26,10 @@ export class GameData {
             mouseSensitivity: 0.3,
             invertY: false
         },
+        customization: {
+            username: "player-" + Math.random().toString().slice(2),
+            color: "#" + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0")
+        },
         viewDistance: 4
     };
     public worlds: Map<number, WorldDescriptor> = new Map;
@@ -164,6 +168,13 @@ export class GameData {
         for(const prop of request.result) {
             this.worlds.set(prop.id, prop);
         }
+    }
+
+    public async setPlayerUsername(username: string) {
+
+    }
+    public async setPlayerColor(color: string) {
+        
     }
 
     public async loadAll() {

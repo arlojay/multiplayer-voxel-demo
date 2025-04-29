@@ -1,7 +1,8 @@
-import { Client } from "./app/client/client";
+import { Client, getClient } from "./app/client/client";
 import { ServerSession } from "./app/client/serverSession";
 import { WorldDescriptor } from "./app/gameData";
 import { debugLog } from "./app/logging";
+import { ClientReadyPacket } from "./app/packet/clientReadyPacket";
 import { ServerManager, ServerPeerError } from "./app/server/serverManager";
 import "./style.css";
 
@@ -73,7 +74,7 @@ async function main() {
 
             await client.gameData.createWorld(worldName, databaseName);
             
-            const connection = await connectToServer(server.id);
+            const connection = await connectToServer(server.id, getConnectionOptions());
             connection.addListener("disconnected", () => {
                 server.close();
             });
@@ -103,7 +104,7 @@ async function main() {
         localStorage.setItem("lastserver", serverId);
 
         try {
-            await connectToServer(serverId);
+            await connectToServer(serverId, getConnectionOptions());
 
             gameSelect.classList.remove("visible");
             gameRoot.classList.remove("hidden");
@@ -125,8 +126,27 @@ async function main() {
     await client.login(clientId);
     await updateWorldListScreen();
 }
-    
-async function connectToServer(id: string) {
+
+function saveConnectionOptions() {
+    const gameData = getClient().gameData;
+
+    gameData.setPlayerUsername((document.querySelector("#player-username") as HTMLInputElement).value);
+    gameData.setPlayerColor((document.querySelector("#player-color") as HTMLInputElement).value);
+}
+
+function getConnectionOptions(): ConnectionOptions {
+    return {
+        username: (document.querySelector("#player-username") as HTMLInputElement).value,
+        color: (document.querySelector("#player-color") as HTMLInputElement).value
+    }
+}
+
+export interface ConnectionOptions {
+    username: string;
+    color: string;
+}
+
+async function connectToServer(id: string, connectionOptions: ConnectionOptions) {
     const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
 
     gameSelect.classList.remove("visible");
@@ -136,6 +156,10 @@ async function connectToServer(id: string) {
         gameSelect.classList.add("visible");
         gameRoot.classList.add("hidden");
     })
+
+    const readyPacket = new ClientReadyPacket();
+    readyPacket.username = connectionOptions.username;
+    serverSession.sendPacket(readyPacket);
     
     loadChunks(serverSession);
     return serverSession;
@@ -205,7 +229,7 @@ async function updateWorldListScreen() {
                 worldSelect.classList.remove("visible");
                 server = await createServer(worldDescriptor);
                 
-                const connection = await connectToServer(server.id);
+                const connection = await connectToServer(server.id, getConnectionOptions());
                 connection.addListener("disconnected", () => {
                     server.close();
                 });

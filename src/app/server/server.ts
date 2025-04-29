@@ -114,9 +114,9 @@ export class Server extends EventPublisher {
         this.errorPort = connection.errorPort;
         
         const world = this.worlds.get(this.defaultWorldName);
-        peer.player.setWorld(world);
-
         this.peers.set(peer.id, peer);
+
+        peer.player.setWorld(world);
 
         const joinEvent = new PlayerJoinEvent(this);
         joinEvent.peer = peer;
@@ -138,6 +138,9 @@ export class Server extends EventPublisher {
             });
         })
 
+        // Send join messages
+        peer.sendToWorld(world);
+
         connection.addListener("data", data => {
             try {
                 if(data instanceof ArrayBuffer) {
@@ -148,20 +151,6 @@ export class Server extends EventPublisher {
                 peer.kick(e.message);
             }
         });
-
-        const joinPacket = new PlayerJoinPacket(peer.player);
-        joinPacket.player = peer.id;
-
-        for(const otherId of this.peers.keys()) {
-            const otherPeer = this.peers.get(otherId);
-            if(otherPeer == peer) continue;
-
-            const otherJoinPacket = new PlayerJoinPacket(otherPeer.player);
-            otherJoinPacket.player = otherId;
-
-            peer.sendPacket(otherJoinPacket, true);
-            otherPeer.sendPacket(joinPacket, true);
-        }
 
         peer.addListener("disconnected", (cause) => {
             this.handleDisconnection(peer, cause);
@@ -179,10 +168,10 @@ export class Server extends EventPublisher {
         this.emit(event);
 
         this.peers.delete(peer.id);
-        
-        const leavePacket = new PlayerLeavePacket;
-        leavePacket.player = peer.id;
-        this.broadcastPacket(leavePacket, null, true);
+
+        for(const otherPeer of this.peers.values()) {
+            otherPeer.hidePeer(peer);
+        }
     }
 
     public broadcastPacket(packet: Packet, world?: World, instant: boolean = false) {

@@ -3,5 +3,9 @@ export interface ClientOptions {
         mouseSensitivity: number;
         invertY: boolean;
     },
+    customization: {
+        username: string;
+        color: string;
+    },
     viewDistance: number;
 }

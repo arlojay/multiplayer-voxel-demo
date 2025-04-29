@@ -112,14 +112,16 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof PlayerMovePacket && !this.isPacketOld(packet)) {
             const player = this.players.get(packet.player);
-            if(player == null) throw new ReferenceError("Player " + packet.player + " does not exist");
+            if(player == null) {
+                console.warn("Cannot move player " + packet.player + " as they do not exist");
+            } else {
+                player.position.set(packet.x, packet.y, packet.z);
+                player.velocity.set(packet.vx, packet.vy, packet.vz);
+                player.yaw = packet.yaw;
+                player.pitch = packet.pitch;
 
-            player.position.set(packet.x, packet.y, packet.z);
-            player.velocity.set(packet.vx, packet.vy, packet.vz);
-            player.yaw = packet.yaw;
-            player.pitch = packet.pitch;
-
-            player.resetTimer();
+                player.resetTimer();
+            }
         }
         if(packet instanceof PlayerJoinPacket) {
             const remotePlayer = new RemotePlayer(packet.player);
@@ -135,11 +137,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof PlayerLeavePacket) {
             const player = this.players.get(packet.player);
-            if(player == null) throw new ReferenceError("Player " + packet.player + " does not exist");
-
-            this.emit("playerleave", player);
-            this.players.delete(packet.player);
-            debugLog("Player " + packet.player + " left the game");
+            if(player == null) {
+                console.warn("Cannot remove nonexistent player " + packet.player);
+            } else {
+                this.emit("playerleave", player);
+                this.players.delete(packet.player);
+                debugLog("Player " + packet.player + " left the game");
+            }
         }
         if(packet instanceof PingPacket && !this.isPacketOld(packet)) {
             const responsePacket = new PingResponsePacket();

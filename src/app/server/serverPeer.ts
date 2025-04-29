@@ -1,7 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerMovePacket, SetBlockPacket } from "../packet";
+import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
@@ -32,6 +32,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public ping: number = 0;
     private onPingResponse: () => void = null;
     private lastPacketReceived: Map<number, number> = new Map;
+    private visiblePeers: Set<ServerPeer> = new Set;
 
 
     constructor(connection: MessagePortConnection, server: Server) {
@@ -331,5 +332,36 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public sendToWorld(world: World) {
         this.player.setWorld(world);
         this.sendPacket(new ChangeWorldPacket(world));
+
+        for(const otherPeer of this.server.peers.values()) {
+            if(otherPeer.player.world == this.player.world) {
+                this.showPeer(otherPeer);
+                otherPeer.showPeer(this);
+            } else {
+                this.hidePeer(otherPeer);
+                otherPeer.hidePeer(this);
+            }
+        }
+    }
+
+    public showPeer(peer: ServerPeer) {
+        if(peer == this) return;
+        if(this.visiblePeers.has(peer)) return;
+
+        const joinPacket = new PlayerJoinPacket(peer.player);
+        joinPacket.player = peer.id;
+        this.visiblePeers.add(peer);
+
+        this.sendPacket(joinPacket);
+    }
+    public hidePeer(peer: ServerPeer) {
+        if(peer == this) return;
+        if(!this.visiblePeers.has(peer)) return;
+
+        const leavePacket = new PlayerLeavePacket();
+        leavePacket.player = peer.id;
+        this.visiblePeers.delete(peer);
+
+        this.sendPacket(leavePacket);
     }
 }
