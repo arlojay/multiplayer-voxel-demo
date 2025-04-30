@@ -16,16 +16,16 @@ export class OpenUIPacket extends Packet {
     }
 
     protected serialize(bin: BinaryBuffer): void {
-        bin.write_string(JSON.stringify(this.ui));
+        bin.write_json(this.ui);
         bin.write_string(this.interfaceId);
     }
     protected deserialize(bin: BinaryBuffer): void {
-        this.ui = JSON.parse(bin.read_string());
+        this.ui = bin.read_json();
         this.interfaceId = bin.read_string();
     }
     protected getExpectedSize(): number {
         return (
-            BinaryBuffer.stringByteCount(JSON.stringify(this.ui)) +
+            BinaryBuffer.jsonByteCount(this.ui) +
             BinaryBuffer.stringByteCount(this.interfaceId)
         );
     }

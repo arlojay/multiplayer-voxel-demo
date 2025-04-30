@@ -1,3 +1,5 @@
+import { BSON, Document as BSONDocument } from "bson";
+
 const textEncoder = new TextEncoder;
 const textDecoder = new TextDecoder;
 
@@ -74,6 +76,9 @@ export class BinaryBuffer {
     public static stringByteCount(size: number | string) {
         if(typeof size == "string") return size.length + U32;
         return size + U32;
+    }
+    public static jsonByteCount(data: BSONDocument) {
+        return this.bufferByteCount(BSON.serialize(data).buffer as ArrayBuffer); // 🤫...
     }
 
     public read_u8() {
@@ -181,5 +186,11 @@ export class BinaryBuffer {
     }
     public write_charseq(chars: string) {
         this.write_seq(textEncoder.encode(chars));
+    }
+    public write_json(data: BSONDocument) {
+        return this.write_buffer(BSON.serialize(data));
+    }
+    public read_json(): any {
+        return BSON.deserialize(new Uint8Array(this.read_buffer()));
     }
 }

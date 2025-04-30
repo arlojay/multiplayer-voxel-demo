@@ -1,4 +1,5 @@
 import { HAS_DOCUMENT_ACCESS } from ".";
+import { UIEventBinder } from "./UIEventBinder";
 
 export interface SerializedUIElement {
     type: string;
@@ -32,23 +33,20 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public abstract type: UIElementRegistryKey;
     public element: HTMLElement;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
+    public parent: UIElement;
+    protected eventBinder: UIEventBinder = new UIEventBinder;
 
     protected abstract buildElement(): Promise<HTMLElement>;
-    protected cleanupElement(element: HTMLElement) {
-
-    }
 
 
 
     public async update() {
         if(HAS_DOCUMENT_ACCESS) {
-            if(this.element != null) {
-                this.cleanupElement(this.element);
-            }
             const element = await this.buildElement();
             if(element == null) throw new ReferenceError("Built element must not be null");
             
             if(this.element != null) this.element.replaceWith(element);
+            this.eventBinder.setElement(element);
             this.element = element;
             
             for(const prop in this.style) {
@@ -67,5 +65,8 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     }
     public deserialize(data: SerializedData) {
         Object.assign(this.style, data.style);
+    }
+    public handleEvent(event: string, data?: any) {
+        this.parent?.handleEvent(event, data);
     }
 }

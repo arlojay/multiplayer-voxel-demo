@@ -187,11 +187,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     private showUI(ui: NetworkUI) {
         this.client.gameRenderer.showUI(ui.root);
-        ui.addListener("interaction", (path, interaction) => {
+        ui.addListener("interaction", (path, interaction, data) => {
             const packet = new UIInteractionPacket();
             packet.interfaceId = ui.id;
             packet.path = path;
             packet.interaction = interaction;
+            packet.data = data ?? {};
             this.sendPacket(packet);
         });
     }
@@ -204,8 +205,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public sendPacket(packet: Packet) {
+        // console.log("send packet", packet);
         const buffer = new ArrayBuffer(packet.getBufferSize());
         packet.write(new BinaryBuffer(buffer));
+        // console.log(new Uint8Array(buffer));
         this.serverConnection.send(buffer);
     }
 

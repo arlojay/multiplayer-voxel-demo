@@ -3,27 +3,22 @@ import { SerializedUIElement, UIElement } from "./UIElement";
 export interface SerializedUIContainer extends SerializedUIElement {
     elements: SerializedUIElement[];
 }
-export class UIContainer extends UIElement<SerializedUIContainer> {
-    public static type = UIElement.register("ctnr", () => new this);
-    public type = UIContainer.type;
-
+export abstract class UIContainer<SerializedData extends SerializedUIContainer = SerializedUIContainer> extends UIElement<SerializedData> {
     public elements: Set<UIElement> = new Set;
 
-    async buildElement(): Promise<HTMLElement> {
-        const element = document.createElement("div");
-
+    protected async appendContainerElements(element: HTMLElement) {
         const builtElements = await Promise.all(this.elements.values().map(v => v.update()));
         element.append(...builtElements);
-
-        return element;
     }
 
     public async addElement(element: UIElement) {
         this.elements.add(element);
+        element.parent = this;
         await this.update();
     }
     public async removeElement(element: UIElement) {
         this.elements.delete(element);
+        element.parent = null;
         await this.update();
     }
 
@@ -32,7 +27,7 @@ export class UIContainer extends UIElement<SerializedUIContainer> {
         data.elements = this.elements.values().map(el => el.serialize()).toArray();
         return data;
     }
-    public deserialize(data: SerializedUIContainer): void {
+    public deserialize(data: SerializedData): void {
         super.deserialize(data);
         this.elements.clear();
 

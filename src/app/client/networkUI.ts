@@ -1,12 +1,13 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { SerializedUIContainer, UIButton, UIContainer, UIElement } from "../ui";
+import { SerializedUIContainer, UIButton, UIContainer, UIElement, UIForm } from "../ui";
 
 export enum UIInteractions {
-    CLICK
+    CLICK,
+    SUBMIT
 }
 
 export class NetworkUI extends TypedEmitter<{
-    interaction: (path: number[], interaction: number) => void;
+    interaction: (path: number[], interaction: number, data?: any) => void;
 }> {
     public root: UIContainer;
     public id: string;
@@ -28,6 +29,13 @@ export class NetworkUI extends TypedEmitter<{
             const path = this.root.getPathOfElement(button);
             button.onClick(() => {
                 this.emit("interaction", path, UIInteractions.CLICK);
+            });
+        }
+        for(const form of this.root.getAllElementsOfType(UIForm)) {
+            const path = this.root.getPathOfElement(form);
+            form.onSubmit(() => {
+                const data = form.getData();
+                this.emit("interaction", path, UIInteractions.SUBMIT, data);
             });
         }
     }

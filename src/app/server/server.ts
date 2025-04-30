@@ -1,4 +1,4 @@
-import { ServerPeer } from "./serverPeer";
+import { ServerPeer, TimedOutError } from "./serverPeer";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
 import { Color } from "three";
@@ -120,6 +120,17 @@ export class Server extends EventPublisher {
 
         peer.player.setWorld(world);
 
+        connection.addListener("data", data => {
+            try {
+                if(data instanceof ArrayBuffer) {
+                    peer.handlePacket(data);
+                }
+            } catch(e) {
+                console.error(e);
+                peer.kick(e.message);
+            }
+        });
+
         const [_, clientReadyPacket] = await Promise.all([
             new Promise<void>((res, rej) => {
                 connection.once("open", () => res());
@@ -132,7 +143,7 @@ export class Server extends EventPublisher {
                 peer.once("clientready", packet => res(packet));
     
                 setTimeout(() => {
-                    rej(new Error("Connection timed out while handshaking"))
+                    rej(new TimedOutError("Connection timed out while handshaking"))
                 }, 5000);
             })
         ]);
@@ -156,17 +167,6 @@ export class Server extends EventPublisher {
 
         // Send join messages
         peer.sendToWorld(world);
-
-        connection.addListener("data", data => {
-            try {
-                if(data instanceof ArrayBuffer) {
-                    peer.handlePacket(data);
-                }
-            } catch(e) {
-                console.error(e);
-                peer.kick(e.message);
-            }
-        });
 
         peer.addListener("disconnected", (cause) => {
             this.handleDisconnection(peer, cause);

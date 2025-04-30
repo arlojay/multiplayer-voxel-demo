@@ -1,10 +1,10 @@
 import { World } from "src/app/world";
-import { UIButton, UIContainer, UIText } from "../../../ui";
+import { UIButton, UIForm, UISection, UIText, UITextInput } from "../../../ui";
+import { WorldGenerator } from "../../../worldGenerator";
 import { Subscribe } from "../../events";
 import { PlayerJoinEvent, PluginEvents, ServerLoadedEvent } from "../../pluginEvents";
-import { ServerPlugin } from "../../serverPlugin";
-import { WorldGenerator } from "../../../worldGenerator";
 import { ServerPeer } from "../../serverPeer";
+import { ServerPlugin } from "../../serverPlugin";
 
 export class Freebuild extends ServerPlugin {
     private world: World;
@@ -22,7 +22,7 @@ export class Freebuild extends ServerPlugin {
         event.player.setWorld(this.world);
         event.player.respawn();
         
-        const ui = new UIContainer;
+        const ui = new UISection;
         ui.style.alignSelf = "start";
         ui.style.justifySelf = "end";
 
@@ -43,10 +43,19 @@ export class Freebuild extends ServerPlugin {
         });
 
         this.createWorldSwitcherUI(event.peer);
+
+        const chatUI = new UISection;
+        const chatLogs = new UISection;
+        const chats: UIText[] = new Array;
+        const chatForm = new UIForm;
+        const chatInput = new UITextInput;
+        const chatSubmit = new UIButton;
+        
+
     }
 
     private createWorldSwitcherUI(peer: ServerPeer) {
-        const ui = new UIContainer;
+        const ui = new UIForm;
         ui.style.alignSelf = "start";
         ui.style.justifySelf = "end";
         ui.style.marginTop = "1.5rem";
