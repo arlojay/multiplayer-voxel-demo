@@ -163,17 +163,12 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
     const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
 
     gameSelect.classList.remove("visible");
-    const serverSession = await Client.instance.connect("server-" + id.toUpperCase() + "-mvd");
+    const serverSession = await Client.instance.connect("server-" + id.toUpperCase() + "-mvd", connectionOptions);
     serverSession.addListener("disconnected", (reason) => {
         document.querySelector("#join-game .connect-error").textContent = "Kicked from server: " + reason;
         gameSelect.classList.add("visible");
         gameRoot.classList.add("hidden");
     })
-
-    const readyPacket = new ClientReadyPacket();
-    readyPacket.username = connectionOptions.username;
-    readyPacket.color = connectionOptions.color;
-    serverSession.sendPacket(readyPacket);
     
     loadChunks(serverSession);
     return serverSession;

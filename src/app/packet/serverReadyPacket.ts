@@ -1,9 +1,9 @@
 import { BinaryBuffer, CHAR } from "../binary";
 import { Packet } from "./packet";
 
-export class ClientReadyPacket extends Packet {
+export class ServerReadyPacket extends Packet {
     public static id = Packet.register(() => new this);
-    public id = ClientReadyPacket.id;
+    public id = ServerReadyPacket.id;
 
     public username: string;
     public color: string;

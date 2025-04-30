@@ -12,6 +12,7 @@ import { LocalPlayer } from "./localPlayer";
 import { RemotePlayer } from "./remotePlayer";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { NetworkUI } from "../client/networkUI";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -125,16 +126,19 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof PlayerJoinPacket) {
             const remotePlayer = new RemotePlayer(packet.player);
-            remotePlayer
+            remotePlayer.username = packet.username;
+            remotePlayer.color = packet.color;
             remotePlayer.position.set(packet.x, packet.y, packet.z);
             remotePlayer.velocity.set(packet.vx, packet.vy, packet.vz);
             remotePlayer.yaw = packet.yaw;
             remotePlayer.pitch = packet.pitch;
             remotePlayer.setWorld(this.localWorld);
-            this.players.set(packet.player, remotePlayer);
-            debugLog("Player " + packet.player + " joined the game");
-
-            this.emit("playerjoin", remotePlayer);
+            
+            remotePlayer.createModel().then(() => {
+                this.players.set(packet.player, remotePlayer);
+                debugLog("Player " + packet.player + " joined the game");
+                this.emit("playerjoin", remotePlayer);
+            })
         }
         if(packet instanceof PlayerLeavePacket) {
             const player = this.players.get(packet.player);
@@ -172,6 +176,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof ChangeWorldPacket) {
             this.resetLocalWorld();
+        }
+        if(packet instanceof ServerReadyPacket) {
+            this.player.username = packet.username;
+            this.player.color = packet.color;
         }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);

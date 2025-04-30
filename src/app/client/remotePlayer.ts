@@ -29,29 +29,22 @@ export class RemotePlayer extends RemoteEntity {
     public mesh: Object3D = new Object3D;
     public id: string;
     public skin: SkinnedMesh;
+    public username = "anonymous";
+    public color = "#ffffff";
 
     public constructor(id: string) {
         super();
         this.id = id;
-
-
-        const size = new Vector3;
-        this.hitbox.getSize(size);
-
-        const center = new Vector3;
-        this.hitbox.getCenter(center);
-
-        this.finishModel();
     }
 
-    private async finishModel() {
+    public async createModel() {
         const player = await loader.loadAsync("assets/models/player.glb");;
         const object = player.scene.children[0];
         this.skin = object.children[0] as SkinnedMesh;
         
         this.mesh.add(object);
 
-        const color = new Color(simpleHash(this.id) & 0xffffff);
+        const color = new Color(this.color);
 
 
         const material = new MeshBasicNodeMaterial();

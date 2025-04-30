@@ -9,6 +9,8 @@ import { PlayerJoinEvent, PlayerLeaveEvent, ServerLoadedEvent, ServerPreinitEven
 import { EventPublisher } from "./events";
 import { ServerPlugin } from "./serverPlugin";
 import { WorldGenerator } from "../worldGenerator";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
 
 export interface ServerOptions {
     worldName?: string;
@@ -118,20 +120,22 @@ export class Server extends EventPublisher {
 
         peer.player.setWorld(world);
 
-        await new Promise<void>((res, rej) => {
-            connection.once("open", () => res());
-            connection.once("error", e => {
-                this.handleDisconnection(peer, e);
-                rej(e);
-            });
-        });
-        await new Promise((res, rej) => {
-            peer.once("clientready", packet => res(packet));
-
-            setTimeout(() => {
-                rej(new Error("Connection timed out while handshaking"))
-            }, 5000);
-        });
+        const [_, clientReadyPacket] = await Promise.all([
+            new Promise<void>((res, rej) => {
+                connection.once("open", () => res());
+                connection.once("error", e => {
+                    this.handleDisconnection(peer, e);
+                    rej(e);
+                });
+            }),
+            new Promise<ClientReadyPacket>((res, rej) => {
+                peer.once("clientready", packet => res(packet));
+    
+                setTimeout(() => {
+                    rej(new Error("Connection timed out while handshaking"))
+                }, 5000);
+            })
+        ]);
 
         const joinEvent = new PlayerJoinEvent(this);
         joinEvent.peer = peer;
@@ -144,6 +148,11 @@ export class Server extends EventPublisher {
             this.peers.delete(peer.id);
             return;
         }
+
+        const serverReadyPacket = new ServerReadyPacket();
+        serverReadyPacket.username = clientReadyPacket.username;
+        serverReadyPacket.color = clientReadyPacket.color;
+        peer.sendPacket(serverReadyPacket);
 
         // Send join messages
         peer.sendToWorld(world);

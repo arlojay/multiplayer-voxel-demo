@@ -22,3 +22,6 @@ export * from "./openUIPacket";
 export * from "./closeUIPacket";
 export * from "./UIInteractionPacket";
 export * from "./updateUIPacket";
+
+export * from "./clientReadyPacket";
+export * from "./serverReadyPacket";

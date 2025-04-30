@@ -8,6 +8,8 @@ import { debugLog } from "../logging";
 import { GameData } from "../gameData";
 import { AudioManager } from "../sound/soundManager";
 import { ClientSounds } from "./clientSounds";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { ClientCustomizationOptions } from "../controlOptions";
 
 interface ClientEvents {
     "login": () => void;
@@ -83,7 +85,7 @@ export class Client extends TypedEmitter<ClientEvents> {
         debugLog("Connected to the internet");
     }
 
-    public async connect(id: string): Promise<ServerSession> {
+    public async connect(id: string, connectionOptions: ClientCustomizationOptions): Promise<ServerSession> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
 
         await this.waitForLogin();
@@ -110,6 +112,13 @@ export class Client extends TypedEmitter<ClientEvents> {
         })
 
         this.gameRenderer.setWorld(serverSession.localWorld);
+    
+        const readyPacket = new ClientReadyPacket();
+        readyPacket.username = connectionOptions.username;
+        readyPacket.color = connectionOptions.color;
+        serverSession.sendPacket(readyPacket);
+    
+        console.log(readyPacket);
 
         return serverSession;
     }

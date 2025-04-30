@@ -209,6 +209,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             if(this.onPingResponse != null) this.onPingResponse();
         }
         if(packet instanceof ClientReadyPacket) {
+            console.log(packet);
             this.username = packet.username;
             this.color = packet.color;
             this.emit("clientready", packet);
