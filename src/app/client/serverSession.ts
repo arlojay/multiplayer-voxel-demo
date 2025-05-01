@@ -4,7 +4,7 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket, ChangeWorldPacket } from "../packet";
+import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket, ChangeWorldPacket, RemoveUIElementPacket, InsertUIElementPacket } from "../packet";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { World } from "../world";
 import { Client } from "./client";
@@ -13,6 +13,7 @@ import { RemotePlayer } from "./remotePlayer";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { NetworkUI } from "../client/networkUI";
 import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { UIElement } from "../ui";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -173,6 +174,14 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof CloseUIPacket) {
             this.hideUI(packet.interfaceId);
+        }
+        if(packet instanceof RemoveUIElementPacket) {
+            const ui = this.interfaces.get(packet.interfaceId);
+            ui?.removeElement(packet.path);
+        }
+        if(packet instanceof InsertUIElementPacket) {
+            const ui = this.interfaces.get(packet.interfaceId);
+            ui?.insertElement(packet.path, UIElement.deserialize(packet.element));
         }
         if(packet instanceof ChangeWorldPacket) {
             this.resetLocalWorld();

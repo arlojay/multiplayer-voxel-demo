@@ -1,16 +1,12 @@
 import { UIContainer } from "./UIContainer";
 import { UIElement } from "./UIElement";
 
-export interface FormContribution {
-    name: string;
-    value: string;
-}
-
 export interface UIFormContributor {
-    getFormContribution(): FormContribution;
+    getFormContributionValue(): string;
+    setFormContributionValue(value: string): void;
 }
 function isUIFormContributor(element: any): element is UIFormContributor {
-    return "getFormContribution" in element;
+    return "getFormContributionValue" in element && "setFormContributionValue" in element;
 }
 
 export class UIForm extends UIContainer {
@@ -32,15 +28,29 @@ export class UIForm extends UIContainer {
         });
     }
 
+    public submit(data: Record<string, string>) {
+        this.loadData(data);
+        this.eventBinder.call("submit");
+    }
+
     public getData(): Record<string, string> {
         const data: Record<string, string> = {};
         for(const element of this.getAllElements()) {
             if(isUIFormContributor(element)) {
-                const contribution = element.getFormContribution();
-                data[contribution.name] = contribution.value;
+                const path = this.getPathOfElement(element).join(".");
+                data[path] = element.getFormContributionValue();
             }
         }
         return data;
+    }
+
+    public loadData(data: Record<string, string>) {
+        for(const element of this.getAllElements()) {
+            if(isUIFormContributor(element)) {
+                const key = this.getPathOfElement(element).join(".");
+                if(key in data) element.setFormContributionValue(data[key]);
+            }
+        }
     }
 
     public handleEvent(event: string, data?: any): void {

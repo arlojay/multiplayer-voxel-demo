@@ -39,4 +39,11 @@ export class NetworkUI extends TypedEmitter<{
             });
         }
     }
+
+    public removeElement(path: number[]) {
+        this.root.removeElementByPath(path);
+    }
+    public insertElement(path: number[], element: UIElement) {
+        this.root.addElementAtPath(path, element);
+    }
 }

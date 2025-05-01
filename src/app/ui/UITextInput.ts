@@ -1,14 +1,16 @@
 import { SerializedUIElement, UIElement } from "./UIElement";
+import { UIFormContributor } from "./UIForm";
 
 export interface SerializedUITextInput extends SerializedUIElement {
     placeholder: string;
     value: string;
 }
-export class UITextInput extends UIElement<SerializedUITextInput> {
+export class UITextInput extends UIElement<SerializedUITextInput> implements UIFormContributor {
     public static type = UIElement.register("itxt", () => new this);
     public type = UITextInput.type;
 
     
+    public name: string = "";
     public placeholder: string = "";
     public value: string = "";
 
@@ -16,6 +18,12 @@ export class UITextInput extends UIElement<SerializedUITextInput> {
         super();
         if(placeholder != null) this.placeholder = placeholder;
         if(value != null) this.value = value;
+    }
+    getFormContributionValue(): string {
+        return this.value;
+    }
+    setFormContributionValue(value: string): void {
+        this.value = value;
     }
 
     protected async buildElement(): Promise<HTMLElement> {

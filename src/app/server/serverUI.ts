@@ -1,7 +1,7 @@
-import { CloseUIPacket, Packet, OpenUIPacket, UIInteractionPacket } from "../packet";
+import { CloseUIPacket, Packet, OpenUIPacket, UIInteractionPacket, RemoveUIElementPacket, InsertUIElementPacket } from "../packet";
 import { UIInteractions } from "../client/networkUI";
 import { ServerPeer } from "./serverPeer";
-import { UIButton, UIContainer } from "../ui";
+import { UIButton, UIContainer, UIElement, UIForm } from "../ui";
 import { $enum } from "ts-enum-util";
 
 export class ServerUI {
@@ -41,9 +41,22 @@ export class ServerUI {
             if(element instanceof UIButton) {
                 if(packet.interaction == UIInteractions.CLICK) return element.click();
             }
+            if(element instanceof UIForm) {
+                if(packet.interaction == UIInteractions.CLICK) return element.submit(packet.data);
+            }
 
             throw new Error("Invalid UI interaction (" + element?.constructor?.name + " cannot handle interaction " + $enum(UIInteractions).getKeyOrThrow(packet.interaction) + ")");
-        })
+        });
+        this.ui.setEventHandler("removeElement", (element: UIElement) => {
+            const path = this.ui.getPathOfElement(element);
+            const packet = new RemoveUIElementPacket(this.interfaceId, path);
+            this.peer.sendPacket(packet);
+        });
+        this.ui.setEventHandler("addElement", (element: UIElement) => {
+            const path = this.ui.getPathOfElement(element);
+            const packet = new InsertUIElementPacket(this.interfaceId, path, element);
+            this.peer.sendPacket(packet);
+        });
     }
 
     public destroy() {

@@ -1,4 +1,4 @@
-import { HAS_DOCUMENT_ACCESS } from ".";
+import { HAS_DOCUMENT_ACCESS, UIContainer } from ".";
 import { UIEventBinder } from "./UIEventBinder";
 
 export interface SerializedUIElement {
@@ -33,8 +33,9 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public abstract type: UIElementRegistryKey;
     public element: HTMLElement;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
-    public parent: UIElement;
+    public parent: UIContainer;
     protected eventBinder: UIEventBinder = new UIEventBinder;
+    private externalEventHandlers: Map<string, (data?: any) => boolean | void> = new Map;
 
     protected abstract buildElement(): Promise<HTMLElement>;
 
@@ -67,6 +68,21 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
         Object.assign(this.style, data.style);
     }
     public handleEvent(event: string, data?: any) {
+        if(this.externalEventHandlers.get(event)?.(data)) return;
         this.parent?.handleEvent(event, data);
+    }
+    public setEventHandler(event: string, handler: (data?: any) => boolean | void) {
+        this.externalEventHandlers.set(event, handler);
+    }
+    public getPathFrom(root: UIContainer) {
+        const path: number[] = [];
+        while(root != null && root != this.parent) {
+            path.push(root.getIndexOfChild(this));
+            root = root.parent;
+        }
+        if(root == null) return null;
+        
+        path.push(root.getIndexOfChild(this));
+        return path.reverse();
     }
 }

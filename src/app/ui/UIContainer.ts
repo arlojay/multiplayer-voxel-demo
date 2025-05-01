@@ -4,22 +4,68 @@ export interface SerializedUIContainer extends SerializedUIElement {
     elements: SerializedUIElement[];
 }
 export abstract class UIContainer<SerializedData extends SerializedUIContainer = SerializedUIContainer> extends UIElement<SerializedData> {
-    public elements: Set<UIElement> = new Set;
+    public elements: UIElement[] = new Array;
 
     protected async appendContainerElements(element: HTMLElement) {
         const builtElements = await Promise.all(this.elements.values().map(v => v.update()));
         element.append(...builtElements);
     }
 
-    public async addElement(element: UIElement) {
-        this.elements.add(element);
+    public async addChild(element: UIElement, index: number = this.elements.length) {
+        const removedElements = this.elements.splice(index);
+        this.elements.push(element);
+        for(const removedElement of removedElements) this.elements.push(removedElement);
+
         element.parent = this;
+        this.handleEvent("addElement", element);
         await this.update();
     }
-    public async removeElement(element: UIElement) {
-        this.elements.delete(element);
+    public async addElementAtPath(path: number[], element: UIElement): Promise<boolean> {
+        path = Array.from(path);
+        const index = path.shift();
+
+        if(path.length == 1) {
+            const element = this.elements[index];
+            await this.addChild(element, path.pop());
+            return true;
+        }
+        
+        const nextElement = this.elements[index];
+        if(nextElement instanceof UIContainer) {
+            return await nextElement.addElementAtPath(path, element);
+        }
+        return false;
+    }
+    public async removeChild(element: UIElement): Promise<boolean> {
+        const index = this.elements.indexOf(element);
+        if(index == -1) return false;
+
+        this.elements.splice(index, 1);
+
+        this.handleEvent("removeElement", element);
         element.parent = null;
+
         await this.update();
+
+        return true;
+    }
+    public async removeElementByPath(path: number[]): Promise<UIElement> {
+        path = Array.from(path);
+        const index = path.shift();
+
+        if(path.length == 0) {
+            const element = this.elements[index];
+            return await this.removeChild(element) ? element : null;
+        }
+        
+        const element = this.elements[index];
+        if(element instanceof UIContainer) {
+            return await element.removeElementByPath(path);
+        }
+        return null;
+    }
+    public getIndexOfChild(child: UIElement) {
+        return this.elements.indexOf(child);
     }
 
     public serialize() {
@@ -29,27 +75,28 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
     }
     public deserialize(data: SerializedData): void {
         super.deserialize(data);
-        this.elements.clear();
+        while(this.elements.length > 0) this.elements.pop();
 
         for(const element of data.elements) {
-            this.elements.add(UIElement.deserialize(element));
+            this.elements.push(UIElement.deserialize(element));
         }
     }
     public getElement(index: number) {
         return this.elements.values().find((_, i) => i == index);
     }
     public getPathOfElement(locatingElement: UIElement): number[] {
-        let i = 0;
-        for(const element of this.elements) {
-            if(element == locatingElement) {
-                return [i];
-            }
-            if(element instanceof UIContainer) {
-                const subResult = element.getPathOfElement(locatingElement);
-                if(subResult != null) return [i, ...subResult];
-            }
-            i++;
-        }
+        return locatingElement.getPathFrom(this);
+        // let i = 0;
+        // for(const element of this.elements) {
+        //     if(element == locatingElement) {
+        //         return [i];
+        //     }
+        //     if(element instanceof UIContainer) {
+        //         const subResult = element.getPathOfElement(locatingElement);
+        //         if(subResult != null) return [i, ...subResult];
+        //     }
+        //     i++;
+        // }
     }
     public getElementByPath(path: number[]): UIElement | null {
         if(path.length == 0) return this;
