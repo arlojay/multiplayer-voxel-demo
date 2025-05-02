@@ -78,7 +78,9 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
         while(this.elements.length > 0) this.elements.pop();
 
         for(const element of data.elements) {
-            this.elements.push(UIElement.deserialize(element));
+            const instance = UIElement.deserialize(element);
+            instance.parent = this;
+            this.elements.push(instance);
         }
     }
     public getElement(index: number) {

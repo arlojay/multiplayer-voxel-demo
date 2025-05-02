@@ -33,8 +33,7 @@ export class NetworkUI extends TypedEmitter<{
         }
         for(const form of this.root.getAllElementsOfType(UIForm)) {
             const path = this.root.getPathOfElement(form);
-            form.onSubmit(() => {
-                const data = form.getData();
+            form.onSubmit((data) => {
                 this.emit("interaction", path, UIInteractions.SUBMIT, data);
             });
         }

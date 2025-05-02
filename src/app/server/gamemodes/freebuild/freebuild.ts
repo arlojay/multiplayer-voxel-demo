@@ -14,7 +14,7 @@ interface ChatMessage {
 export class Freebuild extends ServerPlugin {
     private world: World;
     private privateWorlds: Map<ServerPeer, World> = new Map;
-    private messages: ChatMessage[];
+    private messages: ChatMessage[] = new Array;
     private chatUIs: Map<ServerPeer, UISection> = new Map;
 
     @Subscribe(PluginEvents.SERVER_LOADED)
@@ -57,7 +57,7 @@ export class Freebuild extends ServerPlugin {
         chatLogs.style.flexDirection = "column";
 
         for(const message of this.messages) {
-            const element = new UIText(message.text);
+            const element = new UIText(message.peer.username + ": " + message.text);
             chatLogs.addChild(element);
         }
 
@@ -76,8 +76,11 @@ export class Freebuild extends ServerPlugin {
         chatForm.onSubmit(() => {
             for(const ui of this.chatUIs.values()) {
                 const remoteChatLogs = ui.getElementByPath(chatUI.getPathOfElement(chatLogs)) as typeof chatLogs;
-                const element = new UIText(chatInput.value);
+                const messageText = event.peer.username + ": " + chatInput.value;
+                const element = new UIText(messageText);
                 remoteChatLogs.addChild(element);
+
+                this.messages.push({ peer: event.peer, text: messageText });
             }
         });
 

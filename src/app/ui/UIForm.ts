@@ -21,10 +21,11 @@ export class UIForm extends UIContainer {
         return element;
     }
 
-    public onSubmit(callback: () => void) {
+    public onSubmit(callback: (data: Record<string, string>) => void) {
         this.eventBinder.on("submit", (event?: Event) => {
             event?.preventDefault();
-            callback();
+            console.trace("get data");
+            callback(this.getData());
         });
     }
 
@@ -39,8 +40,10 @@ export class UIForm extends UIContainer {
             if(isUIFormContributor(element)) {
                 const path = this.getPathOfElement(element).join(".");
                 data[path] = element.getFormContributionValue();
+                console.log(element);
             }
         }
+        console.log(data);
         return data;
     }
 

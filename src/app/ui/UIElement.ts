@@ -10,6 +10,20 @@ class UIElementRegistryKey {
     name: string;
 }
 
+export class UIEvent {
+    public name: string;
+    public cancelled = false;
+    public data?: any;
+
+    constructor(name: string, data?: any) {
+        this.name = name;
+        this.data = data;
+    }
+    public cancel() {
+        this.cancelled = true;
+    }
+}
+
 export abstract class UIElement<SerializedData extends SerializedUIElement = SerializedUIElement> {
     private static registry: Map<string, () => UIElement> = new Map;
     public static register(id: string, factory: () => UIElement): UIElementRegistryKey {
@@ -67,22 +81,29 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public deserialize(data: SerializedData) {
         Object.assign(this.style, data.style);
     }
-    public handleEvent(event: string, data?: any) {
-        if(this.externalEventHandlers.get(event)?.(data)) return;
-        this.parent?.handleEvent(event, data);
+    public handleEvent(event: UIEvent) {
+        if(this.externalEventHandlers.get(event.name)?.(event.data)) return;
+        this.parent?.handleEvent(event);
     }
     public setEventHandler(event: string, handler: (data?: any) => boolean | void) {
         this.externalEventHandlers.set(event, handler);
     }
     public getPathFrom(root: UIContainer) {
         const path: number[] = [];
-        while(root != null && root != this.parent) {
-            path.push(root.getIndexOfChild(this));
-            root = root.parent;
+        let element: UIElement = this;
+
+        while(element.parent != null) {
+            const index = element.parent.getIndexOfChild(element);
+            if(index == -1) {
+                console.warn("Strangely detached element found while searching", element);
+                return null;
+            }
+            path.push(index);
+            if(element.parent == root) return path.reverse();
+
+            element = element.parent;
         }
-        if(root == null) return null;
         
-        path.push(root.getIndexOfChild(this));
-        return path.reverse();
+        return null;
     }
 }

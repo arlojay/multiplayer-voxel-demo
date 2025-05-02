@@ -1,4 +1,4 @@
-import { SerializedUIElement, UIElement } from "./UIElement";
+import { SerializedUIElement, UIElement, UIEvent } from "./UIElement";
 
 export interface SerializedUIButton extends SerializedUIElement {
     text: string;
@@ -23,8 +23,11 @@ export class UIButton extends UIElement<SerializedUIButton> {
     }
 
     public click() {
-        this.eventBinder.call("click");
-        this.parent?.handleEvent("trysubmit");
+        const trySubmit = new UIEvent("trysubmit");
+        this.parent?.handleEvent(trySubmit);
+        if(!trySubmit.cancelled) {
+            this.eventBinder.call("click");
+        }
     }
 
     public onClick(callback: () => void) {

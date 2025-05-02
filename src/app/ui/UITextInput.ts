@@ -20,10 +20,14 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
         if(value != null) this.value = value;
     }
     getFormContributionValue(): string {
-        return this.value;
+        console.log((this.element as HTMLInputElement)?.value);
+        return (this.element as HTMLInputElement)?.value ?? this.value;
     }
     setFormContributionValue(value: string): void {
         this.value = value;
+        if(this.element != null) {
+            (this.element as HTMLInputElement).value = value;
+        }
     }
 
     protected async buildElement(): Promise<HTMLElement> {
@@ -31,18 +35,20 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
         element.type = "text";
         element.placeholder = this.placeholder;
 
+        element.addEventListener("input", () => {
+            this.value = element.value;
+        })
+
         return element;
     }
 
     public onChange(callback: () => void) {
         this.eventBinder.on("change", (event?: Event) => {
-            event?.preventDefault();
             callback();
         });
     }
     public onInput(callback: () => void) {
         this.eventBinder.on("input", (event?: Event) => {
-            event?.preventDefault();
             callback();
         });
     }
