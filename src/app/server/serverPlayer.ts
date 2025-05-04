@@ -5,6 +5,7 @@ import { SetLocalPlayerPositionPacket } from "../packet";
 import { SOLID_BITMASK } from "../voxelGrid";
 import { World } from "../world";
 import { ServerPeer } from "./serverPeer";
+import { Server } from "./server";
 
 export class ServerPlayer extends RemoteEntity {
     public peer: ServerPeer;

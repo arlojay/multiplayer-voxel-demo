@@ -1,20 +1,22 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerMovePacket, SetBlockPacket } from "../packet";
+import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { ServerUI } from "./serverUI";
 import { UIContainer } from "../ui";
-import { PlayerBreakBlockEvent, PlayerMoveEvent, PlayerPlaceBlockEvent } from "./pluginEvents";
+import { BreakBlockEvent, PeerMoveEvent, PlaceBlockEvent } from "./pluginEvents";
 import { World } from "../world";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
     "disconnected": (cause: string) => void;
     "packet": (packet: Packet) => void;
+    "clientready": (packet: ClientReadyPacket) => void;
 }
 
 export class TimedOutError extends Error {
@@ -32,6 +34,10 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public ping: number = 0;
     private onPingResponse: () => void = null;
     private lastPacketReceived: Map<number, number> = new Map;
+    private visiblePeers: Set<ServerPeer> = new Set;
+    public authenticated = false;
+    public username = "anonymous";
+    public color = "#ffffff";
 
 
     constructor(connection: MessagePortConnection, server: Server) {
@@ -94,8 +100,33 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
 
+    private authenticate(packet: ClientReadyPacket) {
+        this.username = packet.username;
+        this.color = packet.color;
+
+        for(const peer of this.server.peers.values()) {
+            if(peer == this) continue;
+
+            if(peer.username == this.username) {
+                this.kick("Username taken");
+                return;
+            }
+        }
+
+        this.emit("clientready", packet);
+        this.authenticated = true;
+    }
+
     public handlePacket(data: ArrayBuffer) {
+        if(!this.connected) return;
+
         const packet = Packet.createFromBinary(data);
+
+        if(packet instanceof ClientReadyPacket) {
+            this.authenticate(packet);
+        } else if(!this.authenticated) {
+            throw new Error("Client not authenticated");
+        }
 
         if(packet instanceof GetChunkPacket) {
             this.server.loadChunk(this.player.world, packet.x, packet.y, packet.z).then(chunk => {
@@ -131,7 +162,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             }
 
             
-            const event = new PlayerMoveEvent(this.server);
+            const event = new PeerMoveEvent(this.server);
             event.peer = this;
             event.player = this.player;
             event.world = this.player.world;
@@ -162,7 +193,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             }
         }
         if(packet instanceof PlaceBlockPacket) {
-            const event = new PlayerPlaceBlockEvent(this.server);
+            const event = new PlaceBlockEvent(this.server);
             event.peer = this;
             event.player = this.player;
             event.world = this.player.world;
@@ -182,7 +213,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             }
         }
         if(packet instanceof BreakBlockPacket) {
-            const event = new PlayerBreakBlockEvent(this.server);
+            const event = new BreakBlockEvent(this.server);
             event.peer = this;
             event.player = this.player;
             event.world = this.player.world;
@@ -331,5 +362,36 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public sendToWorld(world: World) {
         this.player.setWorld(world);
         this.sendPacket(new ChangeWorldPacket(world));
+
+        for(const otherPeer of this.server.peers.values()) {
+            if(otherPeer.player.world == this.player.world) {
+                this.showPeer(otherPeer);
+                otherPeer.showPeer(this);
+            } else {
+                this.hidePeer(otherPeer);
+                otherPeer.hidePeer(this);
+            }
+        }
+    }
+
+    public showPeer(peer: ServerPeer) {
+        if(peer == this) return;
+        if(this.visiblePeers.has(peer)) return;
+
+        const joinPacket = new PlayerJoinPacket(peer);
+        joinPacket.player = peer.id;
+        this.visiblePeers.add(peer);
+
+        this.sendPacket(joinPacket);
+    }
+    public hidePeer(peer: ServerPeer) {
+        if(peer == this) return;
+        if(!this.visiblePeers.has(peer)) return;
+
+        const leavePacket = new PlayerLeavePacket();
+        leavePacket.player = peer.id;
+        this.visiblePeers.delete(peer);
+
+        this.sendPacket(leavePacket);
     }
 }

@@ -83,6 +83,10 @@ body {
     display: none;
 }
 
+#game {
+    background: #ff00ff;
+}
+
 #game:focus-visible {
     outline: none;
     border: none;
@@ -178,11 +182,11 @@ body {
 
     pointer-events: none;
 
-    div {
-        pointer-events: none;
-    }
-    :not(div) {
+    * {
         pointer-events: all;
+    }
+    & > div {
+        pointer-events: none;
     }
     
     & > * {

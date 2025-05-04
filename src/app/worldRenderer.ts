@@ -1,13 +1,13 @@
-import { Mesh, Scene } from "three";
+import { Mesh } from "three";
+import { BufferGeometry, Group, MaterialNode, MeshBasicNodeMaterial, Object3D } from "three/src/Three.WebGPU";
 import { CHUNK_BLOCK_INC_BYTE } from "./voxelGrid";
 import { VoxelMesher } from "./voxelMesher";
 import { Chunk, World } from "./world";
-import { BufferGeometry, MaterialNode, MeshBasicNodeMaterial, Object3D } from "three/src/Three.WebGPU";
 
 export class WorldRenderer {
     public world: World;
     public mesher: VoxelMesher;
-    public root: Object3D = new Object3D;
+    public root: Group = new Group;
     public terrainShader: MeshBasicNodeMaterial;
 
     constructor(world: World, terrainShader: MeshBasicNodeMaterial) {

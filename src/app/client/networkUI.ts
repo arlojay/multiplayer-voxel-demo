@@ -1,17 +1,18 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { SerializedUIContainer, UIButton, UIContainer, UIElement } from "../ui";
+import { SerializedUIElement, UIButton, UIContainer, UIElement, UIForm } from "../ui";
 
 export enum UIInteractions {
-    CLICK
+    CLICK,
+    SUBMIT
 }
 
 export class NetworkUI extends TypedEmitter<{
-    interaction: (path: number[], interaction: number) => void;
+    interaction: (path: number[], interaction: number, data?: any) => void;
 }> {
     public root: UIContainer;
     public id: string;
 
-    public constructor(data: SerializedUIContainer, interfaceId: string) {
+    public constructor(data: SerializedUIElement, interfaceId: string) {
         super();
 
         const deserialized = UIElement.deserialize(data);
@@ -30,5 +31,18 @@ export class NetworkUI extends TypedEmitter<{
                 this.emit("interaction", path, UIInteractions.CLICK);
             });
         }
+        for(const form of this.root.getAllElementsOfType(UIForm)) {
+            const path = this.root.getPathOfElement(form);
+            form.onSubmit((data) => {
+                this.emit("interaction", path, UIInteractions.SUBMIT, data);
+            });
+        }
+    }
+
+    public removeElement(path: number[]) {
+        this.root.removeElementByPath(path);
+    }
+    public insertElement(path: number[], element: UIElement) {
+        this.root.addElementAtPath(path, element);
     }
 }

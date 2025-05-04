@@ -1,14 +1,16 @@
 import { World } from "src/app/world";
-import { UIButton, UIContainer, UIText } from "../../../ui";
-import { Subscribe } from "../../events";
-import { PlayerJoinEvent, PluginEvents, ServerLoadedEvent } from "../../pluginEvents";
-import { ServerPlugin } from "../../serverPlugin";
+import { UIButton, UIContainer, UIForm, UISection, UIText, UITextInput } from "../../../ui";
 import { WorldGenerator } from "../../../worldGenerator";
+import { Subscribe } from "../../events";
+import { PeerJoinEvent, PeerLeaveEvent, PluginEvents, ServerLoadedEvent } from "../../pluginEvents";
 import { ServerPeer } from "../../serverPeer";
+import { ServerPlugin } from "../../serverPlugin";
+import { ChatUIManager } from "./chatUIManager";
 
 export class Freebuild extends ServerPlugin {
     private world: World;
     private privateWorlds: Map<ServerPeer, World> = new Map;
+    private chatUIManager: ChatUIManager = new ChatUIManager;
 
     @Subscribe(PluginEvents.SERVER_LOADED)
     public async onLoad(event: ServerLoadedEvent) {
@@ -17,20 +19,20 @@ export class Freebuild extends ServerPlugin {
         this.world = world;
     }
 
-    @Subscribe(PluginEvents.PLAYER_JOIN)
-    public onPlayerJoin(event: PlayerJoinEvent) {
+    @Subscribe(PluginEvents.PEER_JOIN)
+    public onPeerJoin(event: PeerJoinEvent) {
         event.player.setWorld(this.world);
         event.player.respawn();
         
-        const ui = new UIContainer;
+        const ui = new UISection;
         ui.style.alignSelf = "start";
         ui.style.justifySelf = "end";
 
         const text = new UIText("Hello world!");
-        ui.addElement(text);
+        ui.addChild(text);
 
         const dismiss = new UIButton("Dismiss");
-        ui.addElement(dismiss);
+        ui.addChild(dismiss);
 
         let session = event.peer.showUI(ui);
         let i = 0;
@@ -43,10 +45,17 @@ export class Freebuild extends ServerPlugin {
         });
 
         this.createWorldSwitcherUI(event.peer);
+
+        this.chatUIManager.onPeerJoin(event.peer);
+    }
+    
+    @Subscribe(PluginEvents.PEER_LEAVE)
+    public onPeerLeave(event: PeerLeaveEvent) {
+        this.chatUIManager.onPeerLeave(event.peer);
     }
 
     private createWorldSwitcherUI(peer: ServerPeer) {
-        const ui = new UIContainer;
+        const ui = new UIForm;
         ui.style.alignSelf = "start";
         ui.style.justifySelf = "end";
         ui.style.marginTop = "1.5rem";
@@ -56,7 +65,7 @@ export class Freebuild extends ServerPlugin {
         ui.style.flexDirection = "column";
         ui.style.alignItems = "center";
         ui.style.textAlign = "right";
-        ui.addElement(label);
+        ui.addChild(label);
 
         const tempWorldButton = new UIButton("Private World (deleted on disconnect)");
         tempWorldButton.style.display = "block";
@@ -78,8 +87,8 @@ export class Freebuild extends ServerPlugin {
             peer.player.respawn();
         });
 
-        ui.addElement(tempWorldButton);
-        ui.addElement(mainWorldButton);
+        ui.addChild(tempWorldButton);
+        ui.addChild(mainWorldButton);
 
         const session = peer.showUI(ui);
     }

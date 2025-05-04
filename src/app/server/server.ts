@@ -1,14 +1,16 @@
-import { ServerPeer } from "./serverPeer";
+import { ServerPeer, TimedOutError } from "./serverPeer";
 import { World } from "../world";
 import { MessagePortConnection } from "./thread";
 import { Color } from "three";
 import { debugLog } from "../logging";
 import { WorldSaver } from "./worldSaver";
 import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
-import { PlayerJoinEvent, PlayerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
+import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
 import { EventPublisher } from "./events";
 import { ServerPlugin } from "./serverPlugin";
 import { WorldGenerator } from "../worldGenerator";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
 
 export interface ServerOptions {
     worldName?: string;
@@ -114,29 +116,9 @@ export class Server extends EventPublisher {
         this.errorPort = connection.errorPort;
         
         const world = this.worlds.get(this.defaultWorldName);
-        peer.player.setWorld(world);
-
         this.peers.set(peer.id, peer);
 
-        const joinEvent = new PlayerJoinEvent(this);
-        joinEvent.peer = peer;
-        joinEvent.player = peer.player;
-        joinEvent.world = world;
-        this.emit(joinEvent);
-
-        if(joinEvent.isCancelled()) {
-            connection.close();
-            this.peers.delete(peer.id);
-            return;
-        }
-
-        await new Promise<void>((res, rej) => {
-            connection.once("open", () => res());
-            connection.once("error", e => {
-                this.handleDisconnection(peer, e);
-                rej(e);
-            });
-        })
+        peer.player.setWorld(world);
 
         connection.addListener("data", data => {
             try {
@@ -149,19 +131,43 @@ export class Server extends EventPublisher {
             }
         });
 
-        const joinPacket = new PlayerJoinPacket(peer.player);
-        joinPacket.player = peer.id;
+        const [_, clientReadyPacket] = await Promise.all([
+            new Promise<void>((res, rej) => {
+                connection.once("open", () => res());
+                connection.once("error", e => {
+                    this.handleDisconnection(peer, e);
+                    rej(e);
+                });
+            }),
+            new Promise<ClientReadyPacket>((res, rej) => {
+                peer.once("clientready", packet => res(packet));
+    
+                setTimeout(() => {
+                    if(!peer.connected) return;
+                    rej(new TimedOutError("Connection timed out while handshaking"))
+                }, 5000);
+            })
+        ]);
 
-        for(const otherId of this.peers.keys()) {
-            const otherPeer = this.peers.get(otherId);
-            if(otherPeer == peer) continue;
+        const joinEvent = new PeerJoinEvent(this);
+        joinEvent.peer = peer;
+        joinEvent.player = peer.player;
+        joinEvent.world = world;
+        this.emit(joinEvent);
 
-            const otherJoinPacket = new PlayerJoinPacket(otherPeer.player);
-            otherJoinPacket.player = otherId;
-
-            peer.sendPacket(otherJoinPacket, true);
-            otherPeer.sendPacket(joinPacket, true);
+        if(joinEvent.isCancelled()) {
+            connection.close();
+            this.peers.delete(peer.id);
+            return;
         }
+
+        const serverReadyPacket = new ServerReadyPacket();
+        serverReadyPacket.username = clientReadyPacket.username;
+        serverReadyPacket.color = clientReadyPacket.color;
+        peer.sendPacket(serverReadyPacket);
+
+        // Send join messages
+        peer.sendToWorld(world);
 
         peer.addListener("disconnected", (cause) => {
             this.handleDisconnection(peer, cause);
@@ -172,17 +178,17 @@ export class Server extends EventPublisher {
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
         debugLog("Peer " + peer.id + " disconnected: " + cause.toString());
 
-        const event = new PlayerLeaveEvent(this);
+        const event = new PeerLeaveEvent(this);
         event.peer = peer;
         event.player = peer.player;
         event.world = peer.player.world;
         this.emit(event);
 
         this.peers.delete(peer.id);
-        
-        const leavePacket = new PlayerLeavePacket;
-        leavePacket.player = peer.id;
-        this.broadcastPacket(leavePacket, null, true);
+
+        for(const otherPeer of this.peers.values()) {
+            otherPeer.hidePeer(peer);
+        }
     }
 
     public broadcastPacket(packet: Packet, world?: World, instant: boolean = false) {

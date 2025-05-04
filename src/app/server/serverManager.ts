@@ -161,6 +161,7 @@ export class ServerManager {
             switch(name) {
                 case "close":
                     connection.close({ flush: true });
+                    this.connections.delete(connection.peer);
                     break;
             }
         })

@@ -1,6 +1,9 @@
 export * from "./packet";
 export * from "./combinedPacket";
 
+export * from "./clientReadyPacket";
+export * from "./serverReadyPacket";
+
 export * from "./getChunkPacket";
 export * from "./chunkDataPacket";
 
@@ -21,4 +24,4 @@ export * from "./kickPacket";
 export * from "./openUIPacket";
 export * from "./closeUIPacket";
 export * from "./UIInteractionPacket";
-export * from "./updateUIPacket";
+export * from "./updateUIPackets";

@@ -1,4 +1,5 @@
-import { HAS_DOCUMENT_ACCESS } from ".";
+import { HAS_DOCUMENT_ACCESS, UIContainer } from ".";
+import { UIEventBinder } from "./UIEventBinder";
 
 export interface SerializedUIElement {
     type: string;
@@ -7,6 +8,20 @@ export interface SerializedUIElement {
 
 class UIElementRegistryKey {
     name: string;
+}
+
+export class UIEvent {
+    public name: string;
+    public cancelled = false;
+    public data?: any;
+
+    constructor(name: string, data?: any) {
+        this.name = name;
+        this.data = data;
+    }
+    public preventDefault() {
+        this.cancelled = true;
+    }
 }
 
 export abstract class UIElement<SerializedData extends SerializedUIElement = SerializedUIElement> {
@@ -32,23 +47,21 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public abstract type: UIElementRegistryKey;
     public element: HTMLElement;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
+    public parent: UIContainer;
+    protected eventBinder: UIEventBinder = new UIEventBinder;
+    private externalEventHandlers: Map<string, (event: UIEvent) => boolean | void> = new Map;
 
     protected abstract buildElement(): Promise<HTMLElement>;
-    protected cleanupElement(element: HTMLElement) {
-
-    }
 
 
 
     public async update() {
         if(HAS_DOCUMENT_ACCESS) {
-            if(this.element != null) {
-                this.cleanupElement(this.element);
-            }
             const element = await this.buildElement();
             if(element == null) throw new ReferenceError("Built element must not be null");
             
             if(this.element != null) this.element.replaceWith(element);
+            this.eventBinder.setElement(element);
             this.element = element;
             
             for(const prop in this.style) {
@@ -67,5 +80,33 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     }
     public deserialize(data: SerializedData) {
         Object.assign(this.style, data.style);
+    }
+    public bubbleEvent(event: UIEvent) {
+        if(this.externalEventHandlers.get(event.name)?.(event)) return;
+        this.parent?.bubbleEvent(event);
+    }
+    public percolateEvent(event: UIEvent) {
+        this.externalEventHandlers.get(event.name)?.(event);
+    }
+    public setEventHandler(event: string, handler: (event: UIEvent) => boolean | void) {
+        this.externalEventHandlers.set(event, handler);
+    }
+    public getPathFrom(root: UIContainer) {
+        const path: number[] = [];
+        let element: UIElement = this;
+
+        while(element.parent != null) {
+            const index = element.parent.getIndexOfChild(element);
+            if(index == -1) {
+                console.warn("Strangely detached element found while searching", element);
+                return null;
+            }
+            path.push(index);
+            if(element.parent == root) return path.reverse();
+
+            element = element.parent;
+        }
+        
+        return null;
     }
 }

@@ -15,11 +15,24 @@
     </div>
     <div id="ui">
         <div class="modal centered visible" data-name="game-select">
+            <section id="player-customization">
+                <h1>Player Customization</h1>
+                <div>
+                    <span>Username</span>
+                    <input type="text" name="username" id="player-username">
+                </div>
+                <div>
+                    <span>Color</span>
+                    <input type="color" name="color" id="player-color">
+                </div>
+            </section>
             <section id="join-game">
                 <h1>Join a game</h1>
                 <form>
-                    <span>Game Code</span>
-                    <input type="text" name="id">
+                    <div>
+                        <span>Game Code</span>
+                        <input type="text" name="id">
+                    </div>
                     <input type="submit" value="Connect"></input>
                 </form>
                 <p class="connect-error" style="color: red;"></p>

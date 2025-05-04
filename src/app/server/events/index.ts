@@ -70,7 +70,6 @@ export class EventPublisher {
 
             const handler: EventHandlerSignature = new WeakRef(
                 Reflect.get(subscriber, descriptor.methodName, subscriber)
-                .bind(subscriber)
             );
             eventHandlerList.add({
                 handler,
@@ -98,11 +97,12 @@ export class EventPublisher {
 
         eventList.removeMany((a) => {
             const handler = a.handler.deref();
-            if(handler == null) return true;
+            const subscriber = a.subscriber.deref();
+            if(handler == null || subscriber == null) return true;
 
             if(event.isCancelled()) return false;
 
-            handler(event);
+            handler.call(subscriber, event);
             return false;
         })
     }

@@ -41,12 +41,14 @@ export class PlayerController {
         this.keyboardRoot.addEventListener("keydown", e => {
             this.keys.add(e.key.toUpperCase());
 
-            if(e.ctrlKey) {
-                if(e.key.toUpperCase() == "W") e.preventDefault();
-                if(e.key.toUpperCase() == "A") e.preventDefault();
-                if(e.key.toUpperCase() == "S") e.preventDefault();
-                if(e.key.toUpperCase() == "D") e.preventDefault();
-                if(e.key.toUpperCase() == " ") e.preventDefault();
+            if(this.pointerCurrentlyLocked) {
+                if(e.ctrlKey) {
+                    if(e.key.toUpperCase() == "W") e.preventDefault();
+                    if(e.key.toUpperCase() == "A") e.preventDefault();
+                    if(e.key.toUpperCase() == "S") e.preventDefault();
+                    if(e.key.toUpperCase() == "D") e.preventDefault();
+                    if(e.key.toUpperCase() == " ") e.preventDefault();
+                }
             }
         });
         this.keyboardRoot.addEventListener("keyup", e => {

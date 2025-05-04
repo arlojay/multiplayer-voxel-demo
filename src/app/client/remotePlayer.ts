@@ -6,9 +6,8 @@ import { Color, MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
 import { attribute, dot, vec3, vec4 } from "three/src/nodes/TSL";
 import { sunPos } from "../shaders/terrain";
 
-const playerFace = new TextureLoader().load("assets/textures/player-face.png");
+// const playerFace = new TextureLoader().load("assets/textures/player-face.png");
 const loader = new GLTFLoader();
-const playerPromise = loader.loadAsync("assets/models/player.glb");
 
 export const simpleHash = (str: string) => {
     let hash = 0;
@@ -30,29 +29,22 @@ export class RemotePlayer extends RemoteEntity {
     public mesh: Object3D = new Object3D;
     public id: string;
     public skin: SkinnedMesh;
+    public username = "anonymous";
+    public color = "#ffffff";
 
     public constructor(id: string) {
         super();
         this.id = id;
-
-
-        const size = new Vector3;
-        this.hitbox.getSize(size);
-
-        const center = new Vector3;
-        this.hitbox.getCenter(center);
-
-        this.finishModel();
     }
 
-    private async finishModel() {
-        const player = (await playerPromise);
+    public async createModel() {
+        const player = await loader.loadAsync("assets/models/player.glb");;
         const object = player.scene.children[0];
         this.skin = object.children[0] as SkinnedMesh;
         
         this.mesh.add(object);
 
-        const color = new Color(simpleHash(this.id) & 0xffffff);
+        const color = new Color(this.color);
 
 
         const material = new MeshBasicNodeMaterial();
@@ -71,6 +63,8 @@ export class RemotePlayer extends RemoteEntity {
             this.mesh.rotation.y = -dlerp(-this.mesh.rotation.y, this.yaw, dt, 24);
         }
 
-        this.skin.skeleton.bones[1].setRotationFromEuler(new Euler(-this.pitch, 0, 0));
+        if(this.skin != null) {
+            this.skin.skeleton.bones[1].setRotationFromEuler(new Euler(-this.pitch, 0, 0));
+        }
     }
 }

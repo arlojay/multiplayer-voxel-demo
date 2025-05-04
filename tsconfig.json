@@ -13,6 +13,6 @@
     "target": "ESNext",
     "lib": ["ESNext", "dom"],
     "types": ["@webgpu/types"],
-    "allowSyntheticDefaultImports": true
-  }
+    "allowSyntheticDefaultImports": true,
+  },
 }

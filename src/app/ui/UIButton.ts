@@ -1,4 +1,4 @@
-import { SerializedUIElement, UIElement } from "./UIElement";
+import { SerializedUIElement, UIElement, UIEvent } from "./UIElement";
 
 export interface SerializedUIButton extends SerializedUIElement {
     text: string;
@@ -9,43 +9,34 @@ export class UIButton extends UIElement<SerializedUIButton> {
 
     
     public text: string = "";
-    private onClickCallback: (event?: Event) => void;
 
     public constructor(text?: string) {
         super();
         if(text != null) this.text = text;
     }
 
-    protected cleanupElement(element: HTMLElement) {
-        element.removeEventListener("click", this.onClickCallback);
-    }
-
     protected async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("button");
         element.textContent = this.text;
-        
-        element.addEventListener("click", this.onClickCallback);
 
         return element;
     }
 
     public click() {
-        this.onClickCallback();
+        this.eventBinder.call("click");
     }
 
     public onClick(callback: () => void) {
-        const newCallback = (event?: Event) => {
-            if(event != null) event.preventDefault();
-            callback();
-        };
+        this.eventBinder.on("click", (event?: Event) => {
+            event?.preventDefault();
 
-        const oldCallback = this.onClickCallback;
-        this.onClickCallback = newCallback;
-
-        if(this.element != null) {
-            this.element.removeEventListener("click", oldCallback);
-            this.element.addEventListener("click", newCallback);
-        }
+            const trySubmit = new UIEvent("trysubmit");
+            this.bubbleEvent(trySubmit);
+            
+            if(!trySubmit.cancelled) {
+                callback();
+            }
+        })
     }
     public serialize() {
         const data = super.serialize();

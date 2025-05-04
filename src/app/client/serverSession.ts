@@ -4,7 +4,7 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket, ChangeWorldPacket } from "../packet";
+import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket, ChangeWorldPacket, RemoveUIElementPacket, InsertUIElementPacket } from "../packet";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { World } from "../world";
 import { Client } from "./client";
@@ -12,6 +12,8 @@ import { LocalPlayer } from "./localPlayer";
 import { RemotePlayer } from "./remotePlayer";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { NetworkUI } from "../client/networkUI";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { UIElement } from "../ui";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -112,34 +114,42 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof PlayerMovePacket && !this.isPacketOld(packet)) {
             const player = this.players.get(packet.player);
-            if(player == null) throw new ReferenceError("Player " + packet.player + " does not exist");
+            if(player == null) {
+                console.warn("Cannot move player " + packet.player + " as they do not exist");
+            } else {
+                player.position.set(packet.x, packet.y, packet.z);
+                player.velocity.set(packet.vx, packet.vy, packet.vz);
+                player.yaw = packet.yaw;
+                player.pitch = packet.pitch;
 
-            player.position.set(packet.x, packet.y, packet.z);
-            player.velocity.set(packet.vx, packet.vy, packet.vz);
-            player.yaw = packet.yaw;
-            player.pitch = packet.pitch;
-
-            player.resetTimer();
+                player.resetTimer();
+            }
         }
         if(packet instanceof PlayerJoinPacket) {
             const remotePlayer = new RemotePlayer(packet.player);
+            remotePlayer.username = packet.username;
+            remotePlayer.color = packet.color;
             remotePlayer.position.set(packet.x, packet.y, packet.z);
             remotePlayer.velocity.set(packet.vx, packet.vy, packet.vz);
             remotePlayer.yaw = packet.yaw;
             remotePlayer.pitch = packet.pitch;
             remotePlayer.setWorld(this.localWorld);
-            this.players.set(packet.player, remotePlayer);
-            debugLog("Player " + packet.player + " joined the game");
-
-            this.emit("playerjoin", remotePlayer);
+            
+            remotePlayer.createModel().then(() => {
+                this.players.set(packet.player, remotePlayer);
+                debugLog("Player " + packet.player + " joined the game");
+                this.emit("playerjoin", remotePlayer);
+            })
         }
         if(packet instanceof PlayerLeavePacket) {
             const player = this.players.get(packet.player);
-            if(player == null) throw new ReferenceError("Player " + packet.player + " does not exist");
-
-            this.emit("playerleave", player);
-            this.players.delete(packet.player);
-            debugLog("Player " + packet.player + " left the game");
+            if(player == null) {
+                console.warn("Cannot remove nonexistent player " + packet.player);
+            } else {
+                this.emit("playerleave", player);
+                this.players.delete(packet.player);
+                debugLog("Player " + packet.player + " left the game");
+            }
         }
         if(packet instanceof PingPacket && !this.isPacketOld(packet)) {
             const responsePacket = new PingResponsePacket();
@@ -165,8 +175,20 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof CloseUIPacket) {
             this.hideUI(packet.interfaceId);
         }
+        if(packet instanceof RemoveUIElementPacket) {
+            const ui = this.interfaces.get(packet.interfaceId);
+            ui?.removeElement(packet.path);
+        }
+        if(packet instanceof InsertUIElementPacket) {
+            const ui = this.interfaces.get(packet.interfaceId);
+            ui?.insertElement(packet.path, UIElement.deserialize(packet.element));
+        }
         if(packet instanceof ChangeWorldPacket) {
             this.resetLocalWorld();
+        }
+        if(packet instanceof ServerReadyPacket) {
+            this.player.username = packet.username;
+            this.player.color = packet.color;
         }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);
@@ -174,11 +196,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     private showUI(ui: NetworkUI) {
         this.client.gameRenderer.showUI(ui.root);
-        ui.addListener("interaction", (path, interaction) => {
+        ui.addListener("interaction", (path, interaction, data) => {
             const packet = new UIInteractionPacket();
             packet.interfaceId = ui.id;
             packet.path = path;
             packet.interaction = interaction;
+            packet.data = data ?? {};
             this.sendPacket(packet);
         });
     }
@@ -191,8 +214,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public sendPacket(packet: Packet) {
+        // console.log("send packet", packet);
         const buffer = new ArrayBuffer(packet.getBufferSize());
         packet.write(new BinaryBuffer(buffer));
+        // console.log(new Uint8Array(buffer));
         this.serverConnection.send(buffer);
     }
 
