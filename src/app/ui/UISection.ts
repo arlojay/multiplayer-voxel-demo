@@ -1,4 +1,4 @@
-import { SerializedUIContainer, UIContainer } from "./UIContainer";
+import { UIContainer } from "./UIContainer";
 import { UIElement } from "./UIElement";
 
 

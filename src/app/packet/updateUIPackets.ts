@@ -1,6 +1,5 @@
 import { BinaryBuffer } from "../binary";
 import { SerializedUIElement, UIElement } from "../ui";
-import { OpenUIPacket } from "./openUIPacket";
 import { Packet } from "./packet";
 
 
@@ -34,7 +33,7 @@ export class RemoveUIElementPacket extends Packet {
 }
 export class InsertUIElementPacket extends Packet {
     static id = Packet.register(() => new this);
-    public id = RemoveUIElementPacket.id;
+    public id = InsertUIElementPacket.id;
 
     public path: number[];
     public interfaceId: string;

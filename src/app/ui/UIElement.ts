@@ -19,7 +19,7 @@ export class UIEvent {
         this.name = name;
         this.data = data;
     }
-    public cancel() {
+    public preventDefault() {
         this.cancelled = true;
     }
 }
@@ -49,7 +49,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
     public parent: UIContainer;
     protected eventBinder: UIEventBinder = new UIEventBinder;
-    private externalEventHandlers: Map<string, (data?: any) => boolean | void> = new Map;
+    private externalEventHandlers: Map<string, (event: UIEvent) => boolean | void> = new Map;
 
     protected abstract buildElement(): Promise<HTMLElement>;
 
@@ -81,11 +81,14 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public deserialize(data: SerializedData) {
         Object.assign(this.style, data.style);
     }
-    public handleEvent(event: UIEvent) {
-        if(this.externalEventHandlers.get(event.name)?.(event.data)) return;
-        this.parent?.handleEvent(event);
+    public bubbleEvent(event: UIEvent) {
+        if(this.externalEventHandlers.get(event.name)?.(event)) return;
+        this.parent?.bubbleEvent(event);
     }
-    public setEventHandler(event: string, handler: (data?: any) => boolean | void) {
+    public percolateEvent(event: UIEvent) {
+        this.externalEventHandlers.get(event.name)?.(event);
+    }
+    public setEventHandler(event: string, handler: (event: UIEvent) => boolean | void) {
         this.externalEventHandlers.set(event, handler);
     }
     public getPathFrom(root: UIContainer) {

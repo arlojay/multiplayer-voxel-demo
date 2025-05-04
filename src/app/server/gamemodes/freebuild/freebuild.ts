@@ -2,20 +2,15 @@ import { World } from "src/app/world";
 import { UIButton, UIContainer, UIForm, UISection, UIText, UITextInput } from "../../../ui";
 import { WorldGenerator } from "../../../worldGenerator";
 import { Subscribe } from "../../events";
-import { PlayerJoinEvent, PluginEvents, ServerLoadedEvent } from "../../pluginEvents";
+import { PeerJoinEvent, PeerLeaveEvent, PluginEvents, ServerLoadedEvent } from "../../pluginEvents";
 import { ServerPeer } from "../../serverPeer";
 import { ServerPlugin } from "../../serverPlugin";
-
-interface ChatMessage {
-    peer: ServerPeer;
-    text: string;
-}
+import { ChatUIManager } from "./chatUIManager";
 
 export class Freebuild extends ServerPlugin {
     private world: World;
     private privateWorlds: Map<ServerPeer, World> = new Map;
-    private messages: ChatMessage[] = new Array;
-    private chatUIs: Map<ServerPeer, UISection> = new Map;
+    private chatUIManager: ChatUIManager = new ChatUIManager;
 
     @Subscribe(PluginEvents.SERVER_LOADED)
     public async onLoad(event: ServerLoadedEvent) {
@@ -24,8 +19,8 @@ export class Freebuild extends ServerPlugin {
         this.world = world;
     }
 
-    @Subscribe(PluginEvents.PLAYER_JOIN)
-    public onPlayerJoin(event: PlayerJoinEvent) {
+    @Subscribe(PluginEvents.PEER_JOIN)
+    public onPeerJoin(event: PeerJoinEvent) {
         event.player.setWorld(this.world);
         event.player.respawn();
         
@@ -51,41 +46,12 @@ export class Freebuild extends ServerPlugin {
 
         this.createWorldSwitcherUI(event.peer);
 
-        const chatUI = new UISection;
-        const chatLogs = new UISection;
-        chatLogs.style.display = "flex";
-        chatLogs.style.flexDirection = "column";
-
-        for(const message of this.messages) {
-            const element = new UIText(message.peer.username + ": " + message.text);
-            chatLogs.addChild(element);
-        }
-
-        const chatForm = new UIForm;
-
-        const chatInput = new UITextInput("Send a message to everyone...");
-        chatInput.style.width = "16rem";
-        chatForm.addChild(chatInput);
-
-        const chatSubmit = new UIButton("Send");
-        chatForm.addChild(chatSubmit);
-        
-        chatUI.addChild(chatLogs);
-        chatUI.addChild(chatForm);
-
-        chatForm.onSubmit(() => {
-            for(const ui of this.chatUIs.values()) {
-                const remoteChatLogs = ui.getElementByPath(chatUI.getPathOfElement(chatLogs)) as typeof chatLogs;
-                const messageText = event.peer.username + ": " + chatInput.value;
-                const element = new UIText(messageText);
-                remoteChatLogs.addChild(element);
-
-                this.messages.push({ peer: event.peer, text: messageText });
-            }
-        });
-
-        this.chatUIs.set(event.peer, chatUI);
-        event.peer.showUI(chatUI);
+        this.chatUIManager.onPeerJoin(event.peer);
+    }
+    
+    @Subscribe(PluginEvents.PEER_LEAVE)
+    public onPeerLeave(event: PeerLeaveEvent) {
+        this.chatUIManager.onPeerLeave(event.peer);
     }
 
     private createWorldSwitcherUI(peer: ServerPeer) {

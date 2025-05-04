@@ -5,7 +5,7 @@ import { Color } from "three";
 import { debugLog } from "../logging";
 import { WorldSaver } from "./worldSaver";
 import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
-import { PlayerJoinEvent, PlayerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
+import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
 import { EventPublisher } from "./events";
 import { ServerPlugin } from "./serverPlugin";
 import { WorldGenerator } from "../worldGenerator";
@@ -143,12 +143,13 @@ export class Server extends EventPublisher {
                 peer.once("clientready", packet => res(packet));
     
                 setTimeout(() => {
+                    if(!peer.connected) return;
                     rej(new TimedOutError("Connection timed out while handshaking"))
                 }, 5000);
             })
         ]);
 
-        const joinEvent = new PlayerJoinEvent(this);
+        const joinEvent = new PeerJoinEvent(this);
         joinEvent.peer = peer;
         joinEvent.player = peer.player;
         joinEvent.world = world;
@@ -177,7 +178,7 @@ export class Server extends EventPublisher {
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
         debugLog("Peer " + peer.id + " disconnected: " + cause.toString());
 
-        const event = new PlayerLeaveEvent(this);
+        const event = new PeerLeaveEvent(this);
         event.peer = peer;
         event.player = peer.player;
         event.world = peer.player.world;

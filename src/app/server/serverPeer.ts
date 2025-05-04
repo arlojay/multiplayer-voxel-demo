@@ -8,7 +8,7 @@ import { MessagePortConnection } from "./thread";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { ServerUI } from "./serverUI";
 import { UIContainer } from "../ui";
-import { PlayerBreakBlockEvent, PlayerMoveEvent, PlayerPlaceBlockEvent } from "./pluginEvents";
+import { BreakBlockEvent, PeerMoveEvent, PlaceBlockEvent } from "./pluginEvents";
 import { World } from "../world";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
 
@@ -35,6 +35,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     private onPingResponse: () => void = null;
     private lastPacketReceived: Map<number, number> = new Map;
     private visiblePeers: Set<ServerPeer> = new Set;
+    public authenticated = false;
     public username = "anonymous";
     public color = "#ffffff";
 
@@ -99,8 +100,33 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
 
+    private authenticate(packet: ClientReadyPacket) {
+        this.username = packet.username;
+        this.color = packet.color;
+
+        for(const peer of this.server.peers.values()) {
+            if(peer == this) continue;
+
+            if(peer.username == this.username) {
+                this.kick("Username taken");
+                return;
+            }
+        }
+
+        this.emit("clientready", packet);
+        this.authenticated = true;
+    }
+
     public handlePacket(data: ArrayBuffer) {
+        if(!this.connected) return;
+
         const packet = Packet.createFromBinary(data);
+
+        if(packet instanceof ClientReadyPacket) {
+            this.authenticate(packet);
+        } else if(!this.authenticated) {
+            throw new Error("Client not authenticated");
+        }
 
         if(packet instanceof GetChunkPacket) {
             this.server.loadChunk(this.player.world, packet.x, packet.y, packet.z).then(chunk => {
@@ -136,7 +162,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             }
 
             
-            const event = new PlayerMoveEvent(this.server);
+            const event = new PeerMoveEvent(this.server);
             event.peer = this;
             event.player = this.player;
             event.world = this.player.world;
@@ -167,7 +193,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             }
         }
         if(packet instanceof PlaceBlockPacket) {
-            const event = new PlayerPlaceBlockEvent(this.server);
+            const event = new PlaceBlockEvent(this.server);
             event.peer = this;
             event.player = this.player;
             event.world = this.player.world;
@@ -187,7 +213,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             }
         }
         if(packet instanceof BreakBlockPacket) {
-            const event = new PlayerBreakBlockEvent(this.server);
+            const event = new BreakBlockEvent(this.server);
             event.peer = this;
             event.player = this.player;
             event.world = this.player.world;
@@ -207,12 +233,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         }
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
-        }
-        if(packet instanceof ClientReadyPacket) {
-            console.log(packet);
-            this.username = packet.username;
-            this.color = packet.color;
-            this.emit("clientready", packet);
         }
 
         

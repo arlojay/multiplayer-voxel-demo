@@ -1,5 +1,5 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { SerializedUIContainer, UIButton, UIContainer, UIElement, UIForm } from "../ui";
+import { SerializedUIElement, UIButton, UIContainer, UIElement, UIForm } from "../ui";
 
 export enum UIInteractions {
     CLICK,
@@ -12,7 +12,7 @@ export class NetworkUI extends TypedEmitter<{
     public root: UIContainer;
     public id: string;
 
-    public constructor(data: SerializedUIContainer, interfaceId: string) {
+    public constructor(data: SerializedUIElement, interfaceId: string) {
         super();
 
         const deserialized = UIElement.deserialize(data);

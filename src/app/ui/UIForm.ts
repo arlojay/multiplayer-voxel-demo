@@ -1,5 +1,5 @@
 import { UIContainer } from "./UIContainer";
-import { UIElement } from "./UIElement";
+import { UIElement, UIEvent } from "./UIElement";
 
 export interface UIFormContributor {
     getFormContributionValue(): string;
@@ -24,8 +24,8 @@ export class UIForm extends UIContainer {
     public onSubmit(callback: (data: Record<string, string>) => void) {
         this.eventBinder.on("submit", (event?: Event) => {
             event?.preventDefault();
-            console.trace("get data");
             callback(this.getData());
+            this.percolateEvent(new UIEvent("submit", this));
         });
     }
 
@@ -40,10 +40,8 @@ export class UIForm extends UIContainer {
             if(isUIFormContributor(element)) {
                 const path = this.getPathOfElement(element).join(".");
                 data[path] = element.getFormContributionValue();
-                console.log(element);
             }
         }
-        console.log(data);
         return data;
     }
 
@@ -56,10 +54,12 @@ export class UIForm extends UIContainer {
         }
     }
 
-    public handleEvent(event: string, data?: any): void {
-        if(event == "trysubmit") {
+    public bubbleEvent(event: UIEvent): void {
+        if(event.name == "trysubmit") {
+            event.preventDefault();
             this.eventBinder.call("submit");
+            return;
         }
-        super.handleEvent(event, data);
+        super.bubbleEvent(event);
     }
 }

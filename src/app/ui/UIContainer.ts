@@ -1,4 +1,4 @@
-import { SerializedUIElement, UIElement } from "./UIElement";
+import { SerializedUIElement, UIElement, UIEvent } from "./UIElement";
 
 export interface SerializedUIContainer extends SerializedUIElement {
     elements: SerializedUIElement[];
@@ -17,22 +17,16 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
         for(const removedElement of removedElements) this.elements.push(removedElement);
 
         element.parent = this;
-        this.handleEvent("addElement", element);
+        this.bubbleEvent(new UIEvent("addElement", element));
         await this.update();
     }
     public async addElementAtPath(path: number[], element: UIElement): Promise<boolean> {
         path = Array.from(path);
-        const index = path.shift();
-
-        if(path.length == 1) {
-            const element = this.elements[index];
-            await this.addChild(element, path.pop());
-            return true;
-        }
+        const parent = this.getElementByPath(path.splice(0, path.length - 1));
         
-        const nextElement = this.elements[index];
-        if(nextElement instanceof UIContainer) {
-            return await nextElement.addElementAtPath(path, element);
+        if(parent instanceof UIContainer) {
+            await parent.addChild(element, path.pop());
+            return true;
         }
         return false;
     }
@@ -42,7 +36,7 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
 
         this.elements.splice(index, 1);
 
-        this.handleEvent("removeElement", element);
+        this.bubbleEvent(new UIEvent("removeElement", element));
         element.parent = null;
 
         await this.update();
@@ -139,5 +133,11 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
             }
         }
         return elements;
+    }
+    public percolateEvent(event: UIEvent) {
+        super.percolateEvent(event);
+        for(const element of this.elements) {
+            element.percolateEvent(event);
+        }
     }
 }

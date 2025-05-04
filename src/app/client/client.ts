@@ -117,8 +117,6 @@ export class Client extends TypedEmitter<ClientEvents> {
         readyPacket.username = connectionOptions.username;
         readyPacket.color = connectionOptions.color;
         serverSession.sendPacket(readyPacket);
-    
-        console.log(readyPacket);
 
         return serverSession;
     }

@@ -44,6 +44,7 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
     private commandPort: MessagePort;
     public debugPort: MessagePort;
     public errorPort: MessagePort;
+    public open = false;
 
     constructor(peer: string, dataPort: MessagePort, commandPort: MessagePort) {
         super();
@@ -62,9 +63,11 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
 
             switch(name) {
                 case "open":
+                    this.open = true;
                     this.emit("open");
                     break;
                 case "close":
+                    this.open = false;
                     this.emit("close");
                     break;
                 case "error":
@@ -78,9 +81,11 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
     }
 
     public send(data: any) {
+        if(!this.open) throw new ReferenceError("Cannot send message to closed message port connection");
         this.dataPort.postMessage(data, data instanceof ArrayBuffer ? [data] : []);
     }
     public close() {
+        this.open = false;
         this.commandPort.postMessage(["close"]);
     }
 }

@@ -23,17 +23,19 @@ export class UIButton extends UIElement<SerializedUIButton> {
     }
 
     public click() {
-        const trySubmit = new UIEvent("trysubmit");
-        this.parent?.handleEvent(trySubmit);
-        if(!trySubmit.cancelled) {
-            this.eventBinder.call("click");
-        }
+        this.eventBinder.call("click");
     }
 
     public onClick(callback: () => void) {
         this.eventBinder.on("click", (event?: Event) => {
             event?.preventDefault();
-            callback();
+
+            const trySubmit = new UIEvent("trysubmit");
+            this.bubbleEvent(trySubmit);
+            
+            if(!trySubmit.cancelled) {
+                callback();
+            }
         })
     }
     public serialize() {

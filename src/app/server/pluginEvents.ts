@@ -5,8 +5,8 @@ import { ServerPeer } from "./serverPeer";
 import { ServerPlayer } from "./serverPlayer";
 
 export enum PluginEvents {
-    PLAYER_JOIN = "playerJoin",
-    PLAYER_LEAVE = "playerLeave",
+    PEER_JOIN = "playerJoin",
+    PEER_LEAVE = "playerLeave",
     PLACE_BLOCK = "placeBlock",
     BREAK_BLOCK = "breakBlock",
     WORLD_CREATE = "worldCreate",
@@ -22,7 +22,7 @@ abstract class ServerPluginEvent extends EmittedEvent {
         this.server = server;
     }
 }
-abstract class ServerPluginPlayerEvent extends EmittedEvent {
+abstract class ServerPluginPeerEvent extends EmittedEvent {
     public server: Server;
 
     public peer: ServerPeer;
@@ -35,17 +35,17 @@ abstract class ServerPluginPlayerEvent extends EmittedEvent {
     }
 }
 
-export class PlayerJoinEvent extends ServerPluginPlayerEvent {
-    public readonly name = PluginEvents.PLAYER_JOIN;
+export class PeerJoinEvent extends ServerPluginPeerEvent {
+    public readonly name = PluginEvents.PEER_JOIN;
     public readonly cancellable = true;
 }
 
-export class PlayerLeaveEvent extends ServerPluginPlayerEvent {
-    public readonly name = PluginEvents.PLAYER_LEAVE;
+export class PeerLeaveEvent extends ServerPluginPeerEvent {
+    public readonly name = PluginEvents.PEER_LEAVE;
     public readonly cancellable = false;
 }
 
-export class PlayerPlaceBlockEvent extends ServerPluginPlayerEvent {
+export class PlaceBlockEvent extends ServerPluginPeerEvent {
     public readonly name = PluginEvents.PLACE_BLOCK;
     public readonly cancellable = true;
 
@@ -55,7 +55,7 @@ export class PlayerPlaceBlockEvent extends ServerPluginPlayerEvent {
     public block: number;
 }
 
-export class PlayerBreakBlockEvent extends ServerPluginPlayerEvent {
+export class BreakBlockEvent extends ServerPluginPeerEvent {
     public readonly name = PluginEvents.BREAK_BLOCK;
     public readonly cancellable = true;
 
@@ -64,7 +64,7 @@ export class PlayerBreakBlockEvent extends ServerPluginPlayerEvent {
     public z: number;
 }
 
-export class PlayerMoveEvent extends ServerPluginPlayerEvent {
+export class PeerMoveEvent extends ServerPluginPeerEvent {
     public readonly name = PluginEvents.BREAK_BLOCK;
     public readonly cancellable = true;
 
