@@ -4,6 +4,7 @@ import { UIFormContributor } from "./UIForm";
 export interface SerializedUITextInput extends SerializedUIElement {
     placeholder: string;
     value: string;
+    inputType: "number" | "text" | "password";
     clearOnSubmit: boolean;
 }
 export class UITextInput extends UIElement<SerializedUITextInput> implements UIFormContributor {
@@ -14,6 +15,7 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
     public name: string = "";
     public placeholder: string = "";
     public value: string = "";
+    public inputType: "number" | "text" | "password" = "text";
     public clearOnSubmit = false;
 
     public constructor(placeholder?: string, value?: string) {
@@ -33,7 +35,8 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
 
     protected async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("input");
-        element.type = "text";
+        element.value = this.value;
+        element.type = this.inputType;
         element.placeholder = this.placeholder;
 
         element.addEventListener("input", () => {
@@ -74,6 +77,7 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
         const data = super.serialize();
         data.placeholder = this.placeholder;
         data.value = this.value;
+        data.inputType = this.inputType;
         data.clearOnSubmit = this.clearOnSubmit;
         return data;
     }
@@ -81,6 +85,7 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
         super.deserialize(data);
         this.placeholder = data.placeholder;
         this.value = data.value;
+        this.inputType = data.inputType;
         this.clearOnSubmit = data.clearOnSubmit;
     }
 }

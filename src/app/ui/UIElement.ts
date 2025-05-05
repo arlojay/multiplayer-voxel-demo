@@ -3,6 +3,7 @@ import { UIEventBinder } from "./UIEventBinder";
 
 export interface SerializedUIElement {
     type: string;
+    visible: boolean;
     style: Partial<CSSStyleDeclaration>;
 }
 
@@ -46,6 +47,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
 
     public abstract type: UIElementRegistryKey;
     public element: HTMLElement;
+    public visible = true;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
     public parent: UIContainer;
     protected eventBinder: UIEventBinder = new UIEventBinder;
@@ -59,6 +61,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
         if(HAS_DOCUMENT_ACCESS) {
             const element = await this.buildElement();
             if(element == null) throw new ReferenceError("Built element must not be null");
+            if(!this.visible) element.hidden = true;
             
             if(this.element != null) this.element.replaceWith(element);
             this.eventBinder.setElement(element);
@@ -75,7 +78,8 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public serialize(): SerializedData {
         return {
             type: this.type.name,
-            style: this.style
+            style: this.style,
+            visible: this.visible
         } as any; // 🤫
     }
     public deserialize(data: SerializedData) {

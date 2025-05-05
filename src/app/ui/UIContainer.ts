@@ -7,7 +7,8 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
     public elements: UIElement[] = new Array;
 
     protected async appendContainerElements(element: HTMLElement) {
-        const builtElements = await Promise.all(this.elements.values().map(v => v.update()));
+        if(!this.visible) return;
+        const builtElements = await Promise.all(this.elements.values().filter(v => v.visible).map(v => v.update()));
         element.append(...builtElements);
     }
 

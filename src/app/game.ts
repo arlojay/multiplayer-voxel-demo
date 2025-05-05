@@ -4,6 +4,7 @@ import { ClientCustomizationOptions } from "./controlOptions";
 import { WorldDescriptor } from "./gameData";
 import { debugLog } from "./logging";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
+import { UIButton, UISection, UISliderInput, UIText, UITextInput } from "./ui";
 
 const gameRoot = document.querySelector("#game") as HTMLElement;
 
@@ -131,6 +132,18 @@ async function main() {
 
     await client.login(clientId);
     await updateWorldListScreen();
+
+
+    const settingsUI = makeSettingsUI();
+    settingsUI.visible = false;
+    await settingsUI.update();
+    const settingsRoot = document.querySelector("#settings") as HTMLElement;
+    settingsRoot.appendChild(settingsUI.element);
+
+    document.querySelector("#game-settings").addEventListener("click", () => {
+        settingsUI.visible = true;
+        settingsUI.update();
+    })
 }
 
 async function saveConnectionOptions() {
@@ -271,6 +284,89 @@ async function updateWorldListScreen() {
     
     const list = worldSelect.querySelector("ul");
     list.replaceChildren(...children);
+}
+
+function makeSettingsUI() {
+    const root = new UISection;
+
+    const title = new UIText("Settings");
+    title.style.fontSize = "2rem";
+    title.style.fontWeight = "bold";
+    root.addChild(title);
+
+
+    const gameData = Client.instance.gameData;
+
+    interface SettingsOption<T> {
+        name: string;
+        type: string;
+        default: T;
+
+        set(value: T): void;
+        get(): T;
+
+        min?: number;
+        max?: number;
+        step?: number;
+    }
+
+    const options: SettingsOption<any>[] = [
+        {
+            name: "View Distance",
+            type: "number",
+            default: 4,
+            min: 2,
+            max: 16,
+            step: 1,
+            set: (value: number) => gameData.clientOptions.viewDistance = value,
+            get: () => gameData.clientOptions.viewDistance
+        } as SettingsOption<number>
+    ];
+
+    for(const option of options) {
+        const element = new UISection;
+
+        const name = new UIText(option.name);
+        element.addChild(name);
+
+        if(option.type == "number") {
+            if("min" in option || "max" in option) {
+                const slider = new UISliderInput(option.get(), option.min ?? 0, option.max ?? 1000, option.step ?? 1);
+                const sliderText = new UIText(option.get() + "");
+                slider.onChange(() => {
+                    option.set(slider.value);
+                    gameData.saveClientOptions();
+                });
+                slider.onInput(() => {
+                    sliderText.text = slider.value + "";
+                    sliderText.update();
+                });
+
+                element.addChild(slider);
+                element.addChild(sliderText);
+            } else {
+                const input = new UITextInput(option.default + "", option.get() + "");
+                input.inputType = "number";
+                input.onChange(() => {
+                    option.set(+input.value);
+                    gameData.saveClientOptions();
+                });
+
+                element.addChild(input);
+            }
+        }
+
+        root.addChild(element);
+    }
+
+    const closeButton = new UIButton("Close");
+    closeButton.onClick(() => {
+        root.visible = false;
+        root.update();
+    })
+    root.addChild(closeButton);
+
+    return root;
 }
 
 function loadChunks(serverSession: ServerSession) {
