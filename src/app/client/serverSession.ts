@@ -265,42 +265,20 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         const localChunk = this.localWorld.getChunk(x, y, z, true);
         localChunk.data.set(chunkDataPacket.data);
-        
-        const nx = this.localWorld.getChunk(x - 1, y, z, false);
-        if(nx != null) {
-            localChunk.hasNegX = true;
-            nx.hasPosX = true;
-            if(nx.isFullySurrounded()) this.player.world.markChunkDirty(nx);
-        }
-        const px = this.localWorld.getChunk(x + 1, y, z, false);
-        if(px != null) {
-            localChunk.hasPosX = true;
-            px.hasNegX = true;
-            if(px.isFullySurrounded()) this.player.world.markChunkDirty(px);
-        }
-        const ny = this.localWorld.getChunk(y - 1, y, z, false);
-        if(ny != null) {
-            localChunk.hasNegY = true;
-            ny.hasPosY = true;
-            if(ny.isFullySurrounded()) this.player.world.markChunkDirty(ny);
-        }
-        const py = this.localWorld.getChunk(y + 1, y, z, false);
-        if(py != null) {
-            localChunk.hasPosY = true;
-            py.hasNegY = true;
-            if(py.isFullySurrounded()) this.player.world.markChunkDirty(py);
-        }
-        const nz = this.localWorld.getChunk(z - 1, y, z, false);
-        if(nz != null) {
-            localChunk.hasNegZ = true;
-            nz.hasPosZ = true;
-            if(nz.isFullySurrounded()) this.player.world.markChunkDirty(nz);
-        }
-        const pz = this.localWorld.getChunk(z + 1, y, z, false);
-        if(pz != null) {
-            localChunk.hasPosZ = true;
-            pz.hasNegZ = true;
-            if(pz.isFullySurrounded()) this.player.world.markChunkDirty(pz);
+
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                for(let dz = -1; dz <= 1; dz++) {
+                    if(dx == 0 && dy == 0 && dz == 0) continue;
+
+                    const chunk = this.localWorld.getChunk(x + dx, y + dy, z + dz, false);
+                    if(chunk == null) continue;
+                    
+                    localChunk.markSurrounded(dx, dy, dz);
+                    chunk.markSurrounded(-dx, -dy, -dz);
+                    if(chunk.isFullySurrounded()) this.player.world.markChunkDirty(chunk);
+                }
+            }
         }
 
         if(localChunk.isFullySurrounded()) {

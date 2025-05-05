@@ -1,4 +1,4 @@
-import { abs, attribute, color, dot, float, Fn, If, mix, normalize, select, uniform, vec2, vec3, vertexColor } from "three/src/nodes/TSL";
+import { abs, attribute, color, dot, float, Fn, If, int, max, min, mix, normalize, select, uniform, vec2, vec3, vec4, vertexColor, vertexIndex } from "three/src/nodes/TSL";
 
 export const sunPos = normalize(vec3(0.3, 1.0, 0.6));
 
@@ -7,7 +7,6 @@ export const terrainColor = Fn(() => {
     time.onFrameUpdate(n => n.time);
     
     const localPos = attribute("localPos", "vec3f");
-    const vColor = vertexColor();
 
     const manhattanDistance = Fn(({ a = vec3(), b = vec3() }) => {
         return abs(a.x.sub(b.x)).add(abs(a.y.sub(b.y))).add(abs(a.z.sub(b.z)));
@@ -44,15 +43,30 @@ export const terrainColor = Fn(() => {
         uv.x.mulAssign(float(-1.0));
     })
 
-    const edgeFactor = select(
-        abs(uv.x).greaterThan(0.45).or(abs(uv.y).greaterThan(0.45)),
-        float(1.0),
-        float(0.0)
-    );
+    const edgeFactor = max(abs(uv.x), abs(uv.y));
+    
+    const ao = attribute("ao", "f32");
+
+    const vColor = int(attribute("blockColor", "f32").sub(0.5)).toVar();
+    const vColorR = vColor.bitAnd(0b0111110000000000).shiftRight(10);
+    const vColorG = vColor.bitAnd(0b0000001111100000).shiftRight(5);
+    const vColorB = vColor.bitAnd(0b0000000000011111);
+    const faceColor = vec3(float(vColorR).div(0b11111), float(vColorG).div(0b11111), float(vColorB).div(0b11111)).toVar();
+    const finalColor = faceColor.mul(float(1).div(ao.pow(2).add(1))).toVar();
 
     const shadow = dot(normal, sunPos).mul(0.5).add(0.5);
-    const isLightColor = lum({ c: vColor }).greaterThan(float(0.25));
-    const outColor = mix(vColor, vec3(select(isLightColor, float(0.0), float(0.5))), edgeFactor.mul(float(0.5))).mul(shadow);
+    const isLightColor = lum({ c: faceColor }).greaterThan(float(0.25));
+    const outColor = mix(
+        finalColor,
+        vec3(select(isLightColor, float(0.0), float(0.5))),
+        
+        select(
+            edgeFactor.greaterThan(0.45),
+            float(0.5),
+            float(0)
+        )
+    ).mul(shadow);
 
     return outColor;
+    // return vec4(uv, 0, 1);
 })

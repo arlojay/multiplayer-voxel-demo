@@ -17,12 +17,7 @@ export class Chunk {
     public blockZ: number;
     public mesh: Mesh | null;
 
-    public hasPosX = false;
-    public hasPosY = false;
-    public hasPosZ = false;
-    public hasNegX = false;
-    public hasNegY = false;
-    public hasNegZ = false;
+    public surroundedChunks: boolean[] = new Array(27).fill(false);
 
     constructor(voxelChunk: VoxelGridChunk) {
         this.voxelChunk = voxelChunk;
@@ -53,6 +48,10 @@ export class Chunk {
     public deleteMesh() {
         this.mesh.geometry.dispose();
         this.mesh = null;
+    }
+
+    public markSurrounded(dx: number, dy: number, dz: number) {
+        this.surroundedChunks[(dx + 1) * 9 + (dy + 1) * 3 + (dz + 1)] = true;
     }
 
     // TODO: Fix this in regard to chunk rendering after fetches (medium-bad code smell)
@@ -141,12 +140,19 @@ export class World {
 
         this.markChunkDirty(chunk);
 
-        if(relativeX == 0) this.markDirtyByPos(chunkX - 1, chunkY, chunkZ);
-        if(relativeX == 15) this.markDirtyByPos(chunkX + 1, chunkY, chunkZ);
-        if(relativeY == 0) this.markDirtyByPos(chunkX, chunkY - 1, chunkZ);
-        if(relativeY == 15) this.markDirtyByPos(chunkX, chunkY + 1, chunkZ);
-        if(relativeZ == 0) this.markDirtyByPos(chunkX, chunkY, chunkZ - 1);
-        if(relativeZ == 15) this.markDirtyByPos(chunkX, chunkY, chunkZ + 1);
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                for(let dz = -1; dz <= 1; dz++) {
+                    if(
+                        (relativeX == 15 ? 1 : (relativeX == 0 ? -1 : 0)) == dx ||
+                        (relativeY == 15 ? 1 : (relativeY == 0 ? -1 : 0)) == dy ||
+                        (relativeZ == 15 ? 1 : (relativeZ == 0 ? -1 : 0)) == dz
+                    ) {
+                        this.markDirtyByPos(chunkX + dx, chunkY + dy, chunkZ + dz);
+                    }
+                }
+            }
+        }
 
         if(this.server != null) {
             this.server.updateBlock(this, x, y, z);
