@@ -45,8 +45,8 @@ export class ServerData {
             };
             request.onupgradeneeded = (event) => {
                 debugLog("Migrate server " + this.id + " from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version <= event.newVersion; version++) {
-                    upgradeServer(request.result, version);
+                for(let version = event.oldVersion; version < event.newVersion; version++) {
+                    upgradeServer(request.result, version + 1);
                     debugLog("Migrated " + this.id + " to v" + version);
                 }
                 debugLog("Migration of server "  + this.id + " finished");
@@ -55,7 +55,7 @@ export class ServerData {
     }
 
     public async saveOptions() {
-        await saveJsonAsObjectStore(this.options, this.db.transaction("options", "readonly").objectStore("options"))
+        await saveJsonAsObjectStore(this.options, this.db.transaction("options", "readwrite").objectStore("options"))
     }
     public async loadOptions() {
         await loadObjectStoreIntoJson(this.options, this.db.transaction("options", "readonly").objectStore("options"))

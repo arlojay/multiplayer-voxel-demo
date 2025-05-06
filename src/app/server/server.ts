@@ -1,21 +1,21 @@
-import { ServerPeer, TimedOutError } from "./serverPeer";
-import { World } from "../world";
-import { MessagePortConnection } from "./thread";
-import { Color } from "three";
 import { debugLog } from "../logging";
-import { WorldSaver } from "./worldSaver";
-import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
-import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
-import { EventPublisher } from "./events";
-import { ServerPlugin } from "./serverPlugin";
-import { WorldGenerator } from "../worldGenerator";
-import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { Packet, SetBlockPacket } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { World } from "../world";
+import { WorldGenerator } from "../worldGenerator";
+import { EventPublisher } from "./events";
+import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
 import { PluginLoader } from "./pluginLoader";
 import { ServerData, ServerOptions } from "./serverData";
+import { ServerPeer, TimedOutError } from "./serverPeer";
+import { ServerPlugin } from "./serverPlugin";
+import { MessagePortConnection } from "./thread";
+import { WorldSaver } from "./worldSaver";
 
 export interface ServerLaunchOptions {
     id: string;
+    overrideSettings?: Partial<ServerOptions>;
 }
 
 export class Server extends EventPublisher {
@@ -25,7 +25,11 @@ export class Server extends EventPublisher {
     public peers: Map<string, ServerPeer> = new Map;
     public debugPort: MessagePort = null;
     public errorPort: MessagePort = null;
-    public options: ServerOptions;
+    public options: ServerOptions = {
+        name: "server",
+        plugins: [],
+        defaultWorldName: "world",
+    };
     public launchOptions: ServerLaunchOptions;
     public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
@@ -43,7 +47,7 @@ export class Server extends EventPublisher {
     }
 
     public async createWorld(name: string, saving = true) {
-        const descriptor = await this.data.createWorld(name);
+        const descriptor = this.data.worlds.get(name) ?? await this.data.createWorld(name);
         const world = new World(descriptor.id, this);
         const saver = new WorldSaver(this, descriptor.id, world);
 
@@ -68,6 +72,11 @@ export class Server extends EventPublisher {
         this.data = new ServerData(this.id, this.options);
         await this.data.open();
         await this.data.loadAll();
+
+        if(this.launchOptions.overrideSettings != null) {
+            Object.assign(this.options, this.launchOptions.overrideSettings);
+            await this.data.saveOptions();
+        }
 
         try {
             for(const pluginName of this.options.plugins) {
