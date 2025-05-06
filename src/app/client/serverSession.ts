@@ -25,7 +25,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public client: Client;
     public serverConnection: DataConnection;
     public player: LocalPlayer;
-    public localWorld = new World;
+    public localWorld = new World(crypto.randomUUID());
     public players: Map<string, RemotePlayer> = new Map;
     public interfaces: Map<string, NetworkUI> = new Map;
 
@@ -232,7 +232,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public resetLocalWorld() {
-        this.localWorld = new World;
+        this.localWorld = new World(crypto.randomUUID());
         this.fetchingChunks.clear();
         this.chunkFetchingQueue.removeMany(() => true);
         this.player.setWorld(this.localWorld);

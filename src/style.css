@@ -135,7 +135,7 @@ body {
     align-items: center;
 }
 
-#select-world {
+#select-server {
     ul {
         display: flex;
         flex-direction: column;
@@ -163,7 +163,7 @@ body {
     }
 }
 
-.modal[data-name="create-world"] {
+.modal[data-name="create-server"] {
     text-align: center;
 }
 

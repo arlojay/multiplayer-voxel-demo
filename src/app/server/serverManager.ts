@@ -2,23 +2,23 @@ import Peer, { DataConnection } from "peerjs";
 import { deserializeError } from "serialize-error";
 import { createPeer } from "../turn";
 import { debugLog } from "../logging";
-import { ServerOptions } from "./server";
+import { ServerLaunchOptions } from "./server";
 
 export class ServerPeerError extends Error {
 
 }
 
 export class ServerManager {
-    public options: ServerOptions;
+    public launchOptions: ServerLaunchOptions;
     public peer: Peer;
     public id: string;
     private worker: Worker;
     private connections: Map<string, DataConnection> = new Map;
     public started: boolean = false;
     
-    constructor(serverId: string, options: ServerOptions) {
+    constructor(serverId: string, launchOptions: ServerLaunchOptions) {
         this.id = serverId;
-        this.options = options;
+        this.launchOptions = launchOptions;
     }
 
     public async start() {
@@ -87,7 +87,7 @@ export class ServerManager {
                     })
                 }
                 if(name == "getoptions") {
-                    worker.postMessage(["options", this.options]);
+                    worker.postMessage(["options", this.launchOptions]);
                 }
                 if(name == "ready") {
                     cleanupCallbacks();

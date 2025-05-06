@@ -9,7 +9,7 @@ export class ChangeWorldPacket extends Packet {
 
     public constructor(world?: World) {
         super();
-        if(world != null) this.world = world.name;
+        if(world != null) this.world = world.id;
     }
 
     protected serialize(bin: BinaryBuffer): void {
