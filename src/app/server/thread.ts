@@ -113,8 +113,6 @@ async function init() {
         
             postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
 
-            Freebuild.init(server);
-
             server.start().then(() => {
                 postMessage(["ready"]);
             });

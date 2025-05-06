@@ -1,9 +1,8 @@
 import { ClientOptions } from "./controlOptions";
 import { loadObjectStoreIntoJson, saveJsonAsObjectStore, waitForTransaction } from "./dbUtils";
-import { flatPack, inflate } from "./flatPackedObject";
 import { debugLog } from "./logging";
 
-export const DATA_VERSION = 1;
+export const DATA_VERSION = 2;
 
 export function upgradeData(db: IDBDatabase, target: number) {
     if(target == 1) {
@@ -50,8 +49,8 @@ export class GameData {
             };
             request.onupgradeneeded = (event) => {
                 debugLog("Migrate game data from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version <= event.newVersion; version++) {
-                    upgradeData(request.result, version);
+                for(let version = event.oldVersion; version < event.newVersion; version++) {
+                    upgradeData(request.result, version + 1);
                     debugLog("Migrated to v" + version);
                 }
                 debugLog("Migration of game data finished");
@@ -61,7 +60,7 @@ export class GameData {
 
 
     public async saveClientOptions() {
-        await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readonly").objectStore("options"))
+        await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"))
     }
     public async loadClientOptions() {
         await loadObjectStoreIntoJson(this.clientOptions, this.db.transaction("options", "readonly").objectStore("options"))

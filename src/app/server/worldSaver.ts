@@ -24,7 +24,7 @@ export class WorldSaver {
     }
     public async open() {
         this.db = await new Promise<IDBDatabase>((res, rej) => {
-            const request = indexedDB.open("world/" + this.server.id + "/" + this.id, WORLD_VERSION);
+            const request = indexedDB.open("servers/" + this.server.id + "/worlds/" + this.id, WORLD_VERSION);
             request.onsuccess = () => {
                 res(request.result);
             };
@@ -33,8 +33,8 @@ export class WorldSaver {
             };
             request.onupgradeneeded = (event) => {
                 debugLog("Migrate world " + this.id + " from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version <= event.newVersion; version++) {
-                    upgradeWorld(request.result, version);
+                for(let version = event.oldVersion; version < event.newVersion; version++) {
+                    upgradeWorld(request.result, version + 1);
                     debugLog("Migrated " + this.id + " to v" + version);
                 }
                 debugLog("Migration of world "  + this.id + " finished");

@@ -1,15 +1,15 @@
 import { Client, getClient } from "./client/client";
 import { ServerSession } from "./client/serverSession";
 import { ClientCustomizationOptions } from "./controlOptions";
-import { ServerDescriptor, WorldDescriptor } from "./gameData";
 import { debugLog } from "./logging";
-import { ServerOptions } from "./server/server";
+import { PluginLoader } from "./server/pluginLoader";
+import { ServerLaunchOptions } from "./server/server";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
 import { UIButton, UISection, UISliderInput, UIText, UITextInput } from "./ui";
 
 const gameRoot = document.querySelector("#game") as HTMLElement;
 
-function createRandomServerId() {
+function createRandomServerGameCode() {
     const chars = "ACDEFGHJKMNPQRTWXYZ234679".split("");
     let str = "";
 
@@ -79,11 +79,8 @@ async function main() {
         try {
             serverCreation.classList.remove("visible");
             const descriptor = await client.gameData.createServer(serverName);
-            server = await createServer({
-                name: serverName,
-                id: descriptor.id,
-                lastPlayed: descriptor.lastPlayed,
-                dateCreated: descriptor.dateCreated
+            server = await launchServer({
+                id: descriptor.id
             });
             
             const connection = await connectToServer(server.id, getConnectionOptions());
@@ -145,6 +142,24 @@ async function main() {
     await client.login(clientId);
     await updateServerListScreen();
 
+    const pluginList = document.querySelector("#plugin-list");
+    for(const pluginName of PluginLoader.getPluginList()) {
+        const element = document.createElement("li");
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+
+        const name = document.createElement("span");
+        name.textContent = pluginName;
+
+        element.append(checkbox, name);
+        pluginList.append(element);
+
+        element.addEventListener("click", e => {
+            if(e.target != checkbox) checkbox.click();
+        });
+    }
+
 
     const settingsUI = makeSettingsUI();
     settingsUI.visible = false;
@@ -197,17 +212,16 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
     return serverSession;
 }
 
-async function createServer(serverOptions?: ServerOptions) {
+async function launchServer(launchOptions: ServerLaunchOptions) {
     let errored = false;
-    let serverId: string = "";
+    let gameCode: string = "";
     let server: ServerManager = null;
 
     do {
         errored = false;
-        serverId = createRandomServerId();
+        gameCode = createRandomServerGameCode();
         
-        // Host server myself
-        server = new ServerManager(serverId, serverOptions);
+        server = new ServerManager(gameCode, launchOptions);
 
         try {
             await server.start();
@@ -257,7 +271,9 @@ async function updateServerListScreen() {
     
             try {
                 serverSelect.classList.remove("visible");
-                server = await createServer(serverDescriptor);
+                server = await launchServer({
+                    id: serverDescriptor.id
+                });
                 
                 const connection = await connectToServer(server.id, getConnectionOptions());
                 connection.addListener("disconnected", () => {

@@ -1,4 +1,4 @@
-import { Freebuild } from "./gamemodes/freebuild/freebuild";
+import { Freebuild } from "./gamemodes/freebuild";
 import { ServerPlugin } from "./serverPlugin";
 
 // TODO: dynamic plugin loading
