@@ -1,8 +1,8 @@
 import { PeerError } from "peerjs";
-import { TypedEmitter } from "tiny-typed-emitter";
 import { serializeError } from "serialize-error";
-import { Server, ServerOptions } from "./server";
+import { TypedEmitter } from "tiny-typed-emitter";
 import * as Freebuild from "./gamemodes/freebuild";
+import { Server, ServerLaunchOptions } from "./server";
 
 let server: Server;
 let crashMessages: Error[] = new Array;
@@ -96,7 +96,8 @@ async function init() {
         const params: any[] = event.data.slice(1);
 
         if(name == "options") {
-            server = new Server(params[0] as ServerOptions);
+            const options = params[0] as (ServerLaunchOptions | null);
+            server = new Server(options);
             (globalThis as any).server = server;
         
             
