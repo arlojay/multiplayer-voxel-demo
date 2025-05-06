@@ -1,8 +1,9 @@
 import { Client, getClient } from "./client/client";
 import { ServerSession } from "./client/serverSession";
 import { ClientCustomizationOptions } from "./controlOptions";
-import { WorldDescriptor } from "./gameData";
+import { ServerDescriptor, WorldDescriptor } from "./gameData";
 import { debugLog } from "./logging";
+import { ServerOptions } from "./server/server";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
 import { UIButton, UISection, UISliderInput, UIText, UITextInput } from "./ui";
 
@@ -65,27 +66,25 @@ async function main() {
 
 
 
-    const worldCreation = document.querySelector('.modal[data-name="create-world"]')!;
+    const serverCreation = document.querySelector('.modal[data-name="create-server"]')!;
 
-    worldCreation.querySelector("form").addEventListener("submit", async (event: SubmitEvent) => {
+    serverCreation.querySelector("form").addEventListener("submit", async (event: SubmitEvent) => {
         event.preventDefault();
         const data = new FormData(event.target as HTMLFormElement);
 
-        const worldName = data.get("name").toString();
-        const databaseName = crypto.randomUUID();
+        const serverName = data.get("name").toString();
 
         let server: ServerManager;
 
         try {
-            worldCreation.classList.remove("visible");
+            serverCreation.classList.remove("visible");
+            const descriptor = await client.gameData.createServer(serverName);
             server = await createServer({
-                name: worldName,
-                location: databaseName,
-                lastPlayed: null,
-                dateCreated: null
+                name: serverName,
+                id: descriptor.id,
+                lastPlayed: descriptor.lastPlayed,
+                dateCreated: descriptor.dateCreated
             });
-
-            await client.gameData.createWorld(worldName, databaseName);
             
             const connection = await connectToServer(server.id, getConnectionOptions());
             connection.addListener("disconnected", () => {
@@ -95,7 +94,7 @@ async function main() {
             gameRoot.classList.remove("hidden");
             gameRoot.focus();
         } catch(e) {
-            worldCreation.classList.add("visible");
+            serverCreation.classList.add("visible");
             alert(e.message);
             console.error(e);
         }
@@ -128,8 +127,8 @@ async function main() {
         }
     })
     
-    document.querySelector("#create-world-btn").addEventListener("click", () => {
-        worldCreation.classList.add("visible");
+    document.querySelector("#create-server-btn").addEventListener("click", () => {
+        serverCreation.classList.add("visible");
         gameSelect.classList.remove("visible");
     });
 
@@ -144,7 +143,7 @@ async function main() {
     
 
     await client.login(clientId);
-    await updateWorldListScreen();
+    await updateServerListScreen();
 
 
     const settingsUI = makeSettingsUI();
@@ -198,7 +197,7 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
     return serverSession;
 }
 
-async function createServer(world: WorldDescriptor) {
+async function createServer(serverOptions?: ServerOptions) {
     let errored = false;
     let serverId: string = "";
     let server: ServerManager = null;
@@ -208,9 +207,7 @@ async function createServer(world: WorldDescriptor) {
         serverId = createRandomServerId();
         
         // Host server myself
-        server = new ServerManager(serverId, {
-            worldName: world.location
-        });
+        server = new ServerManager(serverId, serverOptions);
 
         try {
             await server.start();
@@ -227,24 +224,24 @@ async function createServer(world: WorldDescriptor) {
     return server;
 }
 
-async function updateWorldListScreen() {
-    const worldCreation = document.querySelector('.modal[data-name="create-world"]')!;
-    const worldSelect = document.querySelector("#select-world")!;
+async function updateServerListScreen() {
+    const serverCreation = document.querySelector('.modal[data-name="create-server"]')!;
+    const serverSelect = document.querySelector("#select-server")!;
     const dateFormatter = new Intl.RelativeTimeFormat();
 
     const children: Node[] = new Array;
-    for(const worldDescriptor of Client.instance.gameData.worlds.values()) {
+    for(const serverDescriptor of Client.instance.gameData.servers.values()) {
         const listItem = document.createElement("li");
 
         const itemName = document.createElement("span");
         itemName.classList.add("name");
-        itemName.textContent = worldDescriptor.name;
+        itemName.textContent = serverDescriptor.name;
 
 
         const time = document.createElement("time");
         time.dateTime = "|";
 
-        const timePassed = (Date.now() - worldDescriptor.dateCreated.getTime()) / 1000;
+        const timePassed = (Date.now() - serverDescriptor.dateCreated.getTime()) / 1000;
         if(timePassed < 60) time.textContent = dateFormatter.format(-Math.floor(timePassed), "second");
         else if(timePassed < 60 * 60) time.textContent = dateFormatter.format(-Math.floor(timePassed / 60), "minute");
         else if(timePassed < 60 * 60 * 24) time.textContent = dateFormatter.format(-Math.floor(timePassed / 60 / 60), "hour");
@@ -259,8 +256,8 @@ async function updateWorldListScreen() {
             let server: ServerManager;
     
             try {
-                worldSelect.classList.remove("visible");
-                server = await createServer(worldDescriptor);
+                serverSelect.classList.remove("visible");
+                server = await createServer(serverDescriptor);
                 
                 const connection = await connectToServer(server.id, getConnectionOptions());
                 connection.addListener("disconnected", () => {
@@ -270,7 +267,7 @@ async function updateWorldListScreen() {
                 gameRoot.classList.remove("hidden");
                 gameRoot.focus();
             } catch(e) {
-                worldSelect.classList.add("visible");
+                serverSelect.classList.add("visible");
                 alert(e.message);
                 console.error(e);
             }
@@ -281,11 +278,11 @@ async function updateWorldListScreen() {
         deleteBtn.classList.add("delete");
 
         deleteBtn.addEventListener("click", async () => {
-            const confirmed = confirm("Are you sure you want to delete the world \"" + worldDescriptor.name +"\"?");
+            const confirmed = confirm("Are you sure you want to delete the server \"" + serverDescriptor.name +"\"?");
 
             if(confirmed) {
-                await Client.instance.gameData.deleteWorld(worldDescriptor);
-                await updateWorldListScreen();
+                await Client.instance.gameData.deleteServer(serverDescriptor);
+                await updateServerListScreen();
             }
         });
 
@@ -295,7 +292,7 @@ async function updateWorldListScreen() {
         children.push(listItem);
     }
     
-    const list = worldSelect.querySelector("ul");
+    const list = serverSelect.querySelector("ul");
     list.replaceChildren(...children);
 }
 

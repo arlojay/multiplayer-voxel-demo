@@ -66,13 +66,13 @@ export class World {
     public blocks: VoxelGrid = new VoxelGrid;
     public dirtyChunkQueue: Set<Chunk> = new Set;
     public raycaster = new WorldRaycaster(this);
-    public name: string;
+    public id: string;
     public generator: WorldGenerator;
 
     public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
 
-    public constructor(name = "world", server?: Server) {
-        this.name = name;
+    public constructor(id: string, server?: Server) {
+        this.id = id;
         this.server = server;
     }
 
@@ -193,7 +193,7 @@ export class World {
     public generateChunk(x: number, y: number, z: number) {
         if(this.generator == null) {
             if(!this.warnedAboutNullGenerator) {
-                console.warn("Generator is null for world " + this.name + "; generating empty chunks");
+                console.warn("Generator is null for world " + this.id + "; generating empty chunks");
                 this.warnedAboutNullGenerator = true;
             }
             return this.getChunk(x, y, z, true);
