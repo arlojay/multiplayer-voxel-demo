@@ -36,6 +36,7 @@ export class Server extends EventPublisher {
 
     public constructor(launchOptions: ServerLaunchOptions) {
         super();
+        this.launchOptions = launchOptions;
         this.id = launchOptions.id;
     }
 
@@ -62,7 +63,7 @@ export class Server extends EventPublisher {
 
         if(saving) {
             await saver.open();
-            this.savers.set(name, saver);
+            this.savers.set(descriptor.id, saver);
         }
 
         return world;
@@ -135,7 +136,7 @@ export class Server extends EventPublisher {
         this.debugPort = connection.debugPort;
         this.errorPort = connection.errorPort;
         
-        const world = this.worlds.get(this.options.defaultWorldName);
+        const world = this.getDefaultWorld();
         this.peers.set(peer.id, peer);
 
         peer.player.setWorld(world);
@@ -283,5 +284,8 @@ export class Server extends EventPublisher {
 
     public getDefaultWorld() {
         return this.worlds.get(this.options.defaultWorldName);
+    }
+    public getSaver(world: World) {
+        return this.savers.get(world.id);
     }
 }
