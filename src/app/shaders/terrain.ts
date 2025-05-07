@@ -1,4 +1,4 @@
-import { abs, attribute, color, dot, float, Fn, If, int, max, min, mix, normalize, select, uniform, vec2, vec3, vec4, vertexColor, vertexIndex } from "three/src/nodes/TSL";
+import { abs, attribute, color, dot, float, Fn, If, int, max, mix, normalize, select, smoothstep, uniform, vec2, vec3 } from "three/src/nodes/TSL";
 
 export const sunPos = normalize(vec3(0.3, 1.0, 0.6));
 
@@ -45,19 +45,25 @@ export const terrainColor = Fn(() => {
 
     const edgeFactor = max(abs(uv.x), abs(uv.y));
     
-    const ao = attribute("ao", "f32");
+    const packedAo = int(attribute("ao", "f32").add(0.5)).toVar();
+    const topRightAo = float(packedAo.bitAnd(0b00000011)).toVar();
+    const topLeftAo = float(packedAo.bitAnd(0b00001100).shiftRight(2)).toVar();
+    const bottomLeftAo = float(packedAo.bitAnd(0b00110000).shiftRight(4)).toVar();
+    const bottomRightAo = float(packedAo.bitAnd(0b11000000).shiftRight(6)).toVar();
+    const adjustedUvX = uv.x.add(0.5).toVar();
+    const adjustedUvY = uv.y.add(0.5).toVar();
+    const ao = mix(mix(bottomLeftAo, bottomRightAo, adjustedUvX), mix(topLeftAo, topRightAo, adjustedUvX), adjustedUvY);
 
     const vColor = int(attribute("blockColor", "f32").sub(0.5)).toVar();
     const vColorR = vColor.bitAnd(0b0111110000000000).shiftRight(10);
     const vColorG = vColor.bitAnd(0b0000001111100000).shiftRight(5);
     const vColorB = vColor.bitAnd(0b0000000000011111);
     const faceColor = vec3(float(vColorR).div(0b11111), float(vColorG).div(0b11111), float(vColorB).div(0b11111)).toVar();
-    const finalColor = faceColor.mul(float(1).div(ao.pow(2).add(1))).toVar();
 
-    const shadow = dot(normal, sunPos).mul(0.5).add(0.5);
+    const shadow = dot(normal, sunPos).mul(0.5).add(0.5).mul(float(1).div(ao.pow(2).add(1)));
     const isLightColor = lum({ c: faceColor }).greaterThan(float(0.25));
     const outColor = mix(
-        finalColor,
+        faceColor,
         vec3(select(isLightColor, float(0.0), float(0.5))),
         
         select(
