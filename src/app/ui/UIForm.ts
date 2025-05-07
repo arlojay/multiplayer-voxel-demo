@@ -2,8 +2,8 @@ import { UIContainer } from "./UIContainer";
 import { UIElement, UIEvent } from "./UIElement";
 
 export interface UIFormContributor {
-    getFormContributionValue(): string;
-    setFormContributionValue(value: string): void;
+    getFormContributionValue(): any;
+    setFormContributionValue(value: any): void;
 }
 function isUIFormContributor(element: any): element is UIFormContributor {
     return "getFormContributionValue" in element && "setFormContributionValue" in element;

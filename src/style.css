@@ -5,6 +5,12 @@ html, body, canvas {
     overflow: hidden;
 }
 
+[hidden] {
+    display: none;
+    visibility: hidden;
+    * { display: none; }
+}
+
 canvas {
     image-rendering: pixelated;
 }
@@ -201,5 +207,21 @@ body {
         grid-area: 1 / 1 / 2 / 2;
         align-self: center;
         justify-self: center;
+    }
+}
+
+#settings {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0006;
+
+    display: none;
+    &:has(>:not([hidden])) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 }
