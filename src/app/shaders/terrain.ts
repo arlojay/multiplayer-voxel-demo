@@ -1,6 +1,24 @@
-import { abs, attribute, color, dot, float, Fn, If, int, max, min, mix, normalize, select, uniform, vec2, vec3, vec4, vertexColor, vertexIndex } from "three/src/nodes/TSL";
+import { abs, attribute, color, dot, float, Fn, If, int, max, mix, modelViewProjection, normalize, positionLocal, select, uniform, varying, vec2, vec3, vertexIndex } from "three/src/nodes/TSL";
 
 export const sunPos = normalize(vec3(0.3, 1.0, 0.6));
+
+export const terrainPosition = Fn(() => {
+    const vUv = varying(vec2(0, 0), "vUv");
+    const vi = vertexIndex.modInt(4);
+    If(vi.equal(0), () => {
+        vUv.assign(vec2(-0.5, -0.5));
+    });
+    If(vi.equal(1), () => {
+        vUv.assign(vec2(0.5, -0.5));
+    });
+    If(vi.equal(2), () => {
+        vUv.assign(vec2(0.5, 0.5));
+    });
+    If(vi.equal(3), () => {
+        vUv.assign(vec2(-0.5, 0.5));
+    });
+    return modelViewProjection;
+})
 
 export const terrainColor = Fn(() => {
     const time = uniform(0);
@@ -29,19 +47,21 @@ export const terrainColor = Fn(() => {
     const localPosAdjusted = localPos.sub(vec3(0.5)).toVar();
     const adjustedExtreme = extreme({ v: localPosAdjusted }).toVar();
     const normal = normalize(adjustedExtreme).toVar();
-    const preUv = localPosAdjusted.sub(adjustedExtreme).toVar();
-    const uv = vec2(0.0).toVar();
+    // const preUv = localPosAdjusted.sub(adjustedExtreme).toVar();
+    // const uv = vec2(0.0).toVar();
 
-    If(normal.x.notEqual(float(0.0)), () => {
-        uv.assign(preUv.zy);
-    })
-    If(normal.y.notEqual(float(0.0)), () => {
-        uv.assign(preUv.xz);
-    })
-    If(normal.z.notEqual(float(0.0)), () => {
-        uv.assign(preUv.xy);
-        uv.x.mulAssign(float(-1.0));
-    })
+    // If(normal.x.notEqual(float(0.0)), () => {
+    //     uv.assign(preUv.zy);
+    // })
+    // If(normal.y.notEqual(float(0.0)), () => {
+    //     uv.assign(preUv.xz);
+    // })
+    // If(normal.z.notEqual(float(0.0)), () => {
+    //     uv.assign(preUv.xy);
+    //     uv.x.mulAssign(float(-1.0));
+    // })
+
+    const uv = varying(vec2(0, 0), "vUv");
 
     const edgeFactor = max(abs(uv.x), abs(uv.y));
     
