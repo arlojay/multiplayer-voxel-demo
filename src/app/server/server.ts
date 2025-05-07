@@ -1,40 +1,43 @@
-import { ServerPeer, TimedOutError } from "./serverPeer";
-import { World } from "../world";
-import { MessagePortConnection } from "./thread";
-import { Color } from "three";
 import { debugLog } from "../logging";
-import { WorldSaver } from "./worldSaver";
-import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
-import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
-import { EventPublisher } from "./events";
-import { ServerPlugin } from "./serverPlugin";
-import { WorldGenerator } from "../worldGenerator";
-import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { Packet, SetBlockPacket } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { World } from "../world";
+import { WorldGenerator } from "../worldGenerator";
+import { EventPublisher } from "./events";
+import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
+import { PluginLoader } from "./pluginLoader";
+import { ServerData, ServerOptions } from "./serverData";
+import { ServerPeer, TimedOutError } from "./serverPeer";
+import { ServerPlugin } from "./serverPlugin";
+import { MessagePortConnection } from "./thread";
+import { WorldSaver } from "./worldSaver";
 
-export interface ServerOptions {
-    worldName?: string;
-    plugins?: ServerPlugin[];
+export interface ServerLaunchOptions {
+    id: string;
+    overrideSettings?: Partial<ServerOptions>;
 }
 
 export class Server extends EventPublisher {
+    public id: string;
     public worlds: Map<string, World> = new Map;
     public savers: Map<string, WorldSaver> = new Map;
     public peers: Map<string, ServerPeer> = new Map;
     public debugPort: MessagePort = null;
     public errorPort: MessagePort = null;
-    public options: ServerOptions;
-    public defaultWorldName: string = "world";
+    public options: ServerOptions = {
+        name: "server",
+        plugins: [],
+        defaultWorldName: "world",
+    };
+    public launchOptions: ServerLaunchOptions;
+    public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
 
-    public constructor(options: ServerOptions) {
+    public constructor(launchOptions: ServerLaunchOptions) {
         super();
-
-        this.options = options;
-        if(options.plugins != null) for(const plugin of options.plugins) {
-            this.addPlugin(plugin);
-        }
-        if(options.worldName != null) this.defaultWorldName = options.worldName;
+        this.launchOptions = launchOptions;
+        this.id = launchOptions.id;
     }
 
     public setDebugPort(port: MessagePort) {
@@ -45,8 +48,9 @@ export class Server extends EventPublisher {
     }
 
     public async createWorld(name: string, saving = true) {
-        const world = new World(name, this);
-        const saver = new WorldSaver(name, world);
+        const descriptor = this.data.worlds.get(name) ?? await this.data.createWorld(name);
+        const world = new World(descriptor.id, this);
+        const saver = new WorldSaver(this, descriptor.id, world);
 
         const event = new WorldCreateEvent(this);
         event.world = world;
@@ -59,15 +63,32 @@ export class Server extends EventPublisher {
 
         if(saving) {
             await saver.open();
-            this.savers.set(name, saver);
+            this.savers.set(descriptor.id, saver);
         }
 
         return world;
     }
 
     public async start() {
+        this.data = new ServerData(this.id, this.options);
+        await this.data.open();
+        await this.data.loadAll();
+
+        if(this.launchOptions.overrideSettings != null) {
+            Object.assign(this.options, this.launchOptions.overrideSettings);
+            await this.data.saveOptions();
+        }
+
+        try {
+            for(const pluginName of this.options.plugins) {
+                this.addPlugin(PluginLoader.createPlugin(pluginName));
+            }
+        } catch(e) {
+            throw new Error("Failed to load plugins", { cause: e });
+        }
+
         this.emit(new ServerPreinitEvent(this));
-        const defaultWorld = await this.createWorld(this.defaultWorldName);
+        const defaultWorld = await this.createWorld(this.options.defaultWorldName);
         defaultWorld.setGenerator(new WorldGenerator(defaultWorld));
         this.startLoop();
 
@@ -115,7 +136,7 @@ export class Server extends EventPublisher {
         this.debugPort = connection.debugPort;
         this.errorPort = connection.errorPort;
         
-        const world = this.worlds.get(this.defaultWorldName);
+        const world = this.getDefaultWorld();
         this.peers.set(peer.id, peer);
 
         peer.player.setWorld(world);
@@ -206,7 +227,7 @@ export class Server extends EventPublisher {
         if(chunk == null) {
             chunk = world.getChunk(chunkX, chunkY, chunkZ, true);
 
-            const saver = this.savers.get(world.name);
+            const saver = this.savers.get(world.id);
             if(saver == null) {
                 world.generateChunk(chunkX, chunkY, chunkZ);
             } else {
@@ -262,6 +283,9 @@ export class Server extends EventPublisher {
     }
 
     public getDefaultWorld() {
-        return this.worlds.get(this.defaultWorldName);
+        return this.worlds.get(this.options.defaultWorldName);
+    }
+    public getSaver(world: World) {
+        return this.savers.get(world.id);
     }
 }

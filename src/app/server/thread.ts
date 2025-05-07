@@ -1,8 +1,8 @@
 import { PeerError } from "peerjs";
-import { TypedEmitter } from "tiny-typed-emitter";
 import { serializeError } from "serialize-error";
-import { Server, ServerOptions } from "./server";
+import { TypedEmitter } from "tiny-typed-emitter";
 import * as Freebuild from "./gamemodes/freebuild";
+import { Server, ServerLaunchOptions } from "./server";
 
 let server: Server;
 let crashMessages: Error[] = new Array;
@@ -96,7 +96,7 @@ async function init() {
         const params: any[] = event.data.slice(1);
 
         if(name == "options") {
-            server = new Server(params[0] as ServerOptions);
+            server = new Server(params[0] as ServerLaunchOptions);
             (globalThis as any).server = server;
         
             
@@ -111,8 +111,6 @@ async function init() {
             errorPort.start();
         
             postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
-
-            Freebuild.init(server);
 
             server.start().then(() => {
                 postMessage(["ready"]);

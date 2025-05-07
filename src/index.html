@@ -39,30 +39,35 @@
                 </form>
                 <p class="connect-error" style="color: red;"></p>
             </section>
-            <section id="select-world">
-                <h1>Select a world</h1>
+            <section id="select-server">
+                <h1>Host a game</h1>
                 <div style="width: 100%; text-align: left; font-weight: bold; display: flex; flex-direction: row;">
                     <div style="width: 10rem;">Name</div>
                     <div style="width: 8rem;">Time Created</div>
                 </div>
                 <ul>
-                    <li style="display: block; width: 100%; text-align: center;">Loading worlds...</li>
+                    <li style="display: block; width: 100%; text-align: center;">Loading your games...</li>
                 </ul>
-                <span>Or create a </span><button id="create-world-btn">New World</button>
+                <span>Or create a new game server</span>
+                <button id="create-server-btn">Create</button>
             </section>
         </div>
-        <div class="modal centered" data-name="create-world">
-            <h1>Create World</h1>
+        <div class="modal centered" data-name="create-server">
+            <h1>Modify Server</h1>
             <form>
                 <fieldset>
                     <legend>General</legend>
                     <div>
-                        <label for="name">World Name</label>
+                        <label for="name">Server Name</label>
                         <input type="text" name="name">
                     </div>
                 </fieldset>
+                <fieldset>
+                    <legend>Plugins</legend>
+                    <ul id="plugin-list"></ul>
+                </fieldset>
                 <div style="height: 2rem;"></div>
-                <input type="submit" value="Create World">
+                <input type="submit" value="Create">
             </form>
         </div>
     </div>

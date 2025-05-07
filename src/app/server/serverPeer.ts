@@ -208,7 +208,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             } else {
                 this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
                     this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
-                    this.server.savers.get(this.player.world.name)?.saveModified();
+                    this.server.getSaver(this.player.world)?.saveModified();
                 });
             }
         }
@@ -227,7 +227,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             } else {
                 this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
                     this.player.world.clearColor(packet.x, packet.y, packet.z);
-                    this.server.savers.get(this.player.world.name)?.saveModified();
+                    this.server.getSaver(this.player.world)?.saveModified();
                 });
             }
         }

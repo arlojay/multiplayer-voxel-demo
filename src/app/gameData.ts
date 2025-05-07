@@ -1,20 +1,23 @@
 import { ClientOptions } from "./controlOptions";
-import { flatPack, inflate } from "./flatPackedObject";
+import { loadObjectStoreIntoJson, saveJsonAsObjectStore, waitForTransaction } from "./dbUtils";
 import { debugLog } from "./logging";
 
-export const DATA_VERSION = 1;
+export const DATA_VERSION = 2;
 
 export function upgradeData(db: IDBDatabase, target: number) {
     if(target == 1) {
         db.createObjectStore("worlds", { keyPath: "id", autoIncrement: true });
         db.createObjectStore("options", { keyPath: "name" });
     }
+    if(target == 2) {
+        db.createObjectStore("servers", { keyPath: "id" });
+        db.deleteObjectStore("worlds");
+    }
 }
 
-export interface WorldDescriptor {
-    id?: number;
+export interface ServerDescriptor {
+    id: string;
     name: string;
-    location: string;
     dateCreated: Date;
     lastPlayed: Date;
 }
@@ -32,7 +35,7 @@ export class GameData {
         },
         viewDistance: 4
     };
-    public worlds: Map<number, WorldDescriptor> = new Map;
+    public servers: Map<string, ServerDescriptor> = new Map;
     
     
     public async open() {
@@ -46,133 +49,94 @@ export class GameData {
             };
             request.onupgradeneeded = (event) => {
                 debugLog("Migrate game data from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version <= event.newVersion; version++) {
-                    upgradeData(request.result, version);
-                    debugLog("Migrated to v" + version);
+                for(let version = event.oldVersion; version < event.newVersion; version++) {
+                    upgradeData(request.result, version + 1);
+                    debugLog("Migrated to v" + (version + 1));
                 }
                 debugLog("Migration of game data finished");
             };
         })
     }
 
-    private waitForTransaction(transaction: IDBTransaction) {
-        return new Promise<void>((res, rej) => {
-            transaction.oncomplete = () => {
-                res();
-            }
-            transaction.onerror = (e: ErrorEvent) => {
-                rej(new Error("Failed to finish transaction", { cause: e.error }));
-            }
-            transaction.onabort = () => {
-                rej(new Error("Aborted while completing transaction"));
-            }
-        })
-    }
 
     public async saveClientOptions() {
-        const transaction = this.db.transaction("options", "readwrite");
-        const packed = flatPack(this.clientOptions);
-
-        for(const key in packed) {
-            transaction.objectStore("options").put({
-                name: key,
-                value: packed[key]
-            })
-        }
-
-        try {
-            await this.waitForTransaction(transaction);
-        } catch(e) {
-            throw new Error("Failed to save client options", { cause: e });
-        }
+        await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"))
     }
-
     public async loadClientOptions() {
-        const transaction = this.db.transaction("options", "readonly");
-        const request = transaction.objectStore("options").getAll();
-
-        try {
-            await this.waitForTransaction(transaction);
-        } catch(e) {
-            throw new Error("Failed to load client options", { cause: e });
-        }
-        
-        const packed: Record<string, any> = flatPack(this.clientOptions); // use current clientoptions as default
-        for(const prop of request.result) {
-            packed[prop.name] = prop.value;
-        }
-        const options = inflate(packed);
-        this.clientOptions = options;
+        await loadObjectStoreIntoJson(this.clientOptions, this.db.transaction("options", "readonly").objectStore("options"))
     }
 
-    public async createWorld(name: string, databaseName: string) {
-        const descriptor: WorldDescriptor = {
-            name, location: databaseName,
+    public async createServer(name: string) {
+        const descriptor: ServerDescriptor = {
+            id: crypto.randomUUID(),
+            name,
             dateCreated: new Date,
             lastPlayed: new Date
         };
 
-        const transaction = this.db.transaction("worlds", "readwrite");
+        const transaction = this.db.transaction("servers", "readwrite");
 
-        transaction.objectStore("worlds").add(descriptor)
+        transaction.objectStore("servers").add(descriptor)
 
         try {
-            await this.waitForTransaction(transaction);
+            await waitForTransaction(transaction);
         } catch(e) {
-            throw new Error("Failed to create world " + name, { cause: e });
+            throw new Error("Failed to create server " + name, { cause: e });
+        }
+
+        return descriptor;
+    }
+
+    public async updateServer(descriptor: ServerDescriptor) {
+        if(!this.servers.has(descriptor.id)) throw new ReferenceError("No server with id " + descriptor.id + " exists");
+
+        const transaction = this.db.transaction("servers", "readwrite");
+
+        transaction.objectStore("servers").put(descriptor);
+
+        try {
+            await waitForTransaction(transaction);
+        } catch(e) {
+            throw new Error("Failed to update server " + descriptor.id + " (" + descriptor.name + ")", { cause: e });
         }
     }
 
-    public async updateWorld(descriptor: WorldDescriptor) {
-        if(!this.worlds.has(descriptor.id)) throw new ReferenceError("No world with id " + descriptor.id + " exists");
+    public async deleteServer(descriptor: ServerDescriptor) {
+        if(!this.servers.has(descriptor.id)) throw new ReferenceError("No server with id " + descriptor.id + " exists");
 
-        const transaction = this.db.transaction("worlds", "readwrite");
+        const transaction = this.db.transaction("servers", "readwrite");
 
-        transaction.objectStore("worlds").put(descriptor);
+        transaction.objectStore("servers").delete(descriptor.id);
+        debugLog("Deleting server " + descriptor.name + " (" + descriptor.id + ")");
 
         try {
-            await this.waitForTransaction(transaction);
+            await waitForTransaction(transaction);
         } catch(e) {
-            throw new Error("Failed to update world " + descriptor.id + " (" + descriptor.name + ")", { cause: e });
+            throw new Error("Failed to delete server " + descriptor.id + " (" + descriptor.name + ")", { cause: e });
         }
+        this.servers.delete(descriptor.id);
+        debugLog("Finished deleting server");
     }
 
-    public async deleteWorld(descriptor: WorldDescriptor) {
-        if(!this.worlds.has(descriptor.id)) throw new ReferenceError("No world with id " + descriptor.id + " exists");
-
-        const transaction = this.db.transaction("worlds", "readwrite");
-
-        transaction.objectStore("worlds").delete(descriptor.id);
-        debugLog("Deleting world " + descriptor.name + " (" + descriptor.id + ")");
+    public async loadServers() {
+        const transaction = this.db.transaction("servers", "readonly");
+        const request = transaction.objectStore("servers").getAll();
 
         try {
-            await this.waitForTransaction(transaction);
+            await waitForTransaction(transaction);
         } catch(e) {
-            throw new Error("Failed to delete world " + descriptor.id + " (" + descriptor.name + ")", { cause: e });
-        }
-        this.worlds.delete(descriptor.id);
-        debugLog("Finished deleting world");
-    }
-
-    public async loadWorlds() {
-        const transaction = this.db.transaction("worlds", "readonly");
-        const request = transaction.objectStore("worlds").getAll();
-
-        try {
-            await this.waitForTransaction(transaction);
-        } catch(e) {
-            throw new Error("Failed to load world descriptors", { cause: e });
+            throw new Error("Failed to load server descriptors", { cause: e });
         }
         
-        this.worlds.clear();
+        this.servers.clear();
         for(const prop of request.result) {
-            this.worlds.set(prop.id, prop);
+            this.servers.set(prop.id, prop);
         }
     }
 
     public async loadAll() {
         await this.loadClientOptions();
-        await this.loadWorlds();
+        await this.loadServers();
     }
     public async saveAll() {
         await this.saveClientOptions();

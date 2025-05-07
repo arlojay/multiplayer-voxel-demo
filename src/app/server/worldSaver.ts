@@ -1,5 +1,6 @@
 import { debugLog } from "../logging";
 import { Chunk, World } from "../world";
+import { Server } from "./server";
 
 export const WORLD_VERSION = 1;
 
@@ -10,31 +11,33 @@ export function upgradeWorld(db: IDBDatabase, target: number) {
 }
 
 export class WorldSaver {
-    public name: string;
+    public server: Server;
+    public id: string;
     public db: IDBDatabase;
     public world: World;
     chunkObjectStore: IDBObjectStore;
 
-    constructor(id: string, world: World) {
-        this.name = id;
+    constructor(server: Server, id: string, world: World) {
+        this.server = server;
+        this.id = id;
         this.world = world;
     }
     public async open() {
         this.db = await new Promise<IDBDatabase>((res, rej) => {
-            const request = indexedDB.open("world/" + this.name, WORLD_VERSION);
+            const request = indexedDB.open("servers/" + this.server.id + "/worlds/" + this.id, WORLD_VERSION);
             request.onsuccess = () => {
                 res(request.result);
             };
             request.onerror = (event: ErrorEvent) => {
-                rej(new Error("Cannot open world database " + this.name, { cause: event.error ?? (event as any).target?.error }));
+                rej(new Error("Cannot open world database " + this.id, { cause: event.error ?? (event as any).target?.error }));
             };
             request.onupgradeneeded = (event) => {
-                debugLog("Migrate world " + this.name + " from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version <= event.newVersion; version++) {
-                    upgradeWorld(request.result, version);
-                    debugLog("Migrated " + this.name + " to v" + version);
+                debugLog("Migrate world " + this.id + " from v" + event.oldVersion + " to v" + event.newVersion);
+                for(let version = event.oldVersion; version < event.newVersion; version++) {
+                    upgradeWorld(request.result, version + 1);
+                    debugLog("Migrated " + this.id + " to v" + (version + 1));
                 }
-                debugLog("Migration of world "  + this.name + " finished");
+                debugLog("Migration of world "  + this.id + " finished");
             };
         });
     }
@@ -83,7 +86,7 @@ export class WorldSaver {
     }
 
     public async saveModified() {
-        debugLog("Saving world " + this.name);
+        debugLog("Saving world " + this.id);
         await Promise.all([
             new Promise<void>((res, rej) => {
                 this.chunkObjectStore ??= this.db.transaction("data", "readwrite").objectStore("data");
@@ -94,7 +97,7 @@ export class WorldSaver {
     
                 this.chunkObjectStore.transaction.oncomplete = () => {
                     this.world.dirtyChunkQueue.clear();
-                    debugLog("Done saving chunks for " + this.name);
+                    debugLog("Done saving chunks for " + this.id);
                     res();
                 }
                 this.chunkObjectStore.transaction.onerror = (e: ErrorEvent) => {
@@ -106,6 +109,6 @@ export class WorldSaver {
                 this.chunkObjectStore = null;
             })
         ]);
-        debugLog("Saving world " + this.name + " complete");
+        debugLog("Saving world " + this.id + " complete");
     }
 }

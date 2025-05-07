@@ -2,7 +2,7 @@ import { BoxGeometry, HemisphereLight, Mesh, MeshBasicNodeMaterial, PerspectiveC
 import { TypedEmitter } from "tiny-typed-emitter";
 import { World } from "./world";
 import { WorldRenderer } from "./worldRenderer";
-import { terrainColor } from "./shaders/terrain";
+import { terrainColor, terrainPosition } from "./shaders/terrain";
 import { skyColor } from "./shaders/sky";
 import { UIContainer } from "./ui";
 
@@ -92,6 +92,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         const material = new MeshBasicNodeMaterial();
     
         material.colorNode = terrainColor();
+        material.positionNode = terrainPosition();
     
         this.terrainShader = material;
     }
