@@ -50,6 +50,19 @@ async function main() {
         }
     });
 
+    const memoryCounter = document.querySelector("#memory-counter");
+    setInterval(() => {
+        const memory = (performance as any).memory;
+        if(memory != null) {
+            let count = (Math.round(memory.usedJSHeapSize / 1024 / 1024 * 100) / 100).toString();
+            let [ whole, frac ] = count.split(".");
+            if(frac == null) frac = "";
+            frac = frac.padEnd(2, "0");
+            count = whole + "." + frac;
+            memoryCounter.textContent = count + "MB used";
+        }
+    }, 100);
+
 
 
     const worldCreation = document.querySelector('.modal[data-name="create-world"]')!;
