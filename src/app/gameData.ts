@@ -51,7 +51,7 @@ export class GameData {
                 debugLog("Migrate game data from v" + event.oldVersion + " to v" + event.newVersion);
                 for(let version = event.oldVersion; version < event.newVersion; version++) {
                     upgradeData(request.result, version + 1);
-                    debugLog("Migrated to v" + version);
+                    debugLog("Migrated to v" + (version + 1));
                 }
                 debugLog("Migration of game data finished");
             };

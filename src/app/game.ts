@@ -76,11 +76,23 @@ async function main() {
 
         let server: ServerManager;
 
+        const plugins: string[] = new Array;
+
+        const pluginList = document.querySelector("#plugin-list");
+        for(const child of Array.from(pluginList.children) as HTMLElement[]) {
+            if(child.querySelector(":checked") != null) {
+                plugins.push(child.dataset.name);
+            }
+        }
+
         try {
             serverCreation.classList.remove("visible");
             const descriptor = await client.gameData.createServer(serverName);
             server = await launchServer({
-                id: descriptor.id
+                id: descriptor.id,
+                overrideSettings: {
+                    name: serverName, plugins
+                }
             });
             
             const connection = await connectToServer(server.id, getConnectionOptions());
@@ -145,6 +157,7 @@ async function main() {
     const pluginList = document.querySelector("#plugin-list");
     for(const pluginName of PluginLoader.getPluginList()) {
         const element = document.createElement("li");
+        element.dataset.name = pluginName;
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";

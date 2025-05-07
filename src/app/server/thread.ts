@@ -96,8 +96,7 @@ async function init() {
         const params: any[] = event.data.slice(1);
 
         if(name == "options") {
-            const options = params[0] as (ServerLaunchOptions | null);
-            server = new Server(options);
+            server = new Server(params[0] as ServerLaunchOptions);
             (globalThis as any).server = server;
         
             

@@ -19,7 +19,6 @@ export interface ServerOptions {
 export interface WorldDescriptor {
     id?: string;
     name: string;
-    location: string;
     dateCreated: Date;
     lastPlayed: Date;
 }
@@ -47,7 +46,7 @@ export class ServerData {
                 debugLog("Migrate server " + this.id + " from v" + event.oldVersion + " to v" + event.newVersion);
                 for(let version = event.oldVersion; version < event.newVersion; version++) {
                     upgradeServer(request.result, version + 1);
-                    debugLog("Migrated " + this.id + " to v" + version);
+                    debugLog("Migrated " + this.id + " to v" + (version + 1));
                 }
                 debugLog("Migration of server "  + this.id + " finished");
             };
@@ -63,7 +62,7 @@ export class ServerData {
 
     public async createWorld(name: string) {
         const descriptor: WorldDescriptor = {
-            name, location: crypto.randomUUID(),
+            name, id: crypto.randomUUID(),
             dateCreated: new Date,
             lastPlayed: new Date
         };
@@ -99,7 +98,7 @@ export class ServerData {
 
         const transaction = this.db.transaction("worlds", "readwrite");
 
-        transaction.objectStore("worlds").delete(descriptor.location);
+        transaction.objectStore("worlds").delete(descriptor.name);
         debugLog("Deleting world " + descriptor.name + " (" + descriptor.id + ")");
 
         try {

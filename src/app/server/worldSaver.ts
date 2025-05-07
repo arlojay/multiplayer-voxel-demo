@@ -35,7 +35,7 @@ export class WorldSaver {
                 debugLog("Migrate world " + this.id + " from v" + event.oldVersion + " to v" + event.newVersion);
                 for(let version = event.oldVersion; version < event.newVersion; version++) {
                     upgradeWorld(request.result, version + 1);
-                    debugLog("Migrated " + this.id + " to v" + version);
+                    debugLog("Migrated " + this.id + " to v" + (version + 1));
                 }
                 debugLog("Migration of world "  + this.id + " finished");
             };
