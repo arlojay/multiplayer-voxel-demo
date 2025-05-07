@@ -16,7 +16,11 @@ const customMeshes = [
 ];
 const castsAO = [
     false
-]
+];
+
+export enum FaceDirection {
+    WEST, EAST, SOUTH, NORTH, DOWN, UP
+}
 
 export class VoxelMesher {
     private world: VoxelGrid;
@@ -94,10 +98,11 @@ export class VoxelMesher {
                     // West
                     if(~chunkCache[i - OFF_X] & SOLID_BITMASK) {
                         packedao =
-                        (np_ + n_n + npn) << 4 |
-                        (np_ + n_p + npp) << 6 |
-                        (nn_ + n_p + nnp) << 0 |
-                        (nn_ + n_n + nnn) << 2;
+                        (np_ + n_n + ((np_ + n_n) == 1 ? 0 : npn)) << 4 |
+                        (np_ + n_p + ((np_ + n_p) == 1 ? 0 : npp)) << 6 |
+                        (nn_ + n_p + ((nn_ + n_p) == 1 ? 0 : nnp)) << 0 |
+                        (nn_ + n_n + ((nn_ + n_n) == 1 ? 0 : nnn)) << 2 |
+                        FaceDirection.WEST << 8;
 
                         vertices.push(
                             x,      y + 1,  z,          0, 1, 0,    color, packedao,
@@ -115,10 +120,11 @@ export class VoxelMesher {
                     // East
                     if(~chunkCache[i + OFF_X] & SOLID_BITMASK) {
                         packedao =
-                        (p_p + pp_ + ppp) << 4 |
-                        (p_n + pp_ + ppn) << 6 |
-                        (p_n + pn_ + pnn) << 0 |
-                        (p_p + pn_ + pnp) << 2;
+                        (p_p + pp_ + ((p_p + pp_) != 2 ? ppp : 0)) << 4 |
+                        (p_n + pp_ + ((p_n + pp_) != 2 ? ppn : 0)) << 6 |
+                        (p_n + pn_ + ((p_n + pn_) != 2 ? pnn : 0)) << 0 |
+                        (p_p + pn_ + ((p_p + pn_) != 2 ? pnp : 0)) << 2 |
+                        FaceDirection.EAST << 8;
 
                         vertices.push(
                             x + 1,  y + 1,  z + 1,      1, 1, 1,    color, packedao,
@@ -136,10 +142,11 @@ export class VoxelMesher {
                     // South
                     if(~chunkCache[i + OFF_Z] & SOLID_BITMASK) {
                         packedao =
-                        (n_p + _pp + npp) << 4 |
-                        (p_p + _pp + ppp) << 6 |
-                        (p_p + _np + pnp) << 0 |
-                        (n_p + _np + nnp) << 2;
+                        (n_p + _pp + ((n_p + _pp) == 1 ? 0 : npp)) << 4 |
+                        (p_p + _pp + ((p_p + _pp) == 1 ? 0 : ppp)) << 6 |
+                        (p_p + _np + ((p_p + _np) == 1 ? 0 : pnp)) << 0 |
+                        (n_p + _np + ((n_p + _np) == 1 ? 0 : nnp)) << 2 |
+                        FaceDirection.SOUTH << 8;
 
                         vertices.push(
                             x,      y + 1,  z + 1,      0, 1, 1,    color, packedao,
@@ -157,10 +164,11 @@ export class VoxelMesher {
                     // North
                     if(~chunkCache[i - OFF_Z] & SOLID_BITMASK) {
                         packedao = 
-                        (p_n + _pn + ppn) << 4 |
-                        (n_n + _pn + npn) << 6 |
-                        (n_n + _nn + nnn) << 0 |
-                        (p_n + _nn + pnn) << 2;
+                        (p_n + _pn + ((p_n + _pn) == 1 ? 0 : ppn)) << 4 |
+                        (n_n + _pn + ((n_n + _pn) == 1 ? 0 : npn)) << 6 |
+                        (n_n + _nn + ((n_n + _nn) == 1 ? 0 : nnn)) << 0 |
+                        (p_n + _nn + ((p_n + _nn) == 1 ? 0 : pnn)) << 2 |
+                        FaceDirection.NORTH << 8;
 
                         vertices.push(
                             x + 1,  y + 1,  z,          1, 1, 0,    color, packedao,
@@ -178,10 +186,11 @@ export class VoxelMesher {
                     // Up
                     if(~chunkCache[i + OFF_Y] & SOLID_BITMASK) {
                         packedao =
-                        (_pn + np_ + npn) << 4 |
-                        (_pn + pp_ + ppn) << 6 |
-                        (_pp + pp_ + ppp) << 0 |
-                        (_pp + np_ + npp) << 2;
+                        (_pn + np_ + (_pn + np_ == 1 ? 0 : npn)) << 4 |
+                        (_pn + pp_ + (_pn + pp_ == 1 ? 0 : ppn)) << 6 |
+                        (_pp + pp_ + (_pp + pp_ == 1 ? 0 : ppp)) << 0 |
+                        (_pp + np_ + (_pp + np_ == 1 ? 0 : npp)) << 2 |
+                        FaceDirection.UP << 8;
 
                         vertices.push(
                             x,      y + 1,  z,          0, 1, 0, color, packedao,
@@ -199,10 +208,11 @@ export class VoxelMesher {
                     // Down
                     if(~chunkCache[i - OFF_Y] & SOLID_BITMASK) {
                         packedao =
-                        (_np + nn_ + nnp) << 4 |
-                        (_np + pn_ + pnp) << 6 |
-                        (_nn + pn_ + pnn) << 0 |
-                        (_nn + nn_ + nnn) << 2;
+                        (_np + nn_ + ((_np + nn_) == 1 ? 0 : nnp)) << 4 |
+                        (_np + pn_ + ((_np + pn_) == 1 ? 0 : pnp)) << 6 |
+                        (_nn + pn_ + ((_nn + pn_) == 1 ? 0 : pnn)) << 0 |
+                        (_nn + nn_ + ((_nn + nn_) == 1 ? 0 : nnn)) << 2 |
+                        FaceDirection.DOWN << 8;
                         
                         vertices.push(
                             x,      y,      z + 1,      0, 0, 1, color, packedao,

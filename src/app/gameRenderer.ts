@@ -33,7 +33,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         this.UIRoot = UIRoot;
     }
     public async init() {
-        this.renderer = new WebGPURenderer({ canvas: this.canvas, powerPreference: "high-performance", antialias: true });
+        this.renderer = new WebGPURenderer({ canvas: this.canvas, powerPreference: "high-performance", antialias: false });
 
         this.renderer.autoClearColor = false;
         this.renderer.autoClearDepth = false;
