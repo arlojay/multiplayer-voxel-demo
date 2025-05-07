@@ -96,15 +96,20 @@ body {
     display: none;
 }
 
-#debug-logs {
+#memory-counter {
     position: fixed;
     top: 0;
     left: 0;
+    font-size: 10px;
+}
+
+#debug-logs {
+    position: fixed;
+    top: 10px;
     width: 50%;
     height: 100%;
     font-size: 10px;
 
-    padding: 0.5rem;
     font-weight: bold;
 
     pointer-events: none;
@@ -117,6 +122,9 @@ body {
         display: block;
         margin: 0;
     }
+
+
+    display: none;
 }
 
 .modal[data-name="game-select"] {
