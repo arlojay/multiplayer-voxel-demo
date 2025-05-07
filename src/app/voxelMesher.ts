@@ -37,6 +37,7 @@ export class VoxelMesher {
         let _nn = 0, _np = 0, _pn = 0, _pp = 0;
         let n_n = 0, n_p = 0, p_n = 0, p_p = 0;
         let nn_ = 0, np_ = 0, pn_ = 0, pp_ = 0;
+        let packedao = 0;
 
         const baseX = chunk.blockX;
         const baseY = chunk.blockY;
@@ -92,11 +93,17 @@ export class VoxelMesher {
 
                     // West
                     if(~chunkCache[i - OFF_X] & SOLID_BITMASK) {
+                        packedao =
+                        (np_ + n_n + npn) << 2 |
+                        (np_ + n_p + npp) << 0 |
+                        (nn_ + n_p + nnp) << 6 |
+                        (nn_ + n_n + nnn) << 4;
+
                         vertices.push(
-                            x,      y + 1,  z,          0, 1, 0,    color, (np_ + n_n + npn),
-                            x,      y + 1,  z + 1,      0, 1, 1,    color, (np_ + n_p + npp),
-                            x,      y,      z + 1,      0, 0, 1,    color, (nn_ + n_p + nnp),
-                            x,      y,      z,          0, 0, 0,    color, (nn_ + n_n + nnn),
+                            x,      y + 1,  z,          0, 1, 0,    color, packedao,
+                            x,      y + 1,  z + 1,      0, 1, 1,    color, packedao,
+                            x,      y,      z + 1,      0, 0, 1,    color, packedao,
+                            x,      y,      z,          0, 0, 0,    color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -107,11 +114,17 @@ export class VoxelMesher {
 
                     // East
                     if(~chunkCache[i + OFF_X] & SOLID_BITMASK) {
+                        packedao =
+                        (p_p + pp_ + ppp) |
+                        (p_n + pp_ + ppn) << 2 |
+                        (p_n + pn_ + pnn) << 4 |
+                        (p_p + pn_ + pnp) << 6;
+
                         vertices.push(
-                            x + 1,  y + 1,  z + 1,      1, 1, 1,    color, (p_p + pp_ + ppp),
-                            x + 1,  y + 1,  z,          1, 1, 0,    color, (p_n + pp_ + ppn),
-                            x + 1,  y,      z,          1, 0, 0,    color, (p_n + pn_ + pnn),
-                            x + 1,  y,      z + 1,      1, 0, 1,    color, (p_p + pn_ + pnp),
+                            x + 1,  y + 1,  z + 1,      1, 1, 1,    color, packedao,
+                            x + 1,  y + 1,  z,          1, 1, 0,    color, packedao,
+                            x + 1,  y,      z,          1, 0, 0,    color, packedao,
+                            x + 1,  y,      z + 1,      1, 0, 1,    color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -122,11 +135,17 @@ export class VoxelMesher {
 
                     // South
                     if(~chunkCache[i + OFF_Z] & SOLID_BITMASK) {
+                        packedao =
+                        (n_p + _pp + npp) |
+                        (p_p + _pp + ppp) << 2 |
+                        (p_p + _np + pnp) << 4 |
+                        (n_p + _np + nnp) << 6;
+
                         vertices.push(
-                            x,      y + 1,  z + 1,      0, 1, 1,    color, (n_p + _pp + npp),
-                            x + 1,  y + 1,  z + 1,      1, 1, 1,    color, (p_p + _pp + ppp),
-                            x + 1,  y,      z + 1,      1, 0, 1,    color, (p_p + _np + pnp),
-                            x,      y,      z + 1,      0, 0, 1,    color, (n_p + _np + nnp),
+                            x,      y + 1,  z + 1,      0, 1, 1,    color, packedao,
+                            x + 1,  y + 1,  z + 1,      1, 1, 1,    color, packedao,
+                            x + 1,  y,      z + 1,      1, 0, 1,    color, packedao,
+                            x,      y,      z + 1,      0, 0, 1,    color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -137,11 +156,17 @@ export class VoxelMesher {
 
                     // North
                     if(~chunkCache[i - OFF_Z] & SOLID_BITMASK) {
+                        packedao = 
+                        (p_n + _pn + ppn) << 2 |
+                        (n_n + _pn + npn) << 0 |
+                        (n_n + _nn + nnn) << 6 |
+                        (p_n + _nn + pnn) << 4;
+
                         vertices.push(
-                            x + 1,  y + 1,  z,          1, 1, 0,    color, (p_n + _pn + ppn),
-                            x,      y + 1,  z,          0, 1, 0,    color, (n_n + _pn + npn),
-                            x,      y,      z,          0, 0, 0,    color, (n_n + _nn + nnn),
-                            x + 1,  y,      z,          1, 0, 0,    color, (p_n + _nn + pnn),
+                            x + 1,  y + 1,  z,          1, 1, 0,    color, packedao,
+                            x,      y + 1,  z,          0, 1, 0,    color, packedao,
+                            x,      y,      z,          0, 0, 0,    color, packedao,
+                            x + 1,  y,      z,          1, 0, 0,    color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -152,26 +177,38 @@ export class VoxelMesher {
 
                     // Up
                     if(~chunkCache[i + OFF_Y] & SOLID_BITMASK) {
+                        packedao =
+                        (_pn + np_ + npn) << 4 |
+                        (_pn + pp_ + ppn) << 6 |
+                        (_pp + pp_ + ppp) << 0 |
+                        (_pp + np_ + npp) << 2;
+
                         vertices.push(
-                            x,      y + 1,  z,          0, 1, 0, color, (_pn + np_ + npn),
-                            x + 1,  y + 1,  z,          1, 1, 0, color, (_pn + pp_ + ppn),
-                            x + 1,  y + 1,  z + 1,      1, 1, 1, color, (_pp + pp_ + ppp),
-                            x,      y + 1,  z + 1,      0, 1, 1, color, (_pp + np_ + npp),
+                            x,      y + 1,  z,          0, 1, 0, color, packedao,
+                            x + 1,  y + 1,  z,          1, 1, 0, color, packedao,
+                            x + 1,  y + 1,  z + 1,      1, 1, 1, color, packedao,
+                            x,      y + 1,  z + 1,      0, 1, 1, color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
                             vertexCount, vertexCount + 3, vertexCount + 2
                         );
-                        vertexCount += 4;;
+                        vertexCount += 4;
                     }
 
                     // Down
                     if(~chunkCache[i - OFF_Y] & SOLID_BITMASK) {
+                        packedao =
+                        (_np + nn_ + nnp) << 2 |
+                        (_np + pn_ + pnp) << 0 |
+                        (_nn + pn_ + pnn) << 6 |
+                        (_nn + nn_ + nnn) << 4;
+                        
                         vertices.push(
-                            x,      y,      z + 1,      0, 0, 1, color, (_np + nn_ + nnp),
-                            x + 1,  y,      z + 1,      1, 0, 1, color, (_np + pn_ + pnp),
-                            x + 1,  y,      z,          1, 0, 0, color, (_nn + pn_ + pnn),
-                            x,      y,      z,          0, 0, 0, color, (_nn + nn_ + nnn),
+                            x,      y,      z + 1,      0, 0, 1, color, packedao,
+                            x + 1,  y,      z + 1,      1, 0, 1, color, packedao,
+                            x + 1,  y,      z,          1, 0, 0, color, packedao,
+                            x,      y,      z,          0, 0, 0, color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
