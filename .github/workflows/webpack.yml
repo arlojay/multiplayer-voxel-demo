@@ -33,7 +33,7 @@ jobs:
       run: cp ./assets ./dist/assets -r
 
     - name: Upload to pages
-      uses: actions/upload-pages-artifact@3.0.1
+      uses: actions/upload-pages-artifact@v3.0.1
       with:
         name: github-pages
         path: ./dist/
