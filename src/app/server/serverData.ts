@@ -10,17 +10,17 @@ export function upgradeServer(db: IDBDatabase, target: number) {
     }
 }
 
-export interface ServerOptions {
-    name: string;
-    plugins: string[];
-    defaultWorldName: string;
+export class ServerOptions {
+    name: string = "server";
+    plugins: string[] = new Array;
+    defaultWorldName: string = "world";
 }
 
-export interface WorldDescriptor {
-    id?: string;
+export class WorldDescriptor {
     name: string;
-    dateCreated: Date;
-    lastPlayed: Date;
+    id: string = crypto.randomUUID();
+    dateCreated = new Date;
+    lastPlayed = new Date;
 }
 
 export class ServerData {
@@ -61,11 +61,8 @@ export class ServerData {
     }
 
     public async createWorld(name: string) {
-        const descriptor: WorldDescriptor = {
-            name, id: crypto.randomUUID(),
-            dateCreated: new Date,
-            lastPlayed: new Date
-        };
+        const descriptor = new WorldDescriptor;
+        descriptor.name = name;
 
         const transaction = this.db.transaction("worlds", "readwrite");
 

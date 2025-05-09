@@ -4,8 +4,8 @@ export interface SerializedUIButton extends SerializedUIElement {
     text: string;
 }
 export class UIButton extends UIElement<SerializedUIButton> {
-    public static type = UIElement.register("btn", () => new this);
-    public type = UIButton.type;
+    public static readonly type = UIElement.register("btn", () => new this);
+    public readonly type = UIButton.type;
 
     
     public text: string = "";

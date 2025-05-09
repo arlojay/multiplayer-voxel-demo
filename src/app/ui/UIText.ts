@@ -4,8 +4,8 @@ export interface SerializedUIText extends SerializedUIElement {
     text: string;
 }
 export class UIText extends UIElement<SerializedUIText> {
-    public static type = UIElement.register("txt", () => new this);
-    public type = UIText.type;
+    public static readonly type = UIElement.register("txt", () => new this);
+    public readonly type = UIText.type;
 
     public text: string = "";
 

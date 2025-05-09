@@ -25,11 +25,7 @@ export class Server extends EventPublisher {
     public peers: Map<string, ServerPeer> = new Map;
     public debugPort: MessagePort = null;
     public errorPort: MessagePort = null;
-    public options: ServerOptions = {
-        name: "server",
-        plugins: [],
-        defaultWorldName: "world",
-    };
+    public options: ServerOptions = new ServerOptions;
     public launchOptions: ServerLaunchOptions;
     public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
