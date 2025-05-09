@@ -4,7 +4,7 @@ import { RemoteEntity } from "../entity/remoteEntity";
 import { dlerp } from "../math";
 import { Color, MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
 import { attribute, dot, vec3, vec4 } from "three/src/nodes/TSL";
-import { sunPos } from "../shaders/terrain";
+import { sunPos } from "../shaders/sky";
 
 // const playerFace = new TextureLoader().load("assets/textures/player-face.png");
 const loader = new GLTFLoader();
