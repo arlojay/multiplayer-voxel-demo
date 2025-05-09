@@ -49,11 +49,14 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public visible = true;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
     public parent: UIContainer;
-    protected eventBinder: UIEventBinder = new UIEventBinder;
+    protected _eventBinder: UIEventBinder;
     private externalEventHandlers: Map<string, (event: UIEvent) => boolean | void> = new Map;
 
     protected abstract buildElement(): Promise<HTMLElement>;
 
+    protected get eventBinder() {
+        return this._eventBinder ??= new UIEventBinder;
+    }
 
 
     public async update() {

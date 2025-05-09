@@ -33,9 +33,7 @@ export class UIButton extends UIElement<SerializedUIButton> {
             const trySubmit = new UIEvent("trysubmit");
             this.bubbleEvent(trySubmit);
             
-            if(!trySubmit.cancelled) {
-                callback();
-            }
+            callback();
         })
     }
     public serialize() {
