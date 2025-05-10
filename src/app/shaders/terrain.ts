@@ -1,8 +1,8 @@
-import { abs, attribute, cameraPosition, color, cos, dot, float, Fn, If, int, max, min, mix, modelViewProjection, normalize, positionGeometry, positionLocal, positionWorld, reflect, select, sin, smoothstep, tan, time, uniform, varying, vec2, vec3, vec4, vertexIndex, vertexStage } from "three/src/nodes/TSL";
+import { abs, attribute, cameraPosition, color, dot, float, Fn, If, int, max, mix, positionView, positionWorld, select, smoothstep, uniform, vec2, vec3, vertexIndex, vertexStage } from "three/src/nodes/TSL";
 import { FaceDirection } from "../voxelMesher";
 import { nightFactor, skyColorNode, sunPos } from "./sky";
 
-export const terrainColor = Fn(() => {
+export const terrainColor = Fn(([viewDistance = float(16)]) => {
     const uv = vertexStage(Fn(() => {
         const uv = vec2(0, 0).toVar();
         const vi = vertexIndex.modInt(4);
@@ -20,9 +20,6 @@ export const terrainColor = Fn(() => {
         });
         return uv;
     })());
-
-    const time = uniform(0);
-    time.onFrameUpdate(n => n.time);
 
     // const incident = normalize(positionWorld.sub(cameraPosition)).toVar();
     
@@ -59,6 +56,8 @@ export const terrainColor = Fn(() => {
 
     const faceDirection = packedAo.bitAnd(0b111 << 8).shiftRight(8).toVar();
     const normal = vec3(0, 1, 0).toVar();
+    const dist = positionWorld.sub(cameraPosition).length();
+    const fogFactor = dist.remapClamp(viewDistance.mul(0.75), viewDistance.mul(0.95), 0, 1);
 
     If(faceDirection.equal(FaceDirection.EAST), () => {
         normal.assign(vec3(1, 0, 0));
@@ -113,7 +112,7 @@ export const terrainColor = Fn(() => {
         shadow.remap(0, 1, 1, 0.95)
     );
 
-    const outColor = mix(dayColor, nightColor, nightFactor);
+    const outColor = mix(mix(dayColor, nightColor, nightFactor), skyColorNode(positionWorld.sub(cameraPosition)), fogFactor);
 
     // outColor.assign(mix(outColor, skyReflection, fresnel));
     // outColor.assign(vec4(fresnel, fresnel, fresnel, 1));

@@ -23,7 +23,7 @@ export const nightFactor = sunPos.y.remapClamp(-0.1, 0.1, 1, 0);
 //     });
 // };
 
-export const skyColorNode = Fn(({ pos = vec3(0, 0, 0) }) => {
+export const skyColorNode = Fn(([ pos = vec3(0, 0, 0) ]) => {
     const positionNormalized = normalize(pos).toVar();
     // const height = float(2);
     // const skyPos = vec2(
@@ -73,5 +73,5 @@ export const skyColorNode = Fn(({ pos = vec3(0, 0, 0) }) => {
 })
 
 export const skyColor = Fn(() => {
-    return skyColorNode({ pos: positionLocal});
+    return skyColorNode(positionLocal);
 })

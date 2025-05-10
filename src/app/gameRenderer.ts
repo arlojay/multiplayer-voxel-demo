@@ -5,6 +5,10 @@ import { WorldRenderer } from "./worldRenderer";
 import { terrainColor } from "./shaders/terrain";
 import { skyColor } from "./shaders/sky";
 import { UIContainer } from "./ui";
+import { uniform } from "three/src/nodes/TSL";
+import { Client } from "./client/client";
+import { CHUNK_SIZE } from "./voxelGrid";
+import { dlerp } from "./math";
 
 interface GameRendererEvents {
     "frame": (time: number, dt: number) => void;
@@ -22,9 +26,12 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public camera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 3000);
     public scene: Scene = new Scene();
     public skybox: Scene = new Scene();
+    private frameTimes: number[] = new Array;
 
     private terrainShader: MeshBasicNodeMaterial = null;
     private lastRenderTime: number = 0;
+    public framerate = 0;
+    public frametime = 0;
 
     constructor(canvas: HTMLCanvasElement, UIRoot: HTMLDivElement) {
         super();
@@ -58,22 +65,34 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public async render(time: number) {
         time /= 1000;
         const dt = (time - this.lastRenderTime);
+
+        this.frameTimes.push(time);
+        while(time - this.frameTimes[0] > 1) this.frameTimes.shift();
+        this.framerate = dlerp(this.framerate, this.frameTimes.length, dt, 10);
+
         this.lastRenderTime = time;
 
         
+        const t0 = performance.now();
         if(this.worldRenderer != null) {
             this.emit("frame", time, dt);
             this.worldRenderer.update(dt);
 
-            const skyboxCamera = this.camera.clone();
-            skyboxCamera.position.set(0, 0, 0);
+            // const skyboxCamera = this.camera.clone();
+            // skyboxCamera.position.set(0, 0, 0);
+            const prevPos = this.camera.position.clone();
+            this.camera.position.set(0, 0, 0);
 
             await this.renderer.clearDepth();
             await this.renderer.clearStencil();
-            await this.renderer.render(this.skybox, skyboxCamera);
+            await this.renderer.render(this.skybox, this.camera);
             await this.renderer.clearDepth();
+            this.camera.position.copy(prevPos);
             await this.renderer.render(this.scene, this.camera);
         }
+        const t1 = performance.now();
+
+        this.frametime = dlerp(this.frametime, (t1 - t0) / 1000, dt, 3);
 
         requestAnimationFrame(time => this.render(time));
     }
@@ -95,7 +114,9 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     private async initMaterials() {
         const material = new MeshBasicNodeMaterial();
     
-        material.colorNode = terrainColor();
+        const viewDistance = uniform(1);
+        viewDistance.onFrameUpdate(() => Client.instance.gameData.clientOptions.viewDistance * CHUNK_SIZE);
+        material.colorNode = terrainColor(viewDistance);
     
         this.terrainShader = material;
     }
@@ -130,5 +151,9 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public hideUI(container: UIContainer) {
         this.showingUIs.delete(container);
         this.UIRoot.removeChild(container.element);
+    }
+    public destroyWorldRenderer() {
+        this.worldRenderer.destroy();
+        this.worldRenderer = null;
     }
 }

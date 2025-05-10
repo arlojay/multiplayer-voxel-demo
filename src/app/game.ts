@@ -2,6 +2,7 @@ import { Client, getClient } from "./client/client";
 import { ServerSession } from "./client/serverSession";
 import { ClientCustomizationOptions } from "./controlOptions";
 import { debugLog } from "./logging";
+import { dlerp } from "./math";
 import { PluginLoader } from "./server/pluginLoader";
 import { ServerLaunchOptions } from "./server/server";
 import { ServerData, ServerOptions } from "./server/serverData";
@@ -52,18 +53,45 @@ async function main() {
         }
     });
 
-    const memoryCounter = document.querySelector("#memory-counter");
+    const performanceMeter = document.querySelector("#perf-meters");
+    const memCounter = performanceMeter.querySelector(".mem");
+    const fpsCounter = performanceMeter.querySelector(".fps");
+    const frametimeCounter = performanceMeter.querySelector(".frametime");
+
+    function decimalToAccuracy(value: number, places: number) {
+        const n = 10 ** places;
+        const count = (Math.round(value * n) / n).toString();
+        let [ whole, frac ] = count.split(".");
+        if(frac == null) frac = "";
+        frac = frac.padEnd(places, "0");
+
+        return whole + "." + frac;
+    }
+
+    let memused = 0;
+    let displayMemused = 0;
     setInterval(() => {
         const memory = (performance as any).memory;
         if(memory != null) {
-            let count = (Math.round(memory.usedJSHeapSize / 1024 / 1024 * 100) / 100).toString();
-            let [ whole, frac ] = count.split(".");
-            if(frac == null) frac = "";
-            frac = frac.padEnd(2, "0");
-            count = whole + "." + frac;
-            memoryCounter.textContent = count + "MB used";
+            memused = memory.usedJSHeapSize / 1024 / 1024;
         }
-    }, 100);
+    }, 10);
+
+    let lastTime = 0;
+    const cb = (time: number) => {
+        const dt = (time - lastTime) / 1000;
+        lastTime = time;
+
+        displayMemused = Math.min(memused, dlerp(displayMemused, memused, dt, 5));
+        memCounter.textContent = decimalToAccuracy(displayMemused, 2) + "MB used";
+        
+        if(client.gameRenderer != null) {
+            fpsCounter.textContent = Math.round(client.gameRenderer.framerate) + " FPS";
+            frametimeCounter.textContent = decimalToAccuracy(client.gameRenderer.frametime * 1000, 3) + " ms/frame";
+        }
+        requestAnimationFrame(cb);
+    };
+    requestAnimationFrame(cb);
 
 
 
@@ -222,6 +250,7 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
         document.querySelector("#join-game .connect-error").textContent = "Kicked from server: " + reason;
         gameSelect.classList.add("visible");
         gameRoot.classList.add("hidden");
+        Client.instance.gameRenderer.destroyWorldRenderer();
     })
     
     loadChunks(serverSession);
@@ -366,9 +395,9 @@ function makeSettingsUI() {
             name: "View Distance",
             type: "number",
             default: 4,
-            min: 2,
-            max: 16,
-            step: 1,
+            min: 1,
+            max: 6,
+            step: 0.1,
             set: (value: number) => gameData.clientOptions.viewDistance = value,
             get: () => gameData.clientOptions.viewDistance
         } as SettingsOption<number>
@@ -384,6 +413,8 @@ function makeSettingsUI() {
             if("min" in option || "max" in option) {
                 const slider = new UISliderInput(option.get(), option.min ?? 0, option.max ?? 1000, option.step ?? 1);
                 const sliderText = new UIText(option.get() + "");
+                sliderText.style.width = "3rem";
+                sliderText.style.display = "inline-block";
                 slider.onChange(() => {
                     option.set(slider.value);
                     gameData.saveClientOptions();
@@ -493,7 +524,9 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
                 promise = promise.then(() => client.gameData.updateServer(serverListing));
             }
 
-            promise = promise.then(() => serverData.saveOptions()).then(() => updateServerListScreen());
+            promise = promise
+                .then(() => serverData.saveOptions())
+                .then(() => updateServerListScreen())
 
             promise.then(res).catch(rej).finally(() => {
                 serverData.close();
@@ -501,8 +534,16 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
                 createServerModal.removeChild(root.element);
             });
         });
-
         root.addChild(submitButton);
+
+        const cancelButton = new UIButton("Cancel");
+        cancelButton.onClick(() => {
+            serverData.close();
+            createServerModal.classList.remove("visible");
+            createServerModal.removeChild(root.element);
+        })
+
+        root.addChild(cancelButton);
 
     
         root.update().then(element => {
@@ -515,9 +556,16 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
 
 function loadChunks(serverSession: ServerSession) {
     serverSession.updateViewDistance();
-    setInterval(() => {
-        serverSession.updateViewDistance();
+    const interval = setInterval(() => {
+        serverSession.updateViewDistance().catch(e => {
+            console.error(e);
+            clearInterval(interval);
+        });
     }, 2000);
+
+    serverSession.addListener("disconnected", () => {
+        clearInterval(interval);
+    })
     // for(let x = -3; x < 3; x++) {
     //     for(let y = -3; y < 3; y++) {
     //         for(let z = -3; z < 3; z++) {

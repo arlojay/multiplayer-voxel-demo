@@ -7,6 +7,7 @@ import { BreakBlockPacket, PlaceBlockPacket } from "../packet";
 import { simpleHash } from "./remotePlayer";
 import { ClientSounds } from "./clientSounds";
 import { CHUNK_INC_SCL } from "../voxelGrid";
+import { PlayerModel } from "./playerModel";
 
 
 export class LocalPlayer extends Entity {
@@ -32,7 +33,8 @@ export class LocalPlayer extends Entity {
     public pitch: number = 0;
     public placeBlockCooldown: number;
     public visionRay: Ray;
-    public camera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 100);
+    public playerCamera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 100);
+    public freeCamera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 100);
     public crouching: boolean;
     public sprinting: boolean;
 
@@ -43,9 +45,21 @@ export class LocalPlayer extends Entity {
     private fovMultiplier = 1;
     private fovBase = 90;
     private waitingForChunk = false;
+
+    private freecamSpeed = 10;
+    private pressedFreecam = false;
+    private freecam = false;
+    private yawFreecam: number = 0;
+    private pitchFreecam: number = 0;
+
+    public model: PlayerModel = new PlayerModel;
     
     public username = "localplayer";
     public color = "#ff0000";
+
+    public get camera() {
+        return this.freecam ? this.freeCamera : this.playerCamera;
+    }
 
     public update(dt: number) {
         this.updateControls(dt);
@@ -99,7 +113,7 @@ export class LocalPlayer extends Entity {
             speed *= 0.2;
         }
 
-        if(receivingControls) {
+        if(receivingControls && !this.freecam) {
             if(this.controller.keyDown("shift")) {
                 speed *= 1.5;
                 maxHorizontalSpeed *= 1.5;
@@ -156,7 +170,7 @@ export class LocalPlayer extends Entity {
         }
 
 
-        if(onGround && receivingControls) {
+        if(onGround && receivingControls && !this.freecam) {
             if(this.controller.keyDown(" ")) {
                 this.velocity.y = 8;
             }
@@ -164,7 +178,7 @@ export class LocalPlayer extends Entity {
 
 
         this.panRoll = dlerp(this.panRoll, 0, dt, 50);
-        if(receivingControls) {
+        if(receivingControls && !this.freecam) {
             this.yaw += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
             this.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
 
@@ -174,8 +188,6 @@ export class LocalPlayer extends Entity {
 
         if(this.pitch > Math.PI * 0.5) this.pitch = Math.PI * 0.5;
         if(this.pitch < Math.PI * -0.5) this.pitch = Math.PI * -0.5;
-
-        this.controller.resetPointerMovement();
 
         if(this.crouching) {
             this.hitbox.copy(LocalPlayer.hitboxCrouching);
@@ -193,9 +205,9 @@ export class LocalPlayer extends Entity {
 
         this.pitchOffset = dlerp(this.pitchOffset, Math.atan(this.velocity.y * 0.03) * 0.2, dt, 25);
 
-        this.camera.position.copy(this.position);
-        this.camera.position.y += this.eyeHeight;
-        this.camera.fov = this.fovBase * this.fovMultiplier;
+        this.playerCamera.position.copy(this.position);
+        this.playerCamera.position.y += this.eyeHeight;
+        this.playerCamera.fov = this.fovBase * this.fovMultiplier;
 
         let yaw = -this.yaw;
         let pitch = -this.pitch;
@@ -218,17 +230,17 @@ export class LocalPlayer extends Entity {
         cameraOffsetX += Math.cos(this.viewBobTime) * this.viewBobIntensity * 0.5;
         cameraOffsetY += (0.5 - Math.abs(Math.sin(this.viewBobTime))) * this.viewBobIntensity;
 
-        this.camera.position.x += Math.sin(this.yaw) * cameraOffsetZ + Math.cos(this.yaw) * cameraOffsetX;
-        this.camera.position.y += cameraOffsetY;
-        this.camera.position.z -= Math.cos(this.yaw) * cameraOffsetZ - Math.sin(this.yaw) * cameraOffsetX;
+        this.playerCamera.position.x += Math.sin(this.yaw) * cameraOffsetZ + Math.cos(this.yaw) * cameraOffsetX;
+        this.playerCamera.position.y += cameraOffsetY;
+        this.playerCamera.position.z -= Math.cos(this.yaw) * cameraOffsetZ - Math.sin(this.yaw) * cameraOffsetX;
 
         roll += -Math.atan(this.panRoll) * 0.25;
         roll += Math.cos(this.viewBobTime) * this.viewBobIntensity * 0.2;
 
-        this.camera.rotation.set(0, 0, 0);
-        this.camera.rotateY(yaw);
-        this.camera.rotateX(pitch);
-        this.camera.rotateZ(roll);
+        this.playerCamera.rotation.set(0, 0, 0);
+        this.playerCamera.rotateY(yaw);
+        this.playerCamera.rotateX(pitch);
+        this.playerCamera.rotateZ(roll);
 
 
         if(this.crouching && this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, 0)) {
@@ -246,14 +258,14 @@ export class LocalPlayer extends Entity {
 
 
         this.visionRay = new Ray(
-            this.camera.position.clone(),
+            this.playerCamera.position.clone(),
             new Vector3(0, 0, -1).applyEuler(new Euler(pitch, Math.PI - yaw, roll, "YXZ"))
         );
         this.visionRay.direction.z *= -1;
         const raycastResult = this.world.raycaster.cast(this.visionRay, 10);
 
         this.placeBlockCooldown -= dt;
-        if(this.controller.keyDown("e") && receivingControls) {
+        if(this.controller.keyDown("e") && receivingControls && !this.freecam) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
@@ -264,7 +276,7 @@ export class LocalPlayer extends Entity {
                     );
                 }
             }
-        } else if(this.controller.keyDown("r") && receivingControls) {
+        } else if(this.controller.keyDown("r") && receivingControls && !this.freecam) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
@@ -278,6 +290,60 @@ export class LocalPlayer extends Entity {
         } else {
             this.placeBlockCooldown = 0;
         }
+
+        if(this.controller.keyDown("u")) {
+            if(!this.pressedFreecam) {
+                this.pressedFreecam = true;
+                this.freecam = !this.freecam;
+
+                if(this.freecam) {
+                    this.freeCamera.copy(this.playerCamera);
+                }
+            }
+        } else {
+            this.pressedFreecam = false;
+        }
+
+        if(this.freecam && receivingControls) {
+            let dx = 0;
+            let dz = 0;
+            let dy = 0;
+            if(this.controller.keyDown("w")) dz--;
+            if(this.controller.keyDown("s")) dz++;
+            if(this.controller.keyDown("a")) dx--;
+            if(this.controller.keyDown("d")) dx++;
+            if(this.controller.keyDown("q")) dy--;
+            if(this.controller.keyDown("e")) dy++;
+
+            const mult = this.controller.keyDown("shift") ? 6 : 1;
+
+            const zmove = new Vector3(0, 0, dz * dt * this.freecamSpeed * mult).applyEuler(this.freeCamera.rotation);
+            const xmove = new Vector3(dx * dt * this.freecamSpeed * mult, 0, 0).applyEuler(this.freeCamera.rotation);
+            const ymove = new Vector3(0, dy * dt * this.freecamSpeed * mult, 0).applyEuler(this.freeCamera.rotation);
+            
+            if(this.controller.keyDown(" ")) this.freeCamera.position.y += dt * mult * this.freecamSpeed;
+            if(this.controller.keyDown("c")) this.freeCamera.position.y -= dt * mult * this.freecamSpeed;
+
+            this.freeCamera.position.add(xmove).add(zmove).add(ymove);
+            
+            this.yawFreecam += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
+            this.pitchFreecam += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
+
+            this.freeCamera.rotation.set(0, 0, 0);
+            this.freeCamera.rotateY(-this.yawFreecam);
+            this.freeCamera.rotateX(-this.pitchFreecam);
+        }
+
+        this.controller.resetPointerMovement();
+
+        this.model.mesh.visible = this.freecam;
+
+        this.model.pitch = this.pitch;
+        this.model.yaw = this.yaw;
+        this.model.position.copy(this.position);
+        this.model.username = this.username;
+        this.model.color = this.color;
+        this.model.update(dt);
     }
 
     public respawn() {

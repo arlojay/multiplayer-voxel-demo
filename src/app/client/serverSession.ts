@@ -6,7 +6,7 @@ import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
 import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket, ChangeWorldPacket, RemoveUIElementPacket, InsertUIElementPacket } from "../packet";
 import { LoopingMusic } from "../sound/loopingMusic";
-import { World } from "../world";
+import { Chunk, World } from "../world";
 import { Client } from "./client";
 import { LocalPlayer } from "./localPlayer";
 import { RemotePlayer } from "./remotePlayer";
@@ -21,6 +21,13 @@ interface ServerSessionEvents {
     "playerleave": (player: RemotePlayer) => void;
     "changeworld": (world: World) => void;
 }
+
+interface QueuedChunkPacket {
+    packet: GetChunkPacket;
+    distance: number;
+    key: string;
+}
+
 export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public client: Client;
     public serverConnection: DataConnection;
@@ -35,21 +42,26 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private lastPlayerYaw: number = 0;
     
     private lastPacketReceived: Map<number, number> = new Map;
-    private waitingChunks: Map<string, (packet: ChunkDataPacket) => void> = new Map;
+    private waitingChunks: Map<string, { reject: () => void, resolve: (packet: ChunkDataPacket) => void }> = new Map;
     private fetchingChunks: Map<string, Promise<ChunkDataPacket>> = new Map;
-    private chunkFetchingQueue: FastPriorityQueue<GetChunkPacket> = new FastPriorityQueue(
-        (a, b) => (a.x * a.x + a.y * a.y + a.z * a.z) < (b.x * b.x + b.y * b.y + b.z * b.z)
-    )
+    private chunkFetchingQueueMap: Map<string, QueuedChunkPacket> = new Map;
+    private chunkFetchingQueue: FastPriorityQueue<QueuedChunkPacket> = new FastPriorityQueue(
+        (a, b) => a.distance < b.distance
+    );
     private kicked: boolean;
+    private loadedChunksA: Chunk[] = new Array;
+    private loadedChunksB: Chunk[] = new Array;
+    private usingChunkBufferB = false;
+    public music: LoopingMusic;
 
     public constructor(client: Client) {
         super();
         this.client = client;
 
         const clip = client.audioManager.loadSound("assets/sounds/foxslit.mp3");
-        const music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
-        music.volume = 0.1;
-        music.resume();
+        this.music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
+        this.music.volume = 0.1;
+        this.music.resume();
     }
     
     public async connect(serverId: string) {
@@ -87,6 +99,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.serverConnection.addListener("close", () => {
             if(this.kicked) return;
 
+            this.onDisconnected();
             this.emit("disconnected", "Connection lost");
         })
     }
@@ -111,7 +124,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof ChunkDataPacket) {
             const key = packet.x + ";" + packet.y + ";" + packet.z;
             const promise = this.waitingChunks.get(key);
-            if(promise != null) promise(packet);
+            if(promise != null) promise.resolve(packet);
             this.waitingChunks.delete(key);
         }
         if(packet instanceof PlayerMovePacket && !this.isPacketOld(packet)) {
@@ -137,11 +150,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             remotePlayer.pitch = packet.pitch;
             remotePlayer.setWorld(this.localWorld);
             
-            remotePlayer.createModel().then(() => {
-                this.players.set(packet.player, remotePlayer);
-                debugLog("Player " + packet.player + " joined the game");
-                this.emit("playerjoin", remotePlayer);
-            })
+            this.players.set(packet.player, remotePlayer);
+            debugLog("Player " + packet.player + " joined the game");
+            this.emit("playerjoin", remotePlayer);
         }
         if(packet instanceof PlayerLeavePacket) {
             const player = this.players.get(packet.player);
@@ -158,6 +169,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.sendPacket(responsePacket);
         }
         if(packet instanceof KickPacket) {
+            this.onDisconnected();
             this.emit("disconnected", packet.reason);
             this.kicked = true;
             this.serverConnection.close();
@@ -195,6 +207,20 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);
     }
+    private onDisconnected() {
+        this.chunkFetchingQueue.forEach(v => this.chunkFetchingQueue.remove(v));
+        this.chunkFetchingQueueMap.clear();
+        this.fetchingChunks.clear();
+        this.loadedChunksA.splice(0);
+        this.loadedChunksB.splice(0);
+
+        for(const promise of this.waitingChunks.values()) {
+            promise.reject();
+        }
+        this.waitingChunks.clear();
+
+        this.music.destroy();
+    }
 
     private showUI(ui: NetworkUI) {
         this.client.gameRenderer.showUI(ui.root);
@@ -224,13 +250,59 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public updateChunkFetchQueue(dt: number) {
-        for(let i = 0; i < 10; i++) {
-            const packet = this.chunkFetchingQueue.poll();
-            if(packet == null) return;
+        const loadSize = Math.sqrt((this.client.gameData.clientOptions.viewDistance * 2 + 1) ** 2);
+        const unloadSizeSquare = (this.client.gameData.clientOptions.viewDistance + 1) ** 2;
 
-            this.sendPacket(packet);
+        for(let i = 0; i < 4; i++) {
+            const queuedPacket = this.chunkFetchingQueue.poll();
+            if(queuedPacket == null) break;
+
+            if(queuedPacket.distance > loadSize) {
+                i--;
+                continue;
+            }
+
+            this.sendPacket(queuedPacket.packet);
         }
         this.chunkFetchingQueue.trim();
+
+        // Add two for (a) one-expanded pre-loading radius, and (b) to prevent potential flickering
+        const chunkBufferPrimary = this.usingChunkBufferB ? this.loadedChunksB : this.loadedChunksA;
+        const chunkBufferSecondary = this.usingChunkBufferB ? this.loadedChunksA : this.loadedChunksB;
+        const count = Math.max(4, Math.min(32, chunkBufferPrimary.length / 4));
+
+        for(let i = 0; i < count; i++) {
+            if(chunkBufferPrimary.length <= 0) {
+                this.usingChunkBufferB = !this.usingChunkBufferB;
+                break;
+            }
+            this.updateUnloadQueue(unloadSizeSquare, chunkBufferPrimary, chunkBufferSecondary);
+        }
+    }
+    public updateUnloadQueue(removeSizeSquare: number, chunkBufferPrimary: Chunk[], chunkBufferSecondary: Chunk[]) {
+        const chunk = chunkBufferPrimary.pop();
+        if(chunk == null) return;
+
+        const distance = (
+            (chunk.x - this.player.chunkX) ** 2 +
+            (chunk.y - this.player.chunkY) ** 2 +
+            (chunk.z - this.player.chunkZ) ** 2
+        )
+        if(distance <= removeSizeSquare) {
+            chunkBufferSecondary.push(chunk);
+            return;
+        }
+
+        this.unloadChunk(chunk);
+        console.log("unloaded chunk");
+    }
+
+    public unloadChunk(chunk: Chunk) {
+        if(chunk.hasMesh()) {
+            chunk.mesh.parent.remove(chunk.mesh);
+            chunk.deleteMesh();
+        }
+        this.localWorld.deleteChunk(chunk.x, chunk.y, chunk.z);
     }
 
     public resetLocalWorld() {
@@ -243,20 +315,39 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     public fetchChunk(x: number, y: number, z: number) {
         const key = x + ";" + y + ";" + z;
+        const distance = Math.sqrt(
+            (x - this.player.chunkX) ** 2 +
+            (y - this.player.chunkY) ** 2 +
+            (z - this.player.chunkZ) ** 2
+        );
 
-        if(this.fetchingChunks.has(key)) return this.fetchingChunks.get(key);
+        if(this.fetchingChunks.has(key)) {
+            const queuedPacket = this.chunkFetchingQueueMap.get(key);
+            this.chunkFetchingQueue.removeOne(v => v == queuedPacket);
+            this.chunkFetchingQueue.add({
+                distance, packet: queuedPacket.packet, key
+            });
+            return this.fetchingChunks.get(key);
+        }
 
         const packet = new GetChunkPacket;
         packet.x = x;
         packet.y = y;
         packet.z = z;
 
-        this.chunkFetchingQueue.add(packet);
+        const queuedPacket = { packet, distance, key };
+        this.chunkFetchingQueue.add(queuedPacket);
+        this.chunkFetchingQueueMap.set(key, queuedPacket);
 
-        const promise = new Promise<ChunkDataPacket>(res => {
-            this.waitingChunks.set(key, packet => {
-                this.addChunkData(packet);
-                this.fetchingChunks.delete(key);
+        const promise = new Promise<ChunkDataPacket>((res, rej) => {
+            this.waitingChunks.set(key, {
+                resolve: packet => {
+                    console.log("fetched chunk");
+                    this.addChunkData(packet);
+                    this.fetchingChunks.delete(key);
+                    this.chunkFetchingQueueMap.delete(key);
+                },
+                reject: () => rej()
             });
         });
         this.fetchingChunks.set(key, promise);
@@ -286,6 +377,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(localChunk.isFullySurrounded()) {
             this.player.world.markChunkDirty(localChunk);
         }
+
+        this.loadedChunksA.push(localChunk);
     }
     public update(time: number, dt: number) {
         this.player.update(dt);
@@ -347,9 +440,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.player.setWorld(this.localWorld);
         this.player.position.set(0, 10, 0);
         this.player.setController(this.client.playerController);
+        this.client.gameRenderer.scene.add(this.player.model.mesh);
     }
 
-    public updateViewDistance() {
+    public async updateViewDistance() {
         const r = this.client.gameData.clientOptions.viewDistance + 1;
         const rsq = r * r;
 
@@ -357,15 +451,19 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const centerY = this.player.chunkY;
         const centerZ = this.player.chunkZ;
 
-        for(let x = -r; x < r; x++) {
-            for(let y = -r; y < r; y++) {
-                for(let z = -r; z < r; z++) {
+        const promises: Promise<ChunkDataPacket>[] = new Array;
+
+        for(let x = Math.floor(-r); x <= Math.floor(r); x++) {
+            for(let y = Math.floor(-r); y <= Math.floor(r); y++) {
+                for(let z = Math.floor(-r); z <= Math.floor(r); z++) {
                     if(x * x + y * y + z * z > rsq) continue;
                     if(this.localWorld.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
 
-                    this.fetchChunk(x + centerX, y + centerY, z + centerZ);
+                    promises.push(this.fetchChunk(x + centerX, y + centerY, z + centerZ));
                 }
             }
         }
+
+        await Promise.all(promises);
     }
 }
