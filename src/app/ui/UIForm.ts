@@ -10,13 +10,13 @@ function isUIFormContributor(element: any): element is UIFormContributor {
 }
 
 export class UIForm extends UIContainer {
-    public static type = UIElement.register("frm", () => new this);
-    public type = UIForm.type;
+    public static readonly type = UIElement.register("frm", () => new this);
+    public readonly type = UIForm.type;
 
     async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("div");
 
-        this.appendContainerElements(element);
+        await this.appendContainerElements(element);
 
         return element;
     }

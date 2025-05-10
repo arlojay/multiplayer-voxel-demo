@@ -3,10 +3,14 @@ import { UIElement } from "./UIElement";
 import { UIForm } from "./UIForm";
 
 export class UIFieldset extends UIContainer {
-    public static type = UIElement.register("fldt", () => new this);
-    public type = UIForm.type;
+    public static readonly type = UIElement.register("fldt", () => new this);
+    public readonly type = UIForm.type;
 
     public legend: string;
+    public constructor(legend?: string) {
+        super();
+        if(legend != null) this.legend = legend;
+    }
 
     protected async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("fieldset");
@@ -15,7 +19,7 @@ export class UIFieldset extends UIContainer {
         legend.textContent = this.legend;
         element.appendChild(legend);
 
-        this.appendContainerElements(element);
+        await this.appendContainerElements(element);
 
         return element;
     }

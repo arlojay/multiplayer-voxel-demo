@@ -14,8 +14,8 @@ export class UIEventBinder {
         this.events.set(name, newCallback);
 
         if(this.element != null) {
-            this.element.removeEventListener("change", oldCallback);
-            this.element.addEventListener("change", newCallback);
+            this.element.removeEventListener(name, oldCallback);
+            this.element.addEventListener(name, newCallback);
         }
     }
 

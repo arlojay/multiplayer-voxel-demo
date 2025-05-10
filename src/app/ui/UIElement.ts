@@ -8,7 +8,7 @@ export interface SerializedUIElement {
 }
 
 class UIElementRegistryKey {
-    name: string;
+    readonly name: string;
 }
 
 export class UIEvent {
@@ -30,8 +30,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public static register(id: string, factory: () => UIElement): UIElementRegistryKey {
         if(this.registry.has(id)) throw new ReferenceError("UI element " + id + " is already registered");
         this.registry.set(id, factory);
-        const key = new UIElementRegistryKey;
-        key.name = id;
+        const key = { name: id } as UIElementRegistryKey;
         return key;
     }
 
@@ -45,16 +44,19 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     }
 
 
-    public abstract type: UIElementRegistryKey;
+    public abstract readonly type: UIElementRegistryKey;
     public element: HTMLElement;
     public visible = true;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
     public parent: UIContainer;
-    protected eventBinder: UIEventBinder = new UIEventBinder;
+    protected _eventBinder: UIEventBinder;
     private externalEventHandlers: Map<string, (event: UIEvent) => boolean | void> = new Map;
 
     protected abstract buildElement(): Promise<HTMLElement>;
 
+    protected get eventBinder() {
+        return this._eventBinder ??= new UIEventBinder;
+    }
 
 
     public async update() {
