@@ -49,7 +49,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         (a, b) => a.distance < b.distance
     );
     private kicked: boolean;
-    private loadedChunks: Chunk[] = new Array;
+    private loadedChunksA: Chunk[] = new Array;
+    private loadedChunksB: Chunk[] = new Array;
+    private usingChunkBufferB = false;
     public music: LoopingMusic;
 
     public constructor(client: Client) {
@@ -148,11 +150,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             remotePlayer.pitch = packet.pitch;
             remotePlayer.setWorld(this.localWorld);
             
-            remotePlayer.createModel().then(() => {
-                this.players.set(packet.player, remotePlayer);
-                debugLog("Player " + packet.player + " joined the game");
-                this.emit("playerjoin", remotePlayer);
-            })
+            this.players.set(packet.player, remotePlayer);
+            debugLog("Player " + packet.player + " joined the game");
+            this.emit("playerjoin", remotePlayer);
         }
         if(packet instanceof PlayerLeavePacket) {
             const player = this.players.get(packet.player);
@@ -210,7 +210,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private onDisconnected() {
         this.chunkFetchingQueue.forEach(v => this.chunkFetchingQueue.remove(v));
         this.chunkFetchingQueueMap.clear();
-        this.loadedChunks.splice(0);
+        this.fetchingChunks.clear();
+        this.loadedChunksA.splice(0);
+        this.loadedChunksB.splice(0);
 
         for(const promise of this.waitingChunks.values()) {
             promise.reject();
@@ -248,8 +250,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public updateChunkFetchQueue(dt: number) {
-        const loadSize = Math.sqrt((this.client.gameData.clientOptions.viewDistance + 1) ** 2);
-        const unloadSizeSquare = (this.client.gameData.clientOptions.viewDistance + 2) ** 2;
+        const loadSize = Math.sqrt((this.client.gameData.clientOptions.viewDistance * 2 + 1) ** 2);
+        const unloadSizeSquare = (this.client.gameData.clientOptions.viewDistance + 1) ** 2;
 
         for(let i = 0; i < 4; i++) {
             const queuedPacket = this.chunkFetchingQueue.poll();
@@ -265,28 +267,34 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.chunkFetchingQueue.trim();
 
         // Add two for (a) one-expanded pre-loading radius, and (b) to prevent potential flickering
-        const count = Math.max(4, Math.min(32, this.loadedChunks.length / 4));
+        const chunkBufferPrimary = this.usingChunkBufferB ? this.loadedChunksB : this.loadedChunksA;
+        const chunkBufferSecondary = this.usingChunkBufferB ? this.loadedChunksA : this.loadedChunksB;
+        const count = Math.max(4, Math.min(32, chunkBufferPrimary.length / 4));
 
         for(let i = 0; i < count; i++) {
-            if(this.loadedChunks.length <= 0) break;
-            this.updateUnloadQueue(unloadSizeSquare);
+            if(chunkBufferPrimary.length <= 0) {
+                this.usingChunkBufferB = !this.usingChunkBufferB;
+                break;
+            }
+            this.updateUnloadQueue(unloadSizeSquare, chunkBufferPrimary, chunkBufferSecondary);
         }
     }
-    public updateUnloadQueue(removeSizeSquare: number) {
-        const chunk = this.loadedChunks.shift();
+    public updateUnloadQueue(removeSizeSquare: number, chunkBufferPrimary: Chunk[], chunkBufferSecondary: Chunk[]) {
+        const chunk = chunkBufferPrimary.pop();
         if(chunk == null) return;
 
         const distance = (
-            (chunk.x - (this.player.chunkX)) ** 2 +
-            (chunk.y - (this.player.chunkY)) ** 2 +
-            (chunk.z - (this.player.chunkZ)) ** 2
+            (chunk.x - this.player.chunkX) ** 2 +
+            (chunk.y - this.player.chunkY) ** 2 +
+            (chunk.z - this.player.chunkZ) ** 2
         )
         if(distance <= removeSizeSquare) {
-            this.loadedChunks.push(chunk);
+            chunkBufferSecondary.push(chunk);
             return;
         }
 
         this.unloadChunk(chunk);
+        console.log("unloaded chunk");
     }
 
     public unloadChunk(chunk: Chunk) {
@@ -307,10 +315,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     public fetchChunk(x: number, y: number, z: number) {
         const key = x + ";" + y + ";" + z;
-        const distance = (
-            ((x << CHUNK_INC_SCL) - this.player.position.x) ** 2 +
-            ((y << CHUNK_INC_SCL) - this.player.position.y) ** 2 +
-            ((z << CHUNK_INC_SCL) - this.player.position.z) ** 2
+        const distance = Math.sqrt(
+            (x - this.player.chunkX) ** 2 +
+            (y - this.player.chunkY) ** 2 +
+            (z - this.player.chunkZ) ** 2
         );
 
         if(this.fetchingChunks.has(key)) {
@@ -334,6 +342,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const promise = new Promise<ChunkDataPacket>((res, rej) => {
             this.waitingChunks.set(key, {
                 resolve: packet => {
+                    console.log("fetched chunk");
                     this.addChunkData(packet);
                     this.fetchingChunks.delete(key);
                     this.chunkFetchingQueueMap.delete(key);
@@ -369,7 +378,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.player.world.markChunkDirty(localChunk);
         }
 
-        this.loadedChunks.push(localChunk);
+        this.loadedChunksA.push(localChunk);
     }
     public update(time: number, dt: number) {
         this.player.update(dt);
@@ -431,9 +440,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.player.setWorld(this.localWorld);
         this.player.position.set(0, 10, 0);
         this.player.setController(this.client.playerController);
+        this.client.gameRenderer.scene.add(this.player.model.mesh);
     }
 
-    public updateViewDistance() {
+    public async updateViewDistance() {
         const r = this.client.gameData.clientOptions.viewDistance + 1;
         const rsq = r * r;
 
@@ -441,15 +451,19 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const centerY = this.player.chunkY;
         const centerZ = this.player.chunkZ;
 
-        for(let x = -r; x < r; x++) {
-            for(let y = -r; y < r; y++) {
-                for(let z = -r; z < r; z++) {
+        const promises: Promise<ChunkDataPacket>[] = new Array;
+
+        for(let x = Math.floor(-r); x <= Math.floor(r); x++) {
+            for(let y = Math.floor(-r); y <= Math.floor(r); y++) {
+                for(let z = Math.floor(-r); z <= Math.floor(r); z++) {
                     if(x * x + y * y + z * z > rsq) continue;
                     if(this.localWorld.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
 
-                    this.fetchChunk(x + centerX, y + centerY, z + centerZ);
+                    promises.push(this.fetchChunk(x + centerX, y + centerY, z + centerZ));
                 }
             }
         }
+
+        await Promise.all(promises);
     }
 }

@@ -52,16 +52,8 @@ export class ServerData {
             };
         });
     }
-    public async close() {
-        await new Promise<void>((res, rej) => {
-            this.db.close();
-            this.db.addEventListener("close", () => {
-                res();
-            });
-            this.db.addEventListener("error", (event: ErrorEvent) => {
-                rej(event.error ?? ("error" in event.target ? event.target.error : event.target));
-            })
-        })
+    public close() {
+        this.db.close();
     }
 
     public async saveOptions() {
