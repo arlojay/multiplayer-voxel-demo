@@ -24,23 +24,23 @@ export const terrainColor = Fn(() => {
     const time = uniform(0);
     time.onFrameUpdate(n => n.time);
 
-    const incident = normalize(positionWorld.sub(cameraPosition)).toVar();
+    // const incident = normalize(positionWorld.sub(cameraPosition)).toVar();
     
-    const localPos = attribute("localPos", "vec3f");
+    // const localPos = attribute("localPos", "vec3f");
 
-    const manhattanDistance = Fn(({ a = vec3(), b = vec3() }) => {
-        return abs(a.x.sub(b.x)).add(abs(a.y.sub(b.y))).add(abs(a.z.sub(b.z)));
-    });
+    // const manhattanDistance = Fn(({ a = vec3(), b = vec3() }) => {
+    //     return abs(a.x.sub(b.x)).add(abs(a.y.sub(b.y))).add(abs(a.z.sub(b.z)));
+    // });
 
-    const extreme = Fn(({ v = vec3() }) => {
-        const a: ReturnType<typeof vec3> = abs(v).toVar();
+    // const extreme = Fn(({ v = vec3() }) => {
+    //     const a: ReturnType<typeof vec3> = abs(v).toVar();
 
-        return vec3(
-            select(a.x.greaterThanEqual(a.y).and(a.x.greaterThanEqual(a.z)), v.x, float(0.0)),
-            select(a.y.greaterThanEqual(a.x).and(a.y.greaterThanEqual(a.z)), v.y, float(0.0)),
-            select(a.z.greaterThanEqual(a.x).and(a.z.greaterThanEqual(a.y)), v.z, float(0.0))
-        )
-    });
+    //     return vec3(
+    //         select(a.x.greaterThanEqual(a.y).and(a.x.greaterThanEqual(a.z)), v.x, float(0.0)),
+    //         select(a.y.greaterThanEqual(a.x).and(a.y.greaterThanEqual(a.z)), v.y, float(0.0)),
+    //         select(a.z.greaterThanEqual(a.x).and(a.z.greaterThanEqual(a.y)), v.z, float(0.0))
+    //     )
+    // });
 
     const lum = Fn(({ c = color() }) => {
         return c.r.mul(0.2126).add(c.g.mul(0.7152)).add(c.b.mul(0.0722));
@@ -87,13 +87,13 @@ export const terrainColor = Fn(() => {
 
     const shadow = dot(normal, sunPos).clamp(0, 1).mul(float(1).div(ao.pow(2).add(1))).remap(0, 1, 0.25, 1);
     const isLightColor = lum({ c: flatColor }).greaterThan(float(0.25));
-    const reflection = reflect(incident, normal);
+    // const reflection = reflect(incident, normal);
 
-    const IOR = float(4/3);
-    const halfway = reflection.add(incident).normalize();
-    const fresnel = IOR.add(IOR.oneMinus().mul(halfway.dot(normal).oneMinus().pow(5)));
+    // const IOR = float(4/3);
+    // const halfway = reflection.add(incident).normalize();
+    // const fresnel = IOR.add(IOR.oneMinus().mul(halfway.dot(normal).oneMinus().pow(5)));
 
-    const skyReflection = skyColorNode({ pos: reflection });
+    // const skyReflection = skyColorNode({ pos: reflection });
 
     const faceColor = mix(
         flatColor,

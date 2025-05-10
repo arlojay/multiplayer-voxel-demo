@@ -76,7 +76,7 @@ export class Server extends EventPublisher {
         }
 
         try {
-            for(const pluginName of this.options.plugins) {
+            for(const pluginName of new Set(this.options.plugins)) {
                 this.addPlugin(PluginLoader.createPlugin(pluginName));
             }
         } catch(e) {

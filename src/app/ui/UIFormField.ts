@@ -11,6 +11,11 @@ interface SerializedUIFormField extends SerializedUIElement {
     min: number;
     max: number;
     step: number;
+    align: UIFormFieldInputSide;
+}
+
+export enum UIFormFieldInputSide {
+    LEFT, RIGHT
 }
 
 export class UIFormField extends UIElement<SerializedUIFormField> implements UIFormContributor {
@@ -24,6 +29,14 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
     public min: number = 0;
     public max: number = 1;
     public step: number = 1;
+    public alignment = UIFormFieldInputSide.RIGHT;
+
+    public get checked() {
+        return this.value == "on";
+    }
+    public set checked(checked: boolean) {
+        this.value = checked ? "on" : "off";
+    }
 
     public constructor(inputType?: FormFieldInputType, name?: string, value?: string) {
         super();
@@ -35,7 +48,7 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
 
     getFormContributionValue(): string {
         if(this.inputType == "checkbox") {
-            return ((this.element as HTMLInputElement)?.checked ?? (this.value == "on")) ? "on" : "off";
+            return ((this.element as HTMLInputElement)?.checked ?? this.checked) ? "on" : "off";
         } else {
             return (this.element as HTMLInputElement)?.value ?? this.value;
         }
@@ -52,21 +65,52 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
     }
 
     protected async buildElement(): Promise<HTMLElement> {
+        console.log("build form field");
         const element = document.createElement("div");
-        element.style.cursor = "pointer";
+        const name = crypto.randomUUID();
+
+        element.style.display = "grid";
+
+        const label = document.createElement("label");
+        label.htmlFor = name;
+        label.textContent = this.name;
+        
+        if(this.alignment == UIFormFieldInputSide.LEFT) {
+            label.style.marginLeft = "0.5rem";
+        } else {
+            label.style.marginRight = "0.5rem";
+        }
 
         const input = document.createElement("input");
         input.type = this.inputType;
-        input.name = crypto.randomUUID();
-        input.id = input.name;
+        input.id = name;
         if(this.inputType == "checkbox") {
-            input.checked = this.value == "on";
-            input.addEventListener("click", (event: PointerEvent) => {
-                if(event.target != input) input.click();
-            })
+            input.checked = this.checked;
+            
+            if(this.alignment == UIFormFieldInputSide.LEFT) {
+                element.style.gridTemplateColumns = "max-content 1fr";
+            } else {
+                element.style.gridTemplateColumns = "1fr max-content";
+            }
         } else {
             input.value = this.value;
+
+            if(this.alignment == UIFormFieldInputSide.LEFT) {
+                element.style.gridTemplateColumns = "1fr max-content";
+            } else {
+                element.style.gridTemplateColumns = "max-content 1fr";
+            }
         }
+
+        input.addEventListener("input", () => {
+            this.value = input.value;
+        })
+        input.addEventListener("change", () => {
+            if(this.inputType != "checkbox") return;
+
+            this.checked = input.checked;
+        })
+
         if(this.inputType == "text" || this.inputType == "password" || this.inputType == "number") {
             input.addEventListener("keydown", e => {
                 if(e.key.toLowerCase() == "enter") {
@@ -76,16 +120,17 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
             });
         }
 
-        const label = document.createElement("label");
-        label.htmlFor = input.name;
-        label.textContent = this.name;
-
-        element.append(input, label);
+        if(this.alignment == UIFormFieldInputSide.LEFT) {
+            element.append(input, label);
+        } else {
+            element.append(label, input);
+        }
 
         return element;
     }
     public onChange(callback: () => void) {
         this.eventBinder.on("change", (event?: Event) => {
+            console.log("change");
             callback();
         });
     }
@@ -102,6 +147,7 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
         data.min = this.min;
         data.max = this.max;
         data.step = this.step;
+        data.align = this.alignment;
         return data;
     }
     public deserialize(data: SerializedUIFormField): void {
@@ -112,5 +158,6 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
         this.min = data.min;
         this.max = data.max;
         this.step = data.step;
+        this.alignment = data.align;
     }
 }

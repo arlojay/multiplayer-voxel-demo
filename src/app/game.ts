@@ -7,7 +7,7 @@ import { ServerLaunchOptions } from "./server/server";
 import { ServerData, ServerOptions } from "./server/serverData";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
 import { UIButton, UIFieldset, UIForm, UISection, UISliderInput, UIText, UITextInput } from "./ui";
-import { UIFormField } from "./ui/UIFormField";
+import { UIFormField, UIFormFieldInputSide } from "./ui/UIFormField";
 import { UISpacer } from "./ui/UISpacer";
 
 const gameRoot = document.querySelector("#game") as HTMLElement;
@@ -25,8 +25,6 @@ function createRandomServerGameCode() {
 main();
 
 async function main() {
-    const clientId = "client-" + Math.random().toString().slice(2) + "-mvd";
-
     const client = new Client(gameRoot);
     await client.init();
     (window as any).client = client;
@@ -139,10 +137,12 @@ async function main() {
         }
     })
     
-    // document.querySelector("#create-server-btn").addEventListener("click", () => {
-    //     serverCreation.classList.add("visible");
-    //     gameSelect.classList.remove("visible");
-    // });
+    document.querySelector("#create-server-btn").addEventListener("click", async () => {
+        const launchOptions = await Client.instance.gameData.createServer("New Server");
+        await editServerConfig({
+            id: launchOptions.id
+        });
+    });
 
     document.querySelector("#player-username").addEventListener("change", () => {
         saveConnectionOptions();
@@ -154,7 +154,7 @@ async function main() {
     
     
 
-    await client.login(clientId);
+    await client.login();
     await updateServerListScreen();
 
     // const pluginList = document.querySelector("#plugin-list");
@@ -424,7 +424,9 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
     const createServerModal = document.querySelector('.modal[data-name="create-server"]');
     if(createServerModal == null) throw new ReferenceError("Cannot find server creation modal");
 
-    const serverData = new ServerData(launchOptions.id, new ServerOptions);
+    const serverOptions = new ServerOptions;
+    serverOptions.name = Client.instance.gameData.servers.get(launchOptions.id)?.name ?? serverOptions.name;
+    const serverData = new ServerData(launchOptions.id, serverOptions);
     await serverData.open();
     await serverData.loadAll();
 
@@ -437,27 +439,43 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
         root.addChild(title);
 
         const generalSection = new UIFieldset("General");
-        const serverName = new UIFormField("text", "Server Name", serverData.options.name);
-        serverName.onChange(() => serverData.options.name = serverName.value);
+        const serverName = new UIFormField("text", "Server Name", serverOptions.name);
+        serverName.onChange(() => serverOptions.name = serverName.value);
         generalSection.addChild(serverName);
 
         const pluginsSection = new UIFieldset("Plugins");
         const pluginList = new UISection;
         pluginList.style.display = "flex";
         pluginList.style.flexDirection = "column";
-        
+        pluginList.style.textAlign = "left";
+
         for(const pluginName of PluginLoader.getPluginList()) {
-            const pluginElement = new UIFormField("checkbox", pluginName, serverData.options.plugins.includes(pluginName) ? "on" : "off");
-            pluginList.addChild(pluginElement);
-            pluginElement.onChange(() => {
-                if(pluginElement.value == "on") {
-                    serverData.options.plugins.push(pluginName);
+            const pluginCheckbox = new UIFormField("checkbox", pluginName, serverOptions.plugins.includes(pluginName) ? "on" : "off");
+            pluginCheckbox.alignment = UIFormFieldInputSide.LEFT;
+            pluginCheckbox.style.width = "100%";
+            pluginList.addChild(pluginCheckbox);
+            pluginCheckbox.onChange(() => {
+                if(pluginCheckbox.value == "on") {
+                    if(!serverOptions.plugins.includes(pluginName)) serverOptions.plugins.push(pluginName);
                 } else {
-                    serverData.options.plugins.splice(serverData.options.plugins.indexOf(pluginName), 1);
+                    serverOptions.plugins.splice(serverOptions.plugins.indexOf(pluginName), 1);
                 }
             })
-        }
+        }        
+        
+        const removeAllBtn = new UIButton("Remove All");
+        removeAllBtn.onClick(() => {
+            for(const element of pluginList.elements) {
+                if(element instanceof UIFormField) {
+                    element.checked = false;
+                }
+            }
+            console.log("remove all...", serverOptions.plugins.splice(0));
+            pluginList.update();
+        })
+        
         pluginsSection.addChild(pluginList);
+        pluginsSection.addChild(removeAllBtn);
 
         root.addChild(generalSection);
         root.addChild(pluginsSection);
@@ -465,7 +483,20 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
         
         const submitButton = new UIButton(updating ? "Save" : "Create");
         submitButton.onClick(() => {
-            serverData.saveOptions().then(res).catch(rej).finally(() => {
+            const client = Client.instance;
+            const serverListing = client.gameData.servers.get(launchOptions.id);
+            let promise = Promise.resolve();
+
+            if(serverListing != null) {
+                serverListing.name = serverOptions.name;
+                console.log("update server listing name", serverListing, serverOptions);
+                promise = promise.then(() => client.gameData.updateServer(serverListing));
+            }
+
+            promise = promise.then(() => serverData.saveOptions()).then(() => updateServerListScreen());
+
+            promise.then(res).catch(rej).finally(() => {
+                serverData.close();
                 createServerModal.classList.remove("visible");
                 createServerModal.removeChild(root.element);
             });

@@ -50,7 +50,7 @@ export class GameData {
 
 
     public async saveClientOptions() {
-        await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"))
+        await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"), { packArrays: false })
     }
     public async loadClientOptions() {
         await loadObjectStoreIntoJson(this.clientOptions, this.db.transaction("options", "readonly").objectStore("options"))
@@ -62,7 +62,7 @@ export class GameData {
 
         const transaction = this.db.transaction("servers", "readwrite");
 
-        transaction.objectStore("servers").add(descriptor)
+        transaction.objectStore("servers").add(descriptor);
 
         try {
             await waitForTransaction(transaction);
@@ -70,6 +70,7 @@ export class GameData {
             throw new Error("Failed to create server " + name, { cause: e });
         }
 
+        this.servers.set(descriptor.id, descriptor);
         return descriptor;
     }
 

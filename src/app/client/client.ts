@@ -46,7 +46,7 @@ export class Client extends TypedEmitter<ClientEvents> {
         });
     }
 
-    public login(id: string) {
+    public login(id: string = "client-" + Math.random().toString().slice(2) + "-mvd") {
         this.onlineId = id;
 
         this.peer = createPeer(id);

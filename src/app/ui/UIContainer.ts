@@ -19,7 +19,8 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
 
         element.parent = this;
         this.bubbleEvent(new UIEvent("addElement", element));
-        await this.update();
+
+        if(this.element != null) await this.update();
     }
     public async addElementAtPath(path: number[], element: UIElement): Promise<boolean> {
         path = Array.from(path);
@@ -40,7 +41,7 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
         this.bubbleEvent(new UIEvent("removeElement", element));
         element.parent = null;
 
-        await this.update();
+        if(this.element != null) await this.update();
 
         return true;
     }

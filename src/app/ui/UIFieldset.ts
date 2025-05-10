@@ -19,7 +19,7 @@ export class UIFieldset extends UIContainer {
         legend.textContent = this.legend;
         element.appendChild(legend);
 
-        this.appendContainerElements(element);
+        await this.appendContainerElements(element);
 
         return element;
     }

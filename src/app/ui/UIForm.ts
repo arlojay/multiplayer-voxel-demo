@@ -16,7 +16,7 @@ export class UIForm extends UIContainer {
     async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("div");
 
-        this.appendContainerElements(element);
+        await this.appendContainerElements(element);
 
         return element;
     }

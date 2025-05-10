@@ -105,10 +105,10 @@ export class VoxelMesher {
                         FaceDirection.WEST << 8;
 
                         vertices.push(
-                            x,      y + 1,  z,          0, 1, 0,    color, packedao,
-                            x,      y + 1,  z + 1,      0, 1, 1,    color, packedao,
-                            x,      y,      z + 1,      0, 0, 1,    color, packedao,
-                            x,      y,      z,          0, 0, 0,    color, packedao,
+                            x,      y + 1,  z,          color, packedao,
+                            x,      y + 1,  z + 1,      color, packedao,
+                            x,      y,      z + 1,      color, packedao,
+                            x,      y,      z,          color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -127,10 +127,10 @@ export class VoxelMesher {
                         FaceDirection.EAST << 8;
 
                         vertices.push(
-                            x + 1,  y + 1,  z + 1,      1, 1, 1,    color, packedao,
-                            x + 1,  y + 1,  z,          1, 1, 0,    color, packedao,
-                            x + 1,  y,      z,          1, 0, 0,    color, packedao,
-                            x + 1,  y,      z + 1,      1, 0, 1,    color, packedao,
+                            x + 1,  y + 1,  z + 1,      color, packedao,
+                            x + 1,  y + 1,  z,          color, packedao,
+                            x + 1,  y,      z,          color, packedao,
+                            x + 1,  y,      z + 1,      color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -149,10 +149,10 @@ export class VoxelMesher {
                         FaceDirection.SOUTH << 8;
 
                         vertices.push(
-                            x,      y + 1,  z + 1,      0, 1, 1,    color, packedao,
-                            x + 1,  y + 1,  z + 1,      1, 1, 1,    color, packedao,
-                            x + 1,  y,      z + 1,      1, 0, 1,    color, packedao,
-                            x,      y,      z + 1,      0, 0, 1,    color, packedao,
+                            x,      y + 1,  z + 1,      color, packedao,
+                            x + 1,  y + 1,  z + 1,      color, packedao,
+                            x + 1,  y,      z + 1,      color, packedao,
+                            x,      y,      z + 1,      color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -171,10 +171,10 @@ export class VoxelMesher {
                         FaceDirection.NORTH << 8;
 
                         vertices.push(
-                            x + 1,  y + 1,  z,          1, 1, 0,    color, packedao,
-                            x,      y + 1,  z,          0, 1, 0,    color, packedao,
-                            x,      y,      z,          0, 0, 0,    color, packedao,
-                            x + 1,  y,      z,          1, 0, 0,    color, packedao,
+                            x + 1,  y + 1,  z,          color, packedao,
+                            x,      y + 1,  z,          color, packedao,
+                            x,      y,      z,          color, packedao,
+                            x + 1,  y,      z,          color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -193,10 +193,10 @@ export class VoxelMesher {
                         FaceDirection.UP << 8;
 
                         vertices.push(
-                            x,      y + 1,  z,          0, 1, 0, color, packedao,
-                            x + 1,  y + 1,  z,          1, 1, 0, color, packedao,
-                            x + 1,  y + 1,  z + 1,      1, 1, 1, color, packedao,
-                            x,      y + 1,  z + 1,      0, 1, 1, color, packedao,
+                            x,      y + 1,  z,          color, packedao,
+                            x + 1,  y + 1,  z,          color, packedao,
+                            x + 1,  y + 1,  z + 1,      color, packedao,
+                            x,      y + 1,  z + 1,      color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -215,10 +215,10 @@ export class VoxelMesher {
                         FaceDirection.DOWN << 8;
                         
                         vertices.push(
-                            x,      y,      z + 1,      0, 0, 1, color, packedao,
-                            x + 1,  y,      z + 1,      1, 0, 1, color, packedao,
-                            x + 1,  y,      z,          1, 0, 0, color, packedao,
-                            x,      y,      z,          0, 0, 0, color, packedao,
+                            x,      y,      z + 1,      color, packedao,
+                            x + 1,  y,      z + 1,      color, packedao,
+                            x + 1,  y,      z,          color, packedao,
+                            x,      y,      z,          color, packedao,
                         );
                         indices.push(
                             vertexCount + 2, vertexCount + 1, vertexCount,
@@ -233,11 +233,10 @@ export class VoxelMesher {
         }
 
         const geometry = new BufferGeometry();
-        const interleaved = new InterleavedBuffer(new Float32Array(vertices), 8);
+        const interleaved = new InterleavedBuffer(new Float32Array(vertices), 5);
         geometry.setAttribute("position", new InterleavedBufferAttribute(interleaved, 3, 0));
-        geometry.setAttribute("localPos", new InterleavedBufferAttribute(interleaved, 3, 3));
-        geometry.setAttribute("blockColor", new InterleavedBufferAttribute(interleaved, 1, 6));
-        geometry.setAttribute("ao", new InterleavedBufferAttribute(interleaved, 1, 7));
+        geometry.setAttribute("blockColor", new InterleavedBufferAttribute(interleaved, 1, 3));
+        geometry.setAttribute("ao", new InterleavedBufferAttribute(interleaved, 1, 4));
         geometry.setIndex(indices);
 
         return geometry;

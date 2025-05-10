@@ -1,21 +1,27 @@
-function _flatPack(packed: Record<string, any>, prefix: string, object: any) {
+export interface PackingOptions {
+    packArrays?: boolean;
+}
+
+function _flatPack(packed: Record<string, any>, prefix: string, object: any, options: PackingOptions) {
     for(const key in object) {
         const value = object[key];
 
-        if(typeof value == "object") {
-            _flatPack(packed, prefix + key + ".", value);
+        if(typeof value == "object" && !(!options.packArrays && value instanceof Array)) {
+            _flatPack(packed, prefix + key + ".", value, options);
         } else {
             packed[prefix + key] = value;
         }
     }
 }
-export function flatPack(object: any): any {
+export function flatPack(object: any, options: PackingOptions = {}): any {
+    options.packArrays ??= true;
+    
     const packed = {};
-    _flatPack(packed, "", object);
+    _flatPack(packed, "", object, options);
     return packed;
 }
 
-function isObjectArray(object: any) {
+function isObjectArray(object: any): object is Record<number, any> {
     return Object.keys(object).map(v => +v).sort((a, b) => a - b).some((v, i) => v != i);
 }
 
