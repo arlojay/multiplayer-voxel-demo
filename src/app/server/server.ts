@@ -1,33 +1,43 @@
-import { TypedEmitter } from "tiny-typed-emitter";
-import { ServerPeer } from "./serverPeer";
-import { Packet, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet/packet";
-import { World } from "../world";
-import { MessagePortConnection } from "./thread";
-import { Color } from "three";
 import { debugLog } from "../logging";
+import { Packet, SetBlockPacket } from "../packet";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { World } from "../world";
+import { WorldGenerator } from "../worldGenerator";
+import { EventPublisher } from "./events";
+import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
+import { PluginLoader } from "./pluginLoader";
+import { ServerData, ServerOptions } from "./serverData";
+import { ServerPeer, TimedOutError } from "./serverPeer";
+import { ServerPlugin } from "./serverPlugin";
+import { MessagePortConnection } from "./thread";
 import { WorldSaver } from "./worldSaver";
 
-interface ServerEvents {
-    "connection": (peer: ServerPeer) => void;
+export interface ServerLaunchOptions {
+    id: string;
+    overrideSettings?: Partial<ServerOptions>;
 }
 
-export interface ServerOptions {
-    worldName?: string;
-}
-
-export class Server extends TypedEmitter<ServerEvents> {
+export class Server extends EventPublisher {
+    public id: string;
     public worlds: Map<string, World> = new Map;
     public savers: Map<string, WorldSaver> = new Map;
     public peers: Map<string, ServerPeer> = new Map;
     public debugPort: MessagePort = null;
     public errorPort: MessagePort = null;
-    public options: ServerOptions;
-    public defaultWorldName: string = "world";
+    public options: ServerOptions = {
+        name: "server",
+        plugins: [],
+        defaultWorldName: "world",
+    };
+    public launchOptions: ServerLaunchOptions;
+    public data: ServerData;
+    public plugins: Set<ServerPlugin> = new Set;
 
-    public constructor(options: ServerOptions) {
+    public constructor(launchOptions: ServerLaunchOptions) {
         super();
-        this.options = options;
-        if(options.worldName != null) this.defaultWorldName = options.worldName;
+        this.launchOptions = launchOptions;
+        this.id = launchOptions.id;
     }
 
     public setDebugPort(port: MessagePort) {
@@ -37,26 +47,56 @@ export class Server extends TypedEmitter<ServerEvents> {
         this.errorPort = port;
     }
 
-    public async createWorld(name: string) {
-        const world = new World(name, this);
-        const saver = new WorldSaver(name, world);
+    public async createWorld(name: string, saving = true) {
+        const descriptor = this.data.worlds.get(name) ?? await this.data.createWorld(name);
+        const world = new World(descriptor.id, this);
+        const saver = new WorldSaver(this, descriptor.id, world);
 
-        await saver.open();
+        const event = new WorldCreateEvent(this);
+        event.world = world;
+        event.worldName = name;
+        this.emit(event);
+
+        if(event.isCancelled()) throw new Error("World creation cancelled");
 
         this.worlds.set(name, world);
-        this.savers.set(name, saver);
+
+        if(saving) {
+            await saver.open();
+            this.savers.set(descriptor.id, saver);
+        }
+
+        return world;
     }
 
     public async start() {
-        await this.createWorld(this.defaultWorldName);
+        this.data = new ServerData(this.id, this.options);
+        await this.data.open();
+        await this.data.loadAll();
+
+        if(this.launchOptions.overrideSettings != null) {
+            Object.assign(this.options, this.launchOptions.overrideSettings);
+            await this.data.saveOptions();
+        }
+
+        try {
+            for(const pluginName of this.options.plugins) {
+                this.addPlugin(PluginLoader.createPlugin(pluginName));
+            }
+        } catch(e) {
+            throw new Error("Failed to load plugins", { cause: e });
+        }
+
+        this.emit(new ServerPreinitEvent(this));
+        const defaultWorld = await this.createWorld(this.options.defaultWorldName);
+        defaultWorld.setGenerator(new WorldGenerator(defaultWorld));
         this.startLoop();
 
+        this.emit(new ServerLoadedEvent(this));
         debugLog("Server loaded!");
     }
 
     private startLoop() {
-        const mainWorld = this.worlds.get(this.defaultWorldName);
-        const color = new Color;
         setInterval(() => {
             this.flushWorldUpdateQueue();
         }, 1000 / 2);
@@ -96,62 +136,80 @@ export class Server extends TypedEmitter<ServerEvents> {
         this.debugPort = connection.debugPort;
         this.errorPort = connection.errorPort;
         
-        peer.player.setWorld(this.worlds.get(this.defaultWorldName));
-        peer.player.respawn();
+        const world = this.getDefaultWorld();
+        this.peers.set(peer.id, peer);
 
-        peer.addListener("move", () => {
-            const packet = new PlayerMovePacket(peer.player);
-            packet.player = peer.id;
-
-            for(const otherId of this.peers.keys()) {
-                if(otherId == peer.id) continue;
-
-                this.peers.get(otherId).sendPacket(packet, true);
-            }
-        })
-
-        await new Promise<void>((res, rej) => {
-            connection.once("open", () => res());
-            connection.once("error", e => {
-                this.handleDisconnection(peer, e);
-                rej(e);
-            });
-        })
+        peer.player.setWorld(world);
 
         connection.addListener("data", data => {
-            if(data instanceof ArrayBuffer) {
-                peer.handlePacket(data);
+            try {
+                if(data instanceof ArrayBuffer) {
+                    peer.handlePacket(data);
+                }
+            } catch(e) {
+                console.error(e);
+                peer.kick(e.message);
             }
         });
 
-        const joinPacket = new PlayerJoinPacket(peer.player);
-        joinPacket.player = peer.id;
-        this.broadcastPacket(joinPacket, null, true);
+        const [_, clientReadyPacket] = await Promise.all([
+            new Promise<void>((res, rej) => {
+                connection.once("open", () => res());
+                connection.once("error", e => {
+                    this.handleDisconnection(peer, e);
+                    rej(e);
+                });
+            }),
+            new Promise<ClientReadyPacket>((res, rej) => {
+                peer.once("clientready", packet => res(packet));
+    
+                setTimeout(() => {
+                    if(!peer.connected) return;
+                    rej(new TimedOutError("Connection timed out while handshaking"))
+                }, 5000);
+            })
+        ]);
 
-        for(const otherId of this.peers.keys()) {
-            const joinPacket = new PlayerJoinPacket(this.peers.get(otherId).player);
-            joinPacket.player = otherId;
+        const joinEvent = new PeerJoinEvent(this);
+        joinEvent.peer = peer;
+        joinEvent.player = peer.player;
+        joinEvent.world = world;
+        this.emit(joinEvent);
 
-            peer.sendPacket(joinPacket, true);
+        if(joinEvent.isCancelled()) {
+            connection.close();
+            this.peers.delete(peer.id);
+            return;
         }
+
+        const serverReadyPacket = new ServerReadyPacket();
+        serverReadyPacket.username = clientReadyPacket.username;
+        serverReadyPacket.color = clientReadyPacket.color;
+        peer.sendPacket(serverReadyPacket);
+
+        // Send join messages
+        peer.sendToWorld(world);
 
         peer.addListener("disconnected", (cause) => {
             this.handleDisconnection(peer, cause);
             this.peers.delete(peer.id);
         });
-
-        this.peers.set(peer.id, peer);
-        this.emit("connection", peer);
     }
 
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
         debugLog("Peer " + peer.id + " disconnected: " + cause.toString());
 
+        const event = new PeerLeaveEvent(this);
+        event.peer = peer;
+        event.player = peer.player;
+        event.world = peer.player.world;
+        this.emit(event);
+
         this.peers.delete(peer.id);
-        
-        const leavePacket = new PlayerLeavePacket;
-        leavePacket.player = peer.id;
-        this.broadcastPacket(leavePacket, null, true);
+
+        for(const otherPeer of this.peers.values()) {
+            otherPeer.hidePeer(peer);
+        }
     }
 
     public broadcastPacket(packet: Packet, world?: World, instant: boolean = false) {
@@ -169,13 +227,17 @@ export class Server extends TypedEmitter<ServerEvents> {
         if(chunk == null) {
             chunk = world.getChunk(chunkX, chunkY, chunkZ, true);
 
-            const saver = this.savers.get(world.name);
-            const data = await saver.getChunkData(chunkX, chunkY, chunkZ);
-            if(data == null) {
+            const saver = this.savers.get(world.id);
+            if(saver == null) {
                 world.generateChunk(chunkX, chunkY, chunkZ);
-                saver.saveChunk(chunk);
             } else {
-                chunk.data.set(new Uint16Array(data));
+                const data = await saver.getChunkData(chunkX, chunkY, chunkZ);
+                if(data == null) {
+                    world.generateChunk(chunkX, chunkY, chunkZ);
+                    saver.saveChunk(chunk);
+                } else {
+                    chunk.data.set(new Uint16Array(data));
+                }
             }
         }
 
@@ -207,5 +269,23 @@ export class Server extends TypedEmitter<ServerEvents> {
         for await(const saver of this.savers.values()) {
             await saver.saveModified();
         }
+    }
+
+    public addPlugin(plugin: ServerPlugin) {
+        plugin.setServer(this);
+
+        this.addSubscriber(plugin);
+        this.plugins.add(plugin);
+    }
+    public removePlugin(plugin: ServerPlugin) {
+        this.removeSubscriber(plugin);
+        this.plugins.delete(plugin);
+    }
+
+    public getDefaultWorld() {
+        return this.worlds.get(this.options.defaultWorldName);
+    }
+    public getSaver(world: World) {
+        return this.savers.get(world.id);
     }
 }

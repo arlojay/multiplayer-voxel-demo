@@ -5,6 +5,16 @@ html, body, canvas {
     overflow: hidden;
 }
 
+[hidden] {
+    display: none;
+    visibility: hidden;
+    * { display: none; }
+}
+
+canvas {
+    image-rendering: pixelated;
+}
+
 #crosshair {
     position: fixed;
     top: calc(50% - 4px);
@@ -16,10 +26,51 @@ html, body, canvas {
     background: transparent;
 }
 
+@property --angle {
+    syntax: "<angle>";
+    initial-value: 100deg;
+    inherits: false;
+}
+
+@keyframes rotate {
+    0% {
+        --angle: 0deg;
+    }
+    100% {
+        --angle: 360deg;
+    }
+}
+
 body {
     display: grid;
     font: 1rem Arial, sans-serif;
     user-select: none;
+    
+    color: white;
+    
+    /* animation: rotate 4s linear forwards infinite; */
+
+    --angle: 135deg;
+    --background-color-a: #272727;
+    --background-color-b: #1b1b1b;
+
+    background:
+        linear-gradient(var(--angle),
+            var(--background-color-a) 25%, var(--background-color-b) 25%,
+            var(--background-color-b) 50%, var(--background-color-a) 50%,
+            var(--background-color-a) 75%, var(--background-color-b) 75%
+        )
+    ;
+    background-size: 1rem calc(1rem / tan(var(--angle) - 90deg));
+    /* background-position: 50% 50%; */
+    background-size: 1rem 1rem;
+    
+    --outline: 1px;
+    text-shadow:
+        var(--outline)              var(--outline)              var(--outline)  #000,
+        calc(-1 * var(--outline))   var(--outline)              var(--outline)  #000,
+        var(--outline)              calc(-1 * var(--outline))   var(--outline)  #000,
+        calc(-1 * var(--outline))   calc(-1 * var(--outline))   var(--outline)  #000;
 }
 
 #ui, #game {
@@ -38,6 +89,10 @@ body {
     display: none;
 }
 
+#game {
+    background: #ff00ff;
+}
+
 #game:focus-visible {
     outline: none;
     border: none;
@@ -47,22 +102,21 @@ body {
     display: none;
 }
 
-#debug-logs {
+#memory-counter {
     position: fixed;
     top: 0;
     left: 0;
+    font-size: 10px;
+}
+
+#debug-logs {
+    position: fixed;
+    top: 10px;
     width: 50%;
     height: 100%;
     font-size: 10px;
 
-    padding: 0.5rem;
     font-weight: bold;
-    --outline: 1px;
-    text-shadow:
-        var(--outline)              var(--outline)              var(--outline)  #000,
-        calc(-1 * var(--outline))   var(--outline)              var(--outline)  #000,
-        var(--outline)              calc(-1 * var(--outline))   var(--outline)  #000,
-        calc(-1 * var(--outline))   calc(-1 * var(--outline))   var(--outline)  #000;
 
     pointer-events: none;
     overflow-y: auto;
@@ -74,6 +128,9 @@ body {
         display: block;
         margin: 0;
     }
+
+
+    display: none;
 }
 
 .modal[data-name="game-select"] {
@@ -86,7 +143,7 @@ body {
     align-items: center;
 }
 
-#select-world {
+#select-server {
     ul {
         display: flex;
         flex-direction: column;
@@ -114,7 +171,7 @@ body {
     }
 }
 
-.modal[data-name="create-world"] {
+.modal[data-name="create-server"] {
     text-align: center;
 }
 
@@ -127,4 +184,56 @@ body {
         justify-self: center;
     }
     grid-area: 1 / 1 / 2 / 2;
+}
+
+#game-ui {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+
+    pointer-events: none;
+
+    * {
+        pointer-events: all;
+    }
+    & > div {
+        pointer-events: none;
+    }
+    
+    & > * {
+        grid-area: 1 / 1 / 2 / 2;
+        align-self: center;
+        justify-self: center;
+    }
+}
+
+#settings {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0006;
+
+    display: none;
+    &:has(>:not([hidden])) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+#plugin-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+
+    li {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+    }
 }

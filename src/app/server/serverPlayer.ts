@@ -1,10 +1,11 @@
 import { Box3, Vector3 } from "three";
 import { CollisionChecker } from "../entity/collisionChecker";
 import { RemoteEntity } from "../entity/remoteEntity";
-import { SetLocalPlayerPositionPacket } from "../packet/packet";
+import { SetLocalPlayerPositionPacket } from "../packet";
 import { SOLID_BITMASK } from "../voxelGrid";
 import { World } from "../world";
 import { ServerPeer } from "./serverPeer";
+import { Server } from "./server";
 
 export class ServerPlayer extends RemoteEntity {
     public peer: ServerPeer;

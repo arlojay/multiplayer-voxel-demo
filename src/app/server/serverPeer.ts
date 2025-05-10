@@ -1,16 +1,22 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
 import { CHUNK_INC_SCL } from "../voxelGrid";
+import { ServerUI } from "./serverUI";
+import { UIContainer } from "../ui";
+import { BreakBlockEvent, PeerMoveEvent, PlaceBlockEvent } from "./pluginEvents";
+import { World } from "../world";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
-    "move": () => void;
     "disconnected": (cause: string) => void;
+    "packet": (packet: Packet) => void;
+    "clientready": (packet: ClientReadyPacket) => void;
 }
 
 export class TimedOutError extends Error {
@@ -28,6 +34,10 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public ping: number = 0;
     private onPingResponse: () => void = null;
     private lastPacketReceived: Map<number, number> = new Map;
+    private visiblePeers: Set<ServerPeer> = new Set;
+    public authenticated = false;
+    public username = "anonymous";
+    public color = "#ffffff";
 
 
     constructor(connection: MessagePortConnection, server: Server) {
@@ -90,8 +100,33 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
 
+    private authenticate(packet: ClientReadyPacket) {
+        this.username = packet.username;
+        this.color = packet.color;
+
+        for(const peer of this.server.peers.values()) {
+            if(peer == this) continue;
+
+            if(peer.username == this.username) {
+                this.kick("Username taken");
+                return;
+            }
+        }
+
+        this.emit("clientready", packet);
+        this.authenticated = true;
+    }
+
     public handlePacket(data: ArrayBuffer) {
+        if(!this.connected) return;
+
         const packet = Packet.createFromBinary(data);
+
+        if(packet instanceof ClientReadyPacket) {
+            this.authenticate(packet);
+        } else if(!this.authenticated) {
+            throw new Error("Client not authenticated");
+        }
 
         if(packet instanceof GetChunkPacket) {
             this.server.loadChunk(this.player.world, packet.x, packet.y, packet.z).then(chunk => {
@@ -125,28 +160,87 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 this.player.yaw = packet.yaw;
                 this.player.pitch = packet.pitch;
             }
+
+            
+            const event = new PeerMoveEvent(this.server);
+            event.peer = this;
+            event.player = this.player;
+            event.world = this.player.world;
+            event.x = packet.x;
+            event.y = packet.y;
+            event.z = packet.z;
+            event.vx = packet.vx;
+            event.vy = packet.vy;
+            event.vz = packet.vz;
+            event.yaw = packet.yaw;
+            event.pitch = packet.pitch;
+            this.server.emit(event);
+
+            if(event.isCancelled()) {
+                this.player.velocity.set(0, 0, 0);
+                this.player.position.copy(oldPosition);
+                this.player.syncPosition();
+            } else {
+                const broadcastPacket = new PlayerMovePacket(this.player);
+                broadcastPacket.player = this.id;
     
-            this.emit("move");
+                for(const otherPeer of this.server.peers.values()) {
+                    if(otherPeer == this) continue;
+                    if(otherPeer.player.world != this.player.world) continue;
+    
+                    otherPeer.sendPacket(broadcastPacket, true);
+                }
+            }
         }
         if(packet instanceof PlaceBlockPacket) {
-            this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
-                this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
-                this.server.savers.get(this.player.world.name).saveModified();
-            });
+            const event = new PlaceBlockEvent(this.server);
+            event.peer = this;
+            event.player = this.player;
+            event.world = this.player.world;
+            event.x = packet.x;
+            event.y = packet.y;
+            event.z = packet.z;
+            event.block = packet.block;
+            this.server.emit(event);
+
+            if(event.isCancelled()) {
+                this.updateBlock(packet.x, packet.y, packet.z);
+            } else {
+                this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
+                    this.player.world.setColor(packet.x, packet.y, packet.z, this.player.world.getColorFromValue(packet.block));
+                    this.server.getSaver(this.player.world)?.saveModified();
+                });
+            }
         }
         if(packet instanceof BreakBlockPacket) {
-            this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
-                this.player.world.clearColor(packet.x, packet.y, packet.z);
-                this.server.savers.get(this.player.world.name).saveModified();
-            });
+            const event = new BreakBlockEvent(this.server);
+            event.peer = this;
+            event.player = this.player;
+            event.world = this.player.world;
+            event.x = packet.x;
+            event.y = packet.y;
+            event.z = packet.z;
+            this.server.emit(event);
+
+            if(event.isCancelled()) {
+                this.updateBlock(packet.x, packet.y, packet.z);
+            } else {
+                this.server.loadChunk(this.player.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
+                    this.player.world.clearColor(packet.x, packet.y, packet.z);
+                    this.server.getSaver(this.player.world)?.saveModified();
+                });
+            }
         }
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
         }
 
+        
+        this.emit("packet", packet);
         this.lastPacketReceived.set(packet.id, packet.timestamp);
     }
 
+    // TODO: refactor for "add to queue" instead of "send instantly" flag
     public sendPacket(packet: Packet, instant: boolean = false) {
         const buffer = new ArrayBuffer(packet.getBufferSize());
         packet.write(new BinaryBuffer(buffer));
@@ -162,6 +256,15 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         } else {
             this.packetQueue.add(buffer);
         }
+    }
+
+    public updateBlock(x: number, y: number, z: number) {
+        const packet = new SetBlockPacket();
+        packet.x = x;
+        packet.y = y;
+        packet.z = z;
+        packet.block = this.player.world.getRawValue(x, y, z, false);
+        this.sendPacket(packet);
     }
 
     public flushPacketQueue() {
@@ -201,6 +304,13 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 });
             }
         }
+    }
+
+    public showUI(ui: UIContainer): ServerUI {
+        const uiInstance = new ServerUI(this, ui);
+        uiInstance.open();
+
+        return uiInstance;
     }
 
     public async sendPing() {
@@ -247,5 +357,41 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     public update(dt: number) {
         this.player.update(dt);
+    }
+
+    public sendToWorld(world: World) {
+        this.player.setWorld(world);
+        this.sendPacket(new ChangeWorldPacket(world));
+
+        for(const otherPeer of this.server.peers.values()) {
+            if(otherPeer.player.world == this.player.world) {
+                this.showPeer(otherPeer);
+                otherPeer.showPeer(this);
+            } else {
+                this.hidePeer(otherPeer);
+                otherPeer.hidePeer(this);
+            }
+        }
+    }
+
+    public showPeer(peer: ServerPeer) {
+        if(peer == this) return;
+        if(this.visiblePeers.has(peer)) return;
+
+        const joinPacket = new PlayerJoinPacket(peer);
+        joinPacket.player = peer.id;
+        this.visiblePeers.add(peer);
+
+        this.sendPacket(joinPacket);
+    }
+    public hidePeer(peer: ServerPeer) {
+        if(peer == this) return;
+        if(!this.visiblePeers.has(peer)) return;
+
+        const leavePacket = new PlayerLeavePacket();
+        leavePacket.player = peer.id;
+        this.visiblePeers.delete(peer);
+
+        this.sendPacket(leavePacket);
     }
 }

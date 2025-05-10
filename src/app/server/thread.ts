@@ -1,7 +1,8 @@
 import { PeerError } from "peerjs";
-import { TypedEmitter } from "tiny-typed-emitter";
 import { serializeError } from "serialize-error";
-import { Server, ServerOptions } from "./server";
+import { TypedEmitter } from "tiny-typed-emitter";
+import * as Freebuild from "./gamemodes/freebuild";
+import { Server, ServerLaunchOptions } from "./server";
 
 let server: Server;
 let crashMessages: Error[] = new Array;
@@ -43,6 +44,7 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
     private commandPort: MessagePort;
     public debugPort: MessagePort;
     public errorPort: MessagePort;
+    public open = false;
 
     constructor(peer: string, dataPort: MessagePort, commandPort: MessagePort) {
         super();
@@ -61,9 +63,11 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
 
             switch(name) {
                 case "open":
+                    this.open = true;
                     this.emit("open");
                     break;
                 case "close":
+                    this.open = false;
                     this.emit("close");
                     break;
                 case "error":
@@ -77,9 +81,11 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
     }
 
     public send(data: any) {
+        if(!this.open) throw new ReferenceError("Cannot send message to closed message port connection");
         this.dataPort.postMessage(data, data instanceof ArrayBuffer ? [data] : []);
     }
     public close() {
+        this.open = false;
         this.commandPort.postMessage(["close"]);
     }
 }
@@ -90,7 +96,7 @@ async function init() {
         const params: any[] = event.data.slice(1);
 
         if(name == "options") {
-            server = new Server(params[0] as ServerOptions);
+            server = new Server(params[0] as ServerLaunchOptions);
             (globalThis as any).server = server;
         
             
@@ -130,4 +136,8 @@ async function init() {
     });
 
     postMessage(["getoptions"]);
+}
+
+export function getServer() {
+    return server;
 }

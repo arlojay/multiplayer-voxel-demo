@@ -1,9 +1,9 @@
-import { Box3, Euler, PerspectiveCamera, Ray, Vector3 } from "three";
+import { Box3, Color, Euler, PerspectiveCamera, Ray, Vector3 } from "three";
 import { BLOCK_HITBOX, Entity } from "../entity/entity";
 import { PlayerController } from "../playerController";
 import { dlerp } from "../math";
 import { Client, getClient } from "./client";
-import { BreakBlockPacket, PlaceBlockPacket } from "../packet/packet";
+import { BreakBlockPacket, PlaceBlockPacket } from "../packet";
 import { simpleHash } from "./remotePlayer";
 import { ClientSounds } from "./clientSounds";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -43,6 +43,9 @@ export class LocalPlayer extends Entity {
     private fovMultiplier = 1;
     private fovBase = 90;
     private waitingForChunk = false;
+    
+    public username = "localplayer";
+    public color = "#ff0000";
 
     public update(dt: number) {
         this.updateControls(dt);
@@ -305,7 +308,7 @@ export class LocalPlayer extends Entity {
     public placeBlock(x: number, y: number, z: number) {
         if(!this.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
-        const color = simpleHash(Client.instance.peer.id) & 0xffffff;
+        const color = new Color(this.color).getHex();
 
         const hitbox = BLOCK_HITBOX;
         if(this.collisionChecker.collidesWithHitbox(x, y, z, hitbox)) return;

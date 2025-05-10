@@ -3,6 +3,7 @@ import { Server } from "./server/server";
 import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldRaycaster } from "./worldRaycaster";
 import { clamp } from "./math";
+import { WorldGenerator } from "./worldGenerator";
 
 export type ColorType = Color | number | null;
 
@@ -16,12 +17,7 @@ export class Chunk {
     public blockZ: number;
     public mesh: Mesh | null;
 
-    public hasPosX = false;
-    public hasPosY = false;
-    public hasPosZ = false;
-    public hasNegX = false;
-    public hasNegY = false;
-    public hasNegZ = false;
+    public surroundedChunks: boolean[] = new Array(27).fill(false);
 
     constructor(voxelChunk: VoxelGridChunk) {
         this.voxelChunk = voxelChunk;
@@ -54,6 +50,10 @@ export class Chunk {
         this.mesh = null;
     }
 
+    public markSurrounded(dx: number, dy: number, dz: number) {
+        this.surroundedChunks[(dx + 1) * 9 + (dy + 1) * 3 + (dz + 1)] = true;
+    }
+
     // TODO: Fix this in regard to chunk rendering after fetches (medium-bad code smell)
     public isFullySurrounded() {
         return true;
@@ -66,12 +66,13 @@ export class World {
     public blocks: VoxelGrid = new VoxelGrid;
     public dirtyChunkQueue: Set<Chunk> = new Set;
     public raycaster = new WorldRaycaster(this);
-    public name: string;
+    public id: string;
+    public generator: WorldGenerator;
 
     public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
 
-    public constructor(name = "world", server?: Server) {
-        this.name = name;
+    public constructor(id: string, server?: Server) {
+        this.id = id;
         this.server = server;
     }
 
@@ -139,12 +140,19 @@ export class World {
 
         this.markChunkDirty(chunk);
 
-        if(relativeX == 0) this.markDirtyByPos(chunkX - 1, chunkY, chunkZ);
-        if(relativeX == 15) this.markDirtyByPos(chunkX + 1, chunkY, chunkZ);
-        if(relativeY == 0) this.markDirtyByPos(chunkX, chunkY - 1, chunkZ);
-        if(relativeY == 15) this.markDirtyByPos(chunkX, chunkY + 1, chunkZ);
-        if(relativeZ == 0) this.markDirtyByPos(chunkX, chunkY, chunkZ - 1);
-        if(relativeZ == 15) this.markDirtyByPos(chunkX, chunkY, chunkZ + 1);
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                for(let dz = -1; dz <= 1; dz++) {
+                    if(
+                        (relativeX == 15 ? 1 : (relativeX == 0 ? -1 : 0)) == dx ||
+                        (relativeY == 15 ? 1 : (relativeY == 0 ? -1 : 0)) == dy ||
+                        (relativeZ == 15 ? 1 : (relativeZ == 0 ? -1 : 0)) == dz
+                    ) {
+                        this.markDirtyByPos(chunkX + dx, chunkY + dy, chunkZ + dz);
+                    }
+                }
+            }
+        }
 
         if(this.server != null) {
             this.server.updateBlock(this, x, y, z);
@@ -183,28 +191,18 @@ export class World {
         this.chunkMap.delete(chunk);
     }
     
+    public setGenerator(generator: WorldGenerator) {
+        this.generator = generator;
+    }
+    private warnedAboutNullGenerator = false;
     public generateChunk(x: number, y: number, z: number) {
-        const chunk = this.blocks.getChunk(x, y, z);
-        let globalX = x << CHUNK_INC_SCL;
-        let globalY = y << CHUNK_INC_SCL;
-        let globalZ = z << CHUNK_INC_SCL;
-
-        for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
-            for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
-                for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
-                    let color = 0x000000;
-
-                    if(globalY < -5) color = 0x888888;
-                    else if(globalY < -1) color = 0xCC9966;
-                    else if(globalY < 0) color = 0xBBFF99;
-
-                    if(color != 0x000000) chunk.set(x, y, z, this.getValueFromColor(color));
-                }
-                globalZ -= CHUNK_SIZE;
+        if(this.generator == null) {
+            if(!this.warnedAboutNullGenerator) {
+                console.warn("Generator is null for world " + this.id + "; generating empty chunks");
+                this.warnedAboutNullGenerator = true;
             }
-            globalY -= CHUNK_SIZE;
+            return this.getChunk(x, y, z, true);
         }
-
-        return chunk;
+        return this.generator.generateChunk(x, y, z);
     }
 }

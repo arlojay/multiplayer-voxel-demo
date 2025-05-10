@@ -8,6 +8,8 @@ import { debugLog } from "../logging";
 import { GameData } from "../gameData";
 import { AudioManager } from "../sound/soundManager";
 import { ClientSounds } from "./clientSounds";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { ClientCustomizationOptions } from "../controlOptions";
 
 interface ClientEvents {
     "login": () => void;
@@ -35,7 +37,8 @@ export class Client extends TypedEmitter<ClientEvents> {
         Client.instance = this;
 
         const canvas = gameRoot.querySelector("canvas") as HTMLCanvasElement;
-        this.gameRenderer = new GameRenderer(canvas);
+        const UIRoot = gameRoot.querySelector("#game-ui") as HTMLDivElement;
+        this.gameRenderer = new GameRenderer(canvas, UIRoot);
         this.playerController = new PlayerController(canvas, gameRoot);
         
         this.gameRenderer.addListener("frame", (time, dt) => {
@@ -82,7 +85,7 @@ export class Client extends TypedEmitter<ClientEvents> {
         debugLog("Connected to the internet");
     }
 
-    public async connect(id: string): Promise<ServerSession> {
+    public async connect(id: string, connectionOptions: ClientCustomizationOptions): Promise<ServerSession> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
 
         await this.waitForLogin();
@@ -91,7 +94,6 @@ export class Client extends TypedEmitter<ClientEvents> {
         const serverSession = new ServerSession(this);
         await serverSession.connect(id);
         
-        this.gameRenderer.setWorld(serverSession.localWorld);
         this.serverSession = serverSession;
 
         this.playerController.setPointerLocked(true);
@@ -105,8 +107,16 @@ export class Client extends TypedEmitter<ClientEvents> {
         serverSession.addListener("playerleave", player => {
             this.gameRenderer.scene.remove(player.mesh);
         });
+        serverSession.addListener("changeworld", world => {
+            this.gameRenderer.setWorld(world);
+        })
 
-        this.gameRenderer.scene.clear();
+        this.gameRenderer.setWorld(serverSession.localWorld);
+    
+        const readyPacket = new ClientReadyPacket();
+        readyPacket.username = connectionOptions.username;
+        readyPacket.color = connectionOptions.color;
+        serverSession.sendPacket(readyPacket);
 
         return serverSession;
     }

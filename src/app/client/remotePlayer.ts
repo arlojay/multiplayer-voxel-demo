@@ -1,6 +1,13 @@
-import { Box3, Box3Helper, BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, TextureLoader, Vector3 } from "three";
+import { Box3, BoxGeometry, Euler, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Skeleton, SkinnedMesh, TextureLoader, Vector3 } from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { RemoteEntity } from "../entity/remoteEntity";
 import { dlerp } from "../math";
+import { Color, MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
+import { attribute, dot, vec3, vec4 } from "three/src/nodes/TSL";
+import { sunPos } from "../shaders/sky";
+
+// const playerFace = new TextureLoader().load("assets/textures/player-face.png");
+const loader = new GLTFLoader();
 
 export const simpleHash = (str: string) => {
     let hash = 0;
@@ -19,47 +26,45 @@ export class RemotePlayer extends RemoteEntity {
     public yaw: number = Math.PI * 0.25;
     public pitch: number = 0;
 
-    public mesh: Object3D;
+    public mesh: Object3D = new Object3D;
     public id: string;
+    public skin: SkinnedMesh;
+    public username = "anonymous";
+    public color = "#ffffff";
 
     public constructor(id: string) {
         super();
         this.id = id;
-        this.mesh = new Group();
+    }
 
-        const color = simpleHash(id) & 0xffffff;
-
-
-        const size = new Vector3;
-        this.hitbox.getSize(size);
-
-        const center = new Vector3;
-        this.hitbox.getCenter(center);
-
-        const body = new BoxGeometry(size.x, size.y, size.z);
-        body.translate(center.x, center.y, center.z);
-        const bodyMesh = new Mesh(
-            body,
-            new MeshBasicMaterial({ color })
-        );
-        this.mesh.add(bodyMesh);
+    public async createModel() {
+        const player = await loader.loadAsync("assets/models/player.glb");;
+        const object = player.scene.children[0];
+        this.skin = object.children[0] as SkinnedMesh;
         
+        this.mesh.add(object);
 
-        const face = new PlaneGeometry(size.x, size.x);
-        face.rotateY(Math.PI);
-        face.translate(0, this.hitbox.max.y - size.x * 0.5, -this.hitbox.max.z - 0.01);
-        // face.translate(0, this.hitbox.max.y, 0);
-        const faceMesh = new Mesh(
-            face,
-            new MeshBasicMaterial({ map: new TextureLoader().load("assets/textures/player-face.png") })
-        );
-        this.mesh.add(faceMesh);
+        const color = new Color(this.color);
+
+
+        const material = new MeshBasicNodeMaterial();
+        this.skin.material = material;
+
+        
+        // material.colorNode = vec4(vec3(...color).mul(dot(attribute("objectNormal", "mat3x3<f32>").mul(attribute("normal", "vec3f")), sunPos)), 1);
+        material.colorNode = vec4(vec3(...color).mul(dot(attribute("normal", "vec3f"), sunPos).mul(0.5).add(0.5)), 1);
     }
 
     public update(dt: number): void {
         super.update(dt);
 
-        this.mesh.position.copy(this.renderPosition);
-        this.mesh.rotation.y = -dlerp(-this.mesh.rotation.y, this.yaw, dt, 24);
+        if(this.mesh != null) {
+            this.mesh.position.copy(this.renderPosition);
+            this.mesh.rotation.y = -dlerp(-this.mesh.rotation.y, this.yaw, dt, 24);
+        }
+
+        if(this.skin != null) {
+            this.skin.skeleton.bones[1].setRotationFromEuler(new Euler(-this.pitch, 0, 0));
+        }
     }
 }

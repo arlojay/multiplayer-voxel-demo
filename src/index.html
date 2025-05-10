@@ -4,56 +4,77 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light">
     <title>Voxel Visualizer</title>
 </head>
 
 <body style="font: 1rem Arial, sans-serif">
     <div id="game" class="hidden" tabindex="0">
+        <div id="game-ui"></div>
         <canvas></canvas>
         <div id="crosshair"></div>
     </div>
+    <div id="settings"></div>
     <div id="ui">
         <div class="modal centered visible" data-name="game-select">
+            <section id="player-customization">
+                <h1>Player Customization</h1>
+                <div>
+                    <span>Username</span>
+                    <input type="text" name="username" id="player-username">
+                </div>
+                <div>
+                    <span>Color</span>
+                    <input type="color" name="color" id="player-color">
+                </div>
+                <button id="game-settings">General Settings</button>
+            </section>
             <section id="join-game">
                 <h1>Join a game</h1>
                 <form>
-                    <span>Game Code</span>
-                    <input type="text" name="id">
+                    <div>
+                        <span>Game Code</span>
+                        <input type="text" name="id">
+                    </div>
                     <input type="submit" value="Connect"></input>
                 </form>
                 <p class="connect-error" style="color: red;"></p>
             </section>
-            <section id="select-world">
-                <h1>Select a world</h1>
+            <section id="select-server">
+                <h1>Host a game</h1>
                 <div style="width: 100%; text-align: left; font-weight: bold; display: flex; flex-direction: row;">
                     <div style="width: 10rem;">Name</div>
                     <div style="width: 8rem;">Time Created</div>
                 </div>
                 <ul>
-                    <li style="display: block; width: 100%; text-align: center;">Loading worlds...</li>
+                    <li style="display: block; width: 100%; text-align: center;">Loading your games...</li>
                 </ul>
-                <span>Or create a </span><button id="create-world-btn">New World</button>
+                <span>Or create a new game server</span>
+                <button id="create-server-btn">Create</button>
             </section>
         </div>
-        <div class="modal centered" data-name="create-world">
-            <h1>Create World</h1>
+        <div class="modal centered" data-name="create-server">
+            <h1>Modify Server</h1>
             <form>
                 <fieldset>
                     <legend>General</legend>
                     <div>
-                        <label for="name">World Name</label>
+                        <label for="name">Server Name</label>
                         <input type="text" name="name">
                     </div>
                 </fieldset>
+                <fieldset>
+                    <legend>Plugins</legend>
+                    <ul id="plugin-list"></ul>
+                </fieldset>
                 <div style="height: 2rem;"></div>
-                <input type="submit" value="Create World">
+                <input type="submit" value="Create">
             </form>
         </div>
     </div>
     <div id="debug-logs">
 
     </div>
+    <div id="memory-counter"></div>
 </body>
 
 </html>
