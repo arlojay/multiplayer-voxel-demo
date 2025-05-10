@@ -8,8 +8,8 @@ export interface SerializedUISliderInput extends SerializedUIElement {
     step: number;
 }
 export class UISliderInput extends UIElement<SerializedUISliderInput> implements UIFormContributor {
-    public static type = UIElement.register("sldr", () => new this);
-    public type = UISliderInput.type;
+    public static readonly type = UIElement.register("sldr", () => new this);
+    public readonly type = UISliderInput.type;
 
     public value: number = 0;
     public min: number = 0;

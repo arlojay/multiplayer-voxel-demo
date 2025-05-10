@@ -25,11 +25,7 @@ export class Server extends EventPublisher {
     public peers: Map<string, ServerPeer> = new Map;
     public debugPort: MessagePort = null;
     public errorPort: MessagePort = null;
-    public options: ServerOptions = {
-        name: "server",
-        plugins: [],
-        defaultWorldName: "world",
-    };
+    public options: ServerOptions = new ServerOptions;
     public launchOptions: ServerLaunchOptions;
     public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
@@ -80,7 +76,7 @@ export class Server extends EventPublisher {
         }
 
         try {
-            for(const pluginName of this.options.plugins) {
+            for(const pluginName of new Set(this.options.plugins)) {
                 this.addPlugin(PluginLoader.createPlugin(pluginName));
             }
         } catch(e) {

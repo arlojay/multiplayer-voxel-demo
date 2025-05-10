@@ -4,8 +4,11 @@ import { ClientCustomizationOptions } from "./controlOptions";
 import { debugLog } from "./logging";
 import { PluginLoader } from "./server/pluginLoader";
 import { ServerLaunchOptions } from "./server/server";
+import { ServerData, ServerOptions } from "./server/serverData";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
-import { UIButton, UISection, UISliderInput, UIText, UITextInput } from "./ui";
+import { UIButton, UIFieldset, UIForm, UISection, UISliderInput, UIText, UITextInput } from "./ui";
+import { UIFormField, UIFormFieldInputSide } from "./ui/UIFormField";
+import { UISpacer } from "./ui/UISpacer";
 
 const gameRoot = document.querySelector("#game") as HTMLElement;
 
@@ -22,8 +25,6 @@ function createRandomServerGameCode() {
 main();
 
 async function main() {
-    const clientId = "client-" + Math.random().toString().slice(2) + "-mvd";
-
     const client = new Client(gameRoot);
     await client.init();
     (window as any).client = client;
@@ -66,48 +67,48 @@ async function main() {
 
 
 
-    const serverCreation = document.querySelector('.modal[data-name="create-server"]')!;
+    // const serverCreation = document.querySelector('.modal[data-name="create-server"]')!;
 
-    serverCreation.querySelector("form").addEventListener("submit", async (event: SubmitEvent) => {
-        event.preventDefault();
-        const data = new FormData(event.target as HTMLFormElement);
+    // serverCreation.querySelector("form").addEventListener("submit", async (event: SubmitEvent) => {
+    //     event.preventDefault();
+    //     const data = new FormData(event.target as HTMLFormElement);
 
-        const serverName = data.get("name").toString();
+    //     const serverName = data.get("name").toString();
 
-        let server: ServerManager;
+    //     let server: ServerManager;
 
-        const plugins: string[] = new Array;
+    //     const plugins: string[] = new Array;
 
-        const pluginList = document.querySelector("#plugin-list");
-        for(const child of Array.from(pluginList.children) as HTMLElement[]) {
-            if(child.querySelector(":checked") != null) {
-                plugins.push(child.dataset.name);
-            }
-        }
+    //     const pluginList = document.querySelector("#plugin-list");
+    //     for(const child of Array.from(pluginList.children) as HTMLElement[]) {
+    //         if(child.querySelector(":checked") != null) {
+    //             plugins.push(child.dataset.name);
+    //         }
+    //     }
 
-        try {
-            serverCreation.classList.remove("visible");
-            const descriptor = await client.gameData.createServer(serverName);
-            server = await launchServer({
-                id: descriptor.id,
-                overrideSettings: {
-                    name: serverName, plugins
-                }
-            });
+    //     try {
+    //         serverCreation.classList.remove("visible");
+    //         const descriptor = await client.gameData.createServer(serverName);
+    //         server = await launchServer({
+    //             id: descriptor.id,
+    //             overrideSettings: {
+    //                 name: serverName, plugins
+    //             }
+    //         });
             
-            const connection = await connectToServer(server.id, getConnectionOptions());
-            connection.addListener("disconnected", () => {
-                server.close();
-            });
+    //         const connection = await connectToServer(server.id, getConnectionOptions());
+    //         connection.addListener("disconnected", () => {
+    //             server.close();
+    //         });
 
-            gameRoot.classList.remove("hidden");
-            gameRoot.focus();
-        } catch(e) {
-            serverCreation.classList.add("visible");
-            alert(e.message);
-            console.error(e);
-        }
-    })
+    //         gameRoot.classList.remove("hidden");
+    //         gameRoot.focus();
+    //     } catch(e) {
+    //         serverCreation.classList.add("visible");
+    //         alert(e.message);
+    //         console.error(e);
+    //     }
+    // })
 
 
 
@@ -136,9 +137,11 @@ async function main() {
         }
     })
     
-    document.querySelector("#create-server-btn").addEventListener("click", () => {
-        serverCreation.classList.add("visible");
-        gameSelect.classList.remove("visible");
+    document.querySelector("#create-server-btn").addEventListener("click", async () => {
+        const launchOptions = await Client.instance.gameData.createServer("New Server");
+        await editServerConfig({
+            id: launchOptions.id
+        });
     });
 
     document.querySelector("#player-username").addEventListener("change", () => {
@@ -151,27 +154,27 @@ async function main() {
     
     
 
-    await client.login(clientId);
+    await client.login();
     await updateServerListScreen();
 
-    const pluginList = document.querySelector("#plugin-list");
-    for(const pluginName of PluginLoader.getPluginList()) {
-        const element = document.createElement("li");
-        element.dataset.name = pluginName;
+    // const pluginList = document.querySelector("#plugin-list");
+    // for(const pluginName of PluginLoader.getPluginList()) {
+    //     const element = document.createElement("li");
+    //     element.dataset.name = pluginName;
 
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
+    //     const checkbox = document.createElement("input");
+    //     checkbox.type = "checkbox";
 
-        const name = document.createElement("span");
-        name.textContent = pluginName;
+    //     const name = document.createElement("span");
+    //     name.textContent = pluginName;
 
-        element.append(checkbox, name);
-        pluginList.append(element);
+    //     element.append(checkbox, name);
+    //     pluginList.append(element);
 
-        element.addEventListener("click", e => {
-            if(e.target != checkbox) checkbox.click();
-        });
-    }
+    //     element.addEventListener("click", e => {
+    //         if(e.target != checkbox) checkbox.click();
+    //     });
+    // }
 
 
     const settingsUI = makeSettingsUI();
@@ -302,6 +305,15 @@ async function updateServerListScreen() {
             }
         });
 
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "Edit";
+        editBtn.classList.add("edit");
+        editBtn.addEventListener("click", () => {
+            editServerConfig({
+                id: serverDescriptor.id
+            }, true);
+        })
+
         const deleteBtn = document.createElement("button");
         deleteBtn.textContent = "Delete";
         deleteBtn.classList.add("delete");
@@ -317,7 +329,7 @@ async function updateServerListScreen() {
 
 
 
-        listItem.append(itemName, time, playBtn, deleteBtn);
+        listItem.append(itemName, time, playBtn, editBtn, deleteBtn);
         children.push(listItem);
     }
     
@@ -406,6 +418,99 @@ function makeSettingsUI() {
     root.addChild(closeButton);
 
     return root;
+}
+
+async function editServerConfig(launchOptions: ServerLaunchOptions, updating = false) {
+    const createServerModal = document.querySelector('.modal[data-name="create-server"]');
+    if(createServerModal == null) throw new ReferenceError("Cannot find server creation modal");
+
+    const serverOptions = new ServerOptions;
+    serverOptions.name = Client.instance.gameData.servers.get(launchOptions.id)?.name ?? serverOptions.name;
+    const serverData = new ServerData(launchOptions.id, serverOptions);
+    await serverData.open();
+    await serverData.loadAll();
+
+    await new Promise((res, rej) => {
+        const root = new UIForm;
+
+        const title = new UIText(updating ? "Modify Server" : "Create Server");
+        title.style.fontSize = "2em";
+        title.style.fontWeight = "bold";
+        root.addChild(title);
+
+        const generalSection = new UIFieldset("General");
+        const serverName = new UIFormField("text", "Server Name", serverOptions.name);
+        serverName.onChange(() => serverOptions.name = serverName.value);
+        generalSection.addChild(serverName);
+
+        const pluginsSection = new UIFieldset("Plugins");
+        const pluginList = new UISection;
+        pluginList.style.display = "flex";
+        pluginList.style.flexDirection = "column";
+        pluginList.style.textAlign = "left";
+
+        for(const pluginName of PluginLoader.getPluginList()) {
+            const pluginCheckbox = new UIFormField("checkbox", pluginName, serverOptions.plugins.includes(pluginName) ? "on" : "off");
+            pluginCheckbox.alignment = UIFormFieldInputSide.LEFT;
+            pluginCheckbox.style.width = "100%";
+            pluginList.addChild(pluginCheckbox);
+            pluginCheckbox.onChange(() => {
+                if(pluginCheckbox.value == "on") {
+                    if(!serverOptions.plugins.includes(pluginName)) serverOptions.plugins.push(pluginName);
+                } else {
+                    serverOptions.plugins.splice(serverOptions.plugins.indexOf(pluginName), 1);
+                }
+            })
+        }        
+        
+        const removeAllBtn = new UIButton("Remove All");
+        removeAllBtn.onClick(() => {
+            for(const element of pluginList.elements) {
+                if(element instanceof UIFormField) {
+                    element.checked = false;
+                }
+            }
+            console.log("remove all...", serverOptions.plugins.splice(0));
+            pluginList.update();
+        })
+        
+        pluginsSection.addChild(pluginList);
+        pluginsSection.addChild(removeAllBtn);
+
+        root.addChild(generalSection);
+        root.addChild(pluginsSection);
+        root.addChild(new UISpacer);
+        
+        const submitButton = new UIButton(updating ? "Save" : "Create");
+        submitButton.onClick(() => {
+            const client = Client.instance;
+            const serverListing = client.gameData.servers.get(launchOptions.id);
+            let promise = Promise.resolve();
+
+            if(serverListing != null) {
+                serverListing.name = serverOptions.name;
+                console.log("update server listing name", serverListing, serverOptions);
+                promise = promise.then(() => client.gameData.updateServer(serverListing));
+            }
+
+            promise = promise.then(() => serverData.saveOptions()).then(() => updateServerListScreen());
+
+            promise.then(res).catch(rej).finally(() => {
+                serverData.close();
+                createServerModal.classList.remove("visible");
+                createServerModal.removeChild(root.element);
+            });
+        });
+
+        root.addChild(submitButton);
+
+    
+        root.update().then(element => {
+            console.log(element);
+            createServerModal.append(element);
+            createServerModal.classList.add("visible");
+        });
+    });
 }
 
 function loadChunks(serverSession: ServerSession) {

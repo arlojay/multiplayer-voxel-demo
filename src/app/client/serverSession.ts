@@ -63,6 +63,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
     
     public async connect(serverId: string) {
+        if(this.client.peer.disconnected) await this.client.login();
+        
         const connection = this.client.peer.connect(serverId, { serialization: "raw" });
         this.serverConnection = connection;
         

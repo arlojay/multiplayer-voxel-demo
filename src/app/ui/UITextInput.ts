@@ -8,8 +8,8 @@ export interface SerializedUITextInput extends SerializedUIElement {
     clearOnSubmit: boolean;
 }
 export class UITextInput extends UIElement<SerializedUITextInput> implements UIFormContributor {
-    public static type = UIElement.register("itxt", () => new this);
-    public type = UITextInput.type;
+    public static readonly type = UIElement.register("itxt", () => new this);
+    public readonly type = UITextInput.type;
 
     
     public name: string = "";
@@ -47,7 +47,7 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
                 this.bubbleEvent(new UIEvent("trysubmit"));
                 e.preventDefault();
             }
-        })
+        });
 
         return element;
     }

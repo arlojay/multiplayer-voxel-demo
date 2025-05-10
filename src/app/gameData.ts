@@ -15,26 +15,16 @@ export function upgradeData(db: IDBDatabase, target: number) {
     }
 }
 
-export interface ServerDescriptor {
-    id: string;
+export class ServerDescriptor {
+    id: string = crypto.randomUUID();
     name: string;
-    dateCreated: Date;
-    lastPlayed: Date;
+    dateCreated = new Date;
+    lastPlayed = new Date;
 }
 
 export class GameData {
     public db: IDBDatabase;
-    public clientOptions: ClientOptions = {
-        controls: {
-            mouseSensitivity: 0.3,
-            invertY: false
-        },
-        customization: {
-            username: "player-" + Math.random().toString().slice(2),
-            color: "#" + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0")
-        },
-        viewDistance: 4
-    };
+    public clientOptions = new ClientOptions;
     public servers: Map<string, ServerDescriptor> = new Map;
     
     
@@ -60,23 +50,19 @@ export class GameData {
 
 
     public async saveClientOptions() {
-        await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"))
+        await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"), { packArrays: false })
     }
     public async loadClientOptions() {
         await loadObjectStoreIntoJson(this.clientOptions, this.db.transaction("options", "readonly").objectStore("options"))
     }
 
     public async createServer(name: string) {
-        const descriptor: ServerDescriptor = {
-            id: crypto.randomUUID(),
-            name,
-            dateCreated: new Date,
-            lastPlayed: new Date
-        };
+        const descriptor = new ServerDescriptor;
+        descriptor.name = name;
 
         const transaction = this.db.transaction("servers", "readwrite");
 
-        transaction.objectStore("servers").add(descriptor)
+        transaction.objectStore("servers").add(descriptor);
 
         try {
             await waitForTransaction(transaction);
@@ -84,6 +70,7 @@ export class GameData {
             throw new Error("Failed to create server " + name, { cause: e });
         }
 
+        this.servers.set(descriptor.id, descriptor);
         return descriptor;
     }
 

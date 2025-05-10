@@ -10,17 +10,17 @@ export function upgradeServer(db: IDBDatabase, target: number) {
     }
 }
 
-export interface ServerOptions {
-    name: string;
-    plugins: string[];
-    defaultWorldName: string;
+export class ServerOptions {
+    name: string = "server";
+    plugins: string[] = new Array;
+    defaultWorldName: string = "world";
 }
 
-export interface WorldDescriptor {
-    id?: string;
+export class WorldDescriptor {
     name: string;
-    dateCreated: Date;
-    lastPlayed: Date;
+    id: string = crypto.randomUUID();
+    dateCreated = new Date;
+    lastPlayed = new Date;
 }
 
 export class ServerData {
@@ -52,20 +52,28 @@ export class ServerData {
             };
         });
     }
+    public async close() {
+        await new Promise<void>((res, rej) => {
+            this.db.close();
+            this.db.addEventListener("close", () => {
+                res();
+            });
+            this.db.addEventListener("error", (event: ErrorEvent) => {
+                rej(event.error ?? ("error" in event.target ? event.target.error : event.target));
+            })
+        })
+    }
 
     public async saveOptions() {
-        await saveJsonAsObjectStore(this.options, this.db.transaction("options", "readwrite").objectStore("options"))
+        await saveJsonAsObjectStore(this.options, this.db.transaction("options", "readwrite").objectStore("options"), { packArrays: false })
     }
     public async loadOptions() {
         await loadObjectStoreIntoJson(this.options, this.db.transaction("options", "readonly").objectStore("options"))
     }
 
     public async createWorld(name: string) {
-        const descriptor: WorldDescriptor = {
-            name, id: crypto.randomUUID(),
-            dateCreated: new Date,
-            lastPlayed: new Date
-        };
+        const descriptor = new WorldDescriptor;
+        descriptor.name = name;
 
         const transaction = this.db.transaction("worlds", "readwrite");
 

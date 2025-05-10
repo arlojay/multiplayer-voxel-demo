@@ -1,4 +1,4 @@
-import { flatPack, inflate } from "./flatPackedObject";
+import { flatPack, inflate, PackingOptions } from "./flatPackedObject";
 
 export function waitForTransaction(transaction: IDBTransaction) {
     return new Promise<void>((res, rej) => {
@@ -28,8 +28,8 @@ export async function loadObjectStoreIntoJson(json: object, objectStore: IDBObje
     }
     Object.assign(json, inflate(packed));
 }
-export async function saveJsonAsObjectStore(json: object, objectStore: IDBObjectStore) {
-    const packed = flatPack(json);
+export async function saveJsonAsObjectStore(json: object, objectStore: IDBObjectStore, packingOptions: PackingOptions = {}) {
+    const packed = flatPack(json, packingOptions);
 
     for(const key in packed) {
         objectStore.put({
