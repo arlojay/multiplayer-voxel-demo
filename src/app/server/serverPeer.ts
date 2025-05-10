@@ -316,8 +316,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public async sendPing() {
         this.ping = await (this.pingPromise ??= new Promise<number>((res, rej) => {
             const pingPacket = new PingPacket;
-            debugLog("ping");
-
             const t0 = performance.now();
 
             this.onPingResponse = () => {

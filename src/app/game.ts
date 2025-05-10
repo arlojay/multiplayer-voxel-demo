@@ -396,7 +396,7 @@ function makeSettingsUI() {
             type: "number",
             default: 4,
             min: 1,
-            max: 6,
+            max: 12,
             step: 0.1,
             set: (value: number) => gameData.clientOptions.viewDistance = value,
             get: () => gameData.clientOptions.viewDistance
@@ -557,10 +557,7 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
 function loadChunks(serverSession: ServerSession) {
     serverSession.updateViewDistance();
     const interval = setInterval(() => {
-        serverSession.updateViewDistance().catch(e => {
-            console.error(e);
-            clearInterval(interval);
-        });
+        serverSession.updateViewDistance();
     }, 2000);
 
     serverSession.addListener("disconnected", () => {

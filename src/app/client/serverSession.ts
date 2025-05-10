@@ -52,6 +52,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private loadedChunksA: Chunk[] = new Array;
     private loadedChunksB: Chunk[] = new Array;
     private usingChunkBufferB = false;
+    private chunksToCheckForLoading: number[][] = new Array;
     public music: LoopingMusic;
 
     public constructor(client: Client) {
@@ -250,6 +251,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public updateChunkFetchQueue(dt: number) {
+        this.updateChunksToCheckForLoading(dt);
+
         const loadSize = Math.sqrt((this.client.gameData.clientOptions.viewDistance * 2 + 1) ** 2);
         const unloadSizeSquare = (this.client.gameData.clientOptions.viewDistance + 1) ** 2;
 
@@ -279,6 +282,23 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.updateUnloadQueue(unloadSizeSquare, chunkBufferPrimary, chunkBufferSecondary);
         }
     }
+
+    private updateChunksToCheckForLoading(dt: number) {
+        let pos = [ 0, 0, 0 ];
+        let i = 0;
+
+        const count = Math.min(500, this.client.gameRenderer.framerate ** (2/3));
+        
+        while(i < count && this.chunksToCheckForLoading.length > 0) {
+            pos = this.chunksToCheckForLoading.pop();
+            if(pos == null) continue;
+            if(this.localWorld.chunkExists(pos[0], pos[1], pos[2])) continue;
+
+            this.fetchChunk(pos[0], pos[1], pos[2]);
+            i++;
+        }
+    }
+
     public updateUnloadQueue(removeSizeSquare: number, chunkBufferPrimary: Chunk[], chunkBufferSecondary: Chunk[]) {
         const chunk = chunkBufferPrimary.pop();
         if(chunk == null) return;
@@ -294,7 +314,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
 
         this.unloadChunk(chunk);
-        console.log("unloaded chunk");
     }
 
     public unloadChunk(chunk: Chunk) {
@@ -342,7 +361,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const promise = new Promise<ChunkDataPacket>((res, rej) => {
             this.waitingChunks.set(key, {
                 resolve: packet => {
-                    console.log("fetched chunk");
                     this.addChunkData(packet);
                     this.fetchingChunks.delete(key);
                     this.chunkFetchingQueueMap.delete(key);
@@ -443,7 +461,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.client.gameRenderer.scene.add(this.player.model.mesh);
     }
 
-    public async updateViewDistance() {
+    public updateViewDistance() {
         const r = this.client.gameData.clientOptions.viewDistance + 1;
         const rsq = r * r;
 
@@ -451,19 +469,15 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const centerY = this.player.chunkY;
         const centerZ = this.player.chunkZ;
 
-        const promises: Promise<ChunkDataPacket>[] = new Array;
+        if(this.chunksToCheckForLoading.length > 100) return;
 
         for(let x = Math.floor(-r); x <= Math.floor(r); x++) {
             for(let y = Math.floor(-r); y <= Math.floor(r); y++) {
                 for(let z = Math.floor(-r); z <= Math.floor(r); z++) {
                     if(x * x + y * y + z * z > rsq) continue;
-                    if(this.localWorld.chunkExists(x + centerX, y + centerY, z + centerZ)) continue;
-
-                    promises.push(this.fetchChunk(x + centerX, y + centerY, z + centerZ));
+                    this.chunksToCheckForLoading.push([ x + centerX, y + centerY, z + centerZ ]);
                 }
             }
         }
-
-        await Promise.all(promises);
     }
 }
