@@ -1,9 +1,15 @@
-import { Freebuild } from "./gamemodes/freebuild";
+import { ChatPlugin } from "./plugins/chat";
+import { DemoPlugin } from "./plugins/demo";
+import { FreebuildPlugin } from "./plugins/freebuild";
+import { TerrainPlugin } from "./plugins/terrain";
 import { ServerPlugin } from "./serverPlugin";
 
 // TODO: dynamic plugin loading
-const pluginList: Map<string, () => ServerPlugin> = new Map([
-    ["freebuild", () => new Freebuild]
+const pluginList = new Map<string, () => ServerPlugin>([
+    ["freebuild", () => new FreebuildPlugin],
+    ["chat", () => new ChatPlugin],
+    ["terrain", () => new TerrainPlugin],
+    ["demo", () => new DemoPlugin],
 ])
 
 export class PluginLoader {

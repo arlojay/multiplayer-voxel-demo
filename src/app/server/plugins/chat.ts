@@ -1,5 +1,8 @@
-import { UIButton, UIForm, UISection, UIText, UITextInput } from "../../../ui";
-import { ServerPeer } from "../../serverPeer";
+import { UIButton, UIForm, UISection, UIText, UITextInput } from "../../ui";
+import { Subscribe } from "../events";
+import { PeerJoinEvent, PeerLeaveEvent, PluginEvents } from "../pluginEvents";
+import { ServerPeer } from "../serverPeer";
+import { ServerPlugin } from "../serverPlugin";
 
 interface ChatMessage {
     peer?: ServerPeer;
@@ -13,12 +16,13 @@ interface ChatUIInstance {
     logs: UISection;
 }
 
-export class ChatUIManager {
+export class ChatPlugin extends ServerPlugin {
     private messages: ChatMessage[] = new Array;
     private chatUIs: Map<ServerPeer, ChatUIInstance> = new Map;
 
-    public onPeerJoin(peer: ServerPeer) {
-        this.sendMessage({ text: peer.username + " joined the game" });
+    @Subscribe(PluginEvents.PEER_JOIN)
+    public onPeerJoin(event: PeerJoinEvent) {
+        this.sendMessage({ text: event.peer.username + " joined the game" });
 
 
         const chatUI = new UISection;
@@ -55,24 +59,25 @@ export class ChatUIManager {
         chatUI.addChild(chatForm);
 
         chatForm.onSubmit(() => {
-            const message: ChatMessage = { peer, text: chatInput.value };
+            const message: ChatMessage = { peer: event.peer, text: chatInput.value };
             const validated = this.validateMessage(message);
             if(!validated) return;
 
             this.sendMessage(message);
         });
 
-        this.chatUIs.set(peer, {
-            peer: peer,
+        this.chatUIs.set(event.peer, {
+            peer: event.peer,
             root: chatUI,
             input: chatInput,
             logs: chatLogs
         });
-        peer.showUI(chatUI);
+        event.peer.showUI(chatUI);
     }
-
-    public onPeerLeave(peer: ServerPeer) {
-        this.sendMessage({ text: peer.username + " left the game" });
+    
+    @Subscribe(PluginEvents.PEER_LEAVE)
+    public onPeerLeave(event: PeerLeaveEvent) {
+        this.sendMessage({ text: event.peer.username + " left the game" });
     }
 
 
