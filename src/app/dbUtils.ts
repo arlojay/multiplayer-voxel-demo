@@ -44,3 +44,25 @@ export async function saveJsonAsObjectStore(json: object, objectStore: IDBObject
         throw new Error("Failed to save json as object store", { cause: e });
     }
 }
+
+export interface DBSchema {
+    version: number;
+    upgrade: (db: IDBDatabase, target: number) => void;
+}
+
+export async function openDb(name: string, schema: DBSchema) {
+    return await new Promise<IDBDatabase>((res, rej) => {
+        const request = indexedDB.open(name, schema.version);
+        request.onsuccess = () => {
+            res(request.result);
+        };
+        request.onerror = (event: ErrorEvent) => {
+            rej(new Error("Cannot open database " + this.id, { cause: event.error ?? (event as any).target?.error }));
+        };
+        request.onupgradeneeded = (event) => {
+            for(let version = event.oldVersion; version < event.newVersion; version++) {
+                schema.upgrade(request.result, version + 1);
+            }
+        };
+    });
+}

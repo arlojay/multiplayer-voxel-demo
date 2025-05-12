@@ -1,19 +1,8 @@
 import { ClientOptions } from "./controlOptions";
-import { loadObjectStoreIntoJson, saveJsonAsObjectStore, waitForTransaction } from "./dbUtils";
+import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "./dbUtils";
 import { debugLog } from "./logging";
 
 export const DATA_VERSION = 2;
-
-export function upgradeData(db: IDBDatabase, target: number) {
-    if(target == 1) {
-        db.createObjectStore("worlds", { keyPath: "id", autoIncrement: true });
-        db.createObjectStore("options", { keyPath: "name" });
-    }
-    if(target == 2) {
-        db.createObjectStore("servers", { keyPath: "id" });
-        db.deleteObjectStore("worlds");
-    }
-}
 
 export class ServerDescriptor {
     id: string = crypto.randomUUID();
@@ -29,22 +18,20 @@ export class GameData {
     
     
     public async open() {
-        this.db = await new Promise<IDBDatabase>((res, rej) => {
-            const request = indexedDB.open("mvd-data", DATA_VERSION);
-            request.onsuccess = () => {
-                res(request.result);
-            };
-            request.onerror = (event: ErrorEvent) => {
-                rej(new Error("Cannot open game data database", { cause: event.error ?? (event as any).target?.error }));
-            };
-            request.onupgradeneeded = (event) => {
-                debugLog("Migrate game data from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version < event.newVersion; version++) {
-                    upgradeData(request.result, version + 1);
-                    debugLog("Migrated to v" + (version + 1));
+        this.db = await openDb("mvd-data", {
+            version: DATA_VERSION,
+            upgrade(db: IDBDatabase, target: number) {
+                debugLog("Migrating game data to v" + target);
+
+                if(target == 1) {
+                    db.createObjectStore("worlds", { keyPath: "id", autoIncrement: true });
+                    db.createObjectStore("options", { keyPath: "name" });
                 }
-                debugLog("Migration of game data finished");
-            };
+                if(target == 2) {
+                    db.createObjectStore("servers", { keyPath: "id" });
+                    db.deleteObjectStore("worlds");
+                }
+            }
         })
     }
 

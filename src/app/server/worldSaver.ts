@@ -1,14 +1,9 @@
+import { openDb } from "../dbUtils";
 import { debugLog } from "../logging";
 import { Chunk, World } from "../world";
 import { Server } from "./server";
 
 export const WORLD_VERSION = 1;
-
-export function upgradeWorld(db: IDBDatabase, target: number) {
-    if(target == 1) {
-        db.createObjectStore("data", { keyPath: "position" });
-    }
-}
 
 export class WorldSaver {
     public server: Server;
@@ -23,23 +18,15 @@ export class WorldSaver {
         this.world = world;
     }
     public async open() {
-        this.db = await new Promise<IDBDatabase>((res, rej) => {
-            const request = indexedDB.open("servers/" + this.server.id + "/worlds/" + this.id, WORLD_VERSION);
-            request.onsuccess = () => {
-                res(request.result);
-            };
-            request.onerror = (event: ErrorEvent) => {
-                rej(new Error("Cannot open world database " + this.id, { cause: event.error ?? (event as any).target?.error }));
-            };
-            request.onupgradeneeded = (event) => {
-                debugLog("Migrate world " + this.id + " from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version < event.newVersion; version++) {
-                    upgradeWorld(request.result, version + 1);
-                    debugLog("Migrated " + this.id + " to v" + (version + 1));
+        this.db = await openDb("servers/" + this.server.id + "/worlds/" + this.id, {
+            version: WORLD_VERSION,
+            upgrade(db: IDBDatabase, target: number) {
+                debugLog("Migrating server world " + this.id + " to v" + target);
+                if(target == 1) {
+                    db.createObjectStore("data", { keyPath: "position" });
                 }
-                debugLog("Migration of world "  + this.id + " finished");
-            };
-        });
+            }
+        })
     }
 
     private writeChunk(chunk: Chunk) {

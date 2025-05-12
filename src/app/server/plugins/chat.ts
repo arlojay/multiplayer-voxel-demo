@@ -17,6 +17,8 @@ interface ChatUIInstance {
 }
 
 export class ChatPlugin extends ServerPlugin {
+    public readonly name = "chat";
+    
     private messages: ChatMessage[] = new Array;
     private chatUIs: Map<ServerPeer, ChatUIInstance> = new Map;
 

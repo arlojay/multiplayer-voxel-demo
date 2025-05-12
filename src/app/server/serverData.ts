@@ -1,14 +1,9 @@
-import { loadObjectStoreIntoJson, saveJsonAsObjectStore, waitForTransaction } from "../dbUtils";
+import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "../dbUtils";
 import { debugLog } from "../logging";
+import { PluginConfig } from "./pluginConfig";
+import { ServerPlugin } from "./serverPlugin";
 
 export const SERVER_VERSION = 1;
-
-export function upgradeServer(db: IDBDatabase, target: number) {
-    if(target == 1) {
-        db.createObjectStore("worlds", { keyPath: "name" });
-        db.createObjectStore("options", { keyPath: "name" });
-    }
-}
 
 export class ServerOptions {
     name: string = "server";
@@ -26,30 +21,25 @@ export class WorldDescriptor {
 export class ServerData {
     public id: string;
     public db: IDBDatabase;
+    public configDb: IDBDatabase;
     public worlds: Map<string, WorldDescriptor> = new Map;
     public options: ServerOptions;
+    public pluginConfigs: Map<string, PluginConfig> = new Map;
 
     constructor(id: string, options: ServerOptions) {
         this.id = id;
         this.options = options;
     }
     public async open() {
-        this.db = await new Promise<IDBDatabase>((res, rej) => {
-            const request = indexedDB.open("servers/" + this.id, SERVER_VERSION);
-            request.onsuccess = () => {
-                res(request.result);
-            };
-            request.onerror = (event: ErrorEvent) => {
-                rej(new Error("Cannot open server database " + this.id, { cause: event.error ?? (event as any).target?.error }));
-            };
-            request.onupgradeneeded = (event) => {
-                debugLog("Migrate server " + this.id + " from v" + event.oldVersion + " to v" + event.newVersion);
-                for(let version = event.oldVersion; version < event.newVersion; version++) {
-                    upgradeServer(request.result, version + 1);
-                    debugLog("Migrated " + this.id + " to v" + (version + 1));
+        this.db = await openDb("servers/" + this.id, {
+            version: SERVER_VERSION,
+            upgrade(db, target) {
+                debugLog("Migrating server data " + this.id + " to v" + target);
+                if(target == 1) {
+                    db.createObjectStore("worlds", { keyPath: "name" });
+                    db.createObjectStore("options", { keyPath: "name" });
                 }
-                debugLog("Migration of server "  + this.id + " finished");
-            };
+            },
         });
     }
     public close() {
@@ -124,6 +114,22 @@ export class ServerData {
         for(const worldDescriptor of request.result) {
             this.worlds.set(worldDescriptor.name, worldDescriptor);
         }
+    }
+
+    public async openPluginConfig(plugin: ServerPlugin | string) {
+        const name = typeof plugin == "string" ? plugin : plugin.name;
+
+        if(this.pluginConfigs.has(name)) {
+            return this.pluginConfigs.get(name);
+        }
+        const config = new PluginConfig(this, name);
+        await config.open();
+        this.pluginConfigs.set(name, config);
+        return config;
+    }
+
+    public async openPluginDatabase(plugin: ServerPlugin | string) {
+        const name = typeof plugin == "string" ? plugin : plugin.name;
     }
 
     public async loadAll() {

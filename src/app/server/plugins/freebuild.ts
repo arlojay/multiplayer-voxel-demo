@@ -7,6 +7,8 @@ import { ServerPeer } from "../serverPeer";
 import { ServerPlugin } from "../serverPlugin";
 
 export class FreebuildPlugin extends ServerPlugin {
+    public readonly name = "freebuild";
+
     private privateWorlds: Map<ServerPeer, World> = new Map;
 
     @Subscribe(PluginEvents.PEER_JOIN)

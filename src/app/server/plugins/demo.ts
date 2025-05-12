@@ -4,6 +4,8 @@ import { PeerJoinEvent, PluginEvents } from "../pluginEvents";
 import { ServerPlugin } from "../serverPlugin";
 
 export class DemoPlugin extends ServerPlugin {
+    public readonly name = "demo";
+
     @Subscribe(PluginEvents.PEER_JOIN)
     public onPeerJoin(event: PeerJoinEvent) {        
         const ui = new UISection;

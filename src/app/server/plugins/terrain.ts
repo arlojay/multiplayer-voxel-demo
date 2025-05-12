@@ -59,6 +59,8 @@ export class SimplexTerrainGenerator extends WorldGenerator {
 }
 
 export class TerrainPlugin extends ServerPlugin {
+    public readonly name = "terrain";
+
     @Subscribe(PluginEvents.SERVER_LOADED)
     public async onLoad(event: ServerLoadedEvent) {
         const world = event.server.getDefaultWorld();
