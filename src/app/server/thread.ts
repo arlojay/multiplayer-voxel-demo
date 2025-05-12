@@ -1,7 +1,6 @@
 import { PeerError } from "peerjs";
 import { serializeError } from "serialize-error";
 import { TypedEmitter } from "tiny-typed-emitter";
-import * as Freebuild from "./plugins/freebuild";
 import { Server, ServerLaunchOptions } from "./server";
 
 let server: Server;

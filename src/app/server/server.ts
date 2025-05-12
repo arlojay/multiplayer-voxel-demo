@@ -15,11 +15,13 @@ import { WorldSaver } from "./worldSaver";
 
 export interface ServerLaunchOptions {
     id: string;
+    peerId?: string;
     overrideSettings?: Partial<ServerOptions>;
 }
 
 export class Server extends EventPublisher {
     public id: string;
+    public peerId: string;
     public worlds: Map<string, World> = new Map;
     public savers: Map<string, WorldSaver> = new Map;
     public peers: Map<string, ServerPeer> = new Map;

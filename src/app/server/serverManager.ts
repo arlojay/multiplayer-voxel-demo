@@ -23,6 +23,7 @@ export class ServerManager {
 
     public async start() {
         this.peer = createPeer("server-" + this.id + "-mvd");
+        this.launchOptions.peerId = this.id;
         debugLog("Starting server " + this.id + "...");
         await new Promise<void>((res, rej) => {
             this.peer.once("open", () => res());
