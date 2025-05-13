@@ -66,7 +66,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         try {
             while(this.connected) {
                 await this.sendPing();
-                await new Promise(r => setTimeout(r, 3000));
+                await new Promise(r => setTimeout(r, 30000));
             }
         } catch(e) {
             if(e instanceof TimedOutError) {
