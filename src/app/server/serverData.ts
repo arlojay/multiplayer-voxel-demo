@@ -1,6 +1,6 @@
 import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "../dbUtils";
 import { debugLog } from "../logging";
-import { PluginConfig } from "./pluginConfig";
+import { DatabaseView } from "./pluginConfig";
 import { ServerPlugin } from "./serverPlugin";
 
 export const SERVER_VERSION = 1;
@@ -24,7 +24,8 @@ export class ServerData {
     public configDb: IDBDatabase;
     public worlds: Map<string, WorldDescriptor> = new Map;
     public options: ServerOptions;
-    public pluginConfigs: Map<string, PluginConfig> = new Map;
+    public pluginConfigs: Map<string, DatabaseView> = new Map;
+    public pluginDatabases: Map<string, DatabaseView> = new Map;
 
     constructor(id: string, options: ServerOptions) {
         this.id = id;
@@ -122,7 +123,7 @@ export class ServerData {
         if(this.pluginConfigs.has(name)) {
             return this.pluginConfigs.get(name);
         }
-        const config = new PluginConfig(this, name);
+        const config = new DatabaseView(this, name, "config");
         await config.open();
         this.pluginConfigs.set(name, config);
         return config;
@@ -130,6 +131,14 @@ export class ServerData {
 
     public async openPluginDatabase(plugin: ServerPlugin | string) {
         const name = typeof plugin == "string" ? plugin : plugin.name;
+
+        if(this.pluginConfigs.has(name)) {
+            return this.pluginConfigs.get(name);
+        }
+        const config = new DatabaseView(this, name, "data");
+        await config.open();
+        this.pluginConfigs.set(name, config);
+        return config;
     }
 
     public async loadAll() {

@@ -2,16 +2,16 @@ import { waitForTransaction } from "../dbUtils";
 import { inflate } from "../flatPackedObject";
 import { ServerData } from "./serverData";
 
-export class PluginObjectStore<Schema> {
+export class DatabaseObjectStore<Schema> {
     public data: Schema;
 
     private db: IDBDatabase;
-    public pluginConfig: PluginConfig;
+    public view: DatabaseView;
     public name: string;
 
-    public constructor(db: IDBDatabase, pluginConfig: PluginConfig, name: string) {
+    public constructor(db: IDBDatabase, view: DatabaseView, name: string) {
         this.db = db;
-        this.pluginConfig = pluginConfig;
+        this.view = view;
         this.name = name;
     }
 
@@ -54,14 +54,16 @@ export class PluginObjectStore<Schema> {
 
     public async open() {
         if(!this.db.objectStoreNames.contains(this.name)) {
-            await this.pluginConfig.createIDBObjectStores(this.name);
+            await this.view.createIDBObjectStores(this.name);
         }
 
         const transaction = this.db.transaction(this.name, "readonly");
         const allKeys = transaction.objectStore(this.name).getAll();
 
         await waitForTransaction(transaction);
-        this.data = this.proxyProperty(inflate(allKeys.result), []);
+        const data = this.proxyProperty(inflate(allKeys.result), []);
+
+        this.data = data;
     }
 
     public setIDBDatabase(db: IDBDatabase) {
@@ -69,32 +71,40 @@ export class PluginObjectStore<Schema> {
     }
 }
 
-export class PluginConfig {
+export class DatabaseView {
     public name: string;
     public serverData: ServerData;
     private db: IDBDatabase;
-    private stores: Map<string, PluginObjectStore<any>>;
+    private stores: Map<string, DatabaseObjectStore<any>>;
+    private dir: string;
 
-    constructor(serverData: ServerData, name: string) {
+    constructor(serverData: ServerData, name: string, dir: string) {
         this.serverData = serverData;
         this.name = name;
+        this.dir = dir;
     }
 
     public async open() {
         this.setDb(await this.openDb());
     }
 
+    public getFullName() {
+        return "servers/" + this.serverData.id + "/" + this.dir + "/" + this.name;
+    }
+
     private async openDb(upgradeHandler?: (db: IDBDatabase) => void) {
-        const descriptor = await indexedDB.databases().then(dbs => dbs.find(db => db.name == this.name));
+        const fullName = this.getFullName();
+
+        const descriptor = await indexedDB.databases().then(dbs => dbs.find(db => db.name == fullName));
         let version = descriptor.version ?? 1;
         if(upgradeHandler != null) version++;
 
         return await new Promise<IDBDatabase>((res, rej) => {
-            const request = indexedDB.open("servers/" + this.serverData.id + "/config/" + this.name, version);
+            const request = indexedDB.open(fullName, version);
             request.onsuccess = () => res(request.result);
 
             request.onerror = (event: ErrorEvent) => {
-                rej(new Error("Failed to open plugin config " + this.name, { cause: event.error ?? event.target }));
+                rej(new Error("Failed to open database " + fullName, { cause: event.error ?? event.target }));
             }
             if(upgradeHandler != null) {
                 request.onupgradeneeded = (event) => {
@@ -120,14 +130,14 @@ export class PluginConfig {
         }
     }
 
-    public async objectStore<Schema>(name: string): Promise<PluginObjectStore<Schema>> {
+    public async objectStore<Schema>(name: string): Promise<DatabaseObjectStore<Schema>> {
         if(this.db == null) await this.open();
 
         if(this.stores.has(name)) {
             return this.stores.get(name);
         }
 
-        const store = new PluginObjectStore<Schema>(this.db, this, name);
+        const store = new DatabaseObjectStore<Schema>(this.db, this, name);
         await store.open();
         this.stores.set(name, store);
         return store;
