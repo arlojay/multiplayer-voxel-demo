@@ -365,7 +365,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                     this.fetchingChunks.delete(key);
                     this.chunkFetchingQueueMap.delete(key);
                 },
-                reject: () => rej()
+                reject: () => {
+                    // rej();
+                }
             });
         });
         this.fetchingChunks.set(key, promise);

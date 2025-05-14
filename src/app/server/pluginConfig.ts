@@ -1,69 +1,98 @@
 import { waitForTransaction } from "../dbUtils";
 import { inflate } from "../flatPackedObject";
+import { RichSerializedJson } from "../objectSerializer";
 import { ServerData } from "./serverData";
 
-export class DatabaseObjectStore<Schema> {
-    public data: Schema;
+export class DatabaseObject<KeyPath extends string, Schema = any> {
+    public db: IDBDatabase;
+    public objectStore: DatabaseObjectStore<KeyPath, Schema>;
+    public data: Omit<Schema, KeyPath>;
+    public key: string;
+
+    public constructor(db: IDBDatabase, objectStore: DatabaseObjectStore<KeyPath, Schema>, key: string, data: any) {
+        this.db = db;
+        this.objectStore = objectStore;
+        this.key = key;
+        this.data = this.objectStore.dataType.deserialize(data) as typeof this.data;
+    }
+
+    public async save() {
+        const transaction = this.db.transaction(this.objectStore.name, "readwrite");
+        const obj = this.objectStore.dataType.serialize(this.data);
+        obj[this.objectStore.keyPath] = this.key;
+        transaction.objectStore(this.objectStore.name).put(obj);
+        await waitForTransaction(transaction);
+    }
+
+    public async delete() {
+        await this.objectStore.delete(this.key);
+    }
+}
+
+export class DatabaseObjectStore<KeyPath extends string, Schema = any> {
+    public dataType = new RichSerializedJson;
+    public objects: Map<string, DatabaseObject<KeyPath, Schema>> = new Map;
 
     private db: IDBDatabase;
     public view: DatabaseView;
     public name: string;
+    public keyPath: KeyPath;
 
-    public constructor(db: IDBDatabase, view: DatabaseView, name: string) {
+    public constructor(db: IDBDatabase, view: DatabaseView, name: string, keyPath: KeyPath) {
         this.db = db;
         this.view = view;
         this.name = name;
-    }
-
-    private async set(path: string, value: any) {
-        const transaction = this.db.transaction(this.name);
-        transaction.objectStore(this.name).put(path, value);
-        await waitForTransaction(transaction);
-    }
-
-    private async delete(path: string) {
-        const transaction = this.db.transaction(this.name);
-        transaction.objectStore(this.name).delete(path);
-        await waitForTransaction(transaction);
-    }
-
-    private proxyProperty(object: any, path: string[]) {
-        return new Proxy(object, {
-            get: (target, p: string, receiver) => {
-                const prop = Reflect.get(target, p, receiver);
-                if(typeof prop == "object") {
-                    return this.proxyProperty(prop, path.concat([p]));
-                } else {
-                    return prop;
-                }
-            },
-            set: (target, p: string, newValue, receiver) => {
-                const success = Reflect.set(target, p, newValue, receiver);
-                if(success) this.set(path.join(".") + "." + p, newValue);
-
-                return success;
-            },
-            deleteProperty: (target, p: string) => {
-                const success = Reflect.deleteProperty(target, p);
-                if(success) this.delete(path.join(".") + "." + p);
-
-                return success;
-            },
-        });
+        this.keyPath = keyPath;
     }
 
     public async open() {
         if(!this.db.objectStoreNames.contains(this.name)) {
-            await this.view.createIDBObjectStores(this.name);
+            await this.view.createIDBObjectStore(this.name, this.keyPath);
         }
 
         const transaction = this.db.transaction(this.name, "readonly");
-        const allKeys = transaction.objectStore(this.name).getAll();
+        const allKeys = transaction.objectStore(this.name).getAllKeys();
 
         await waitForTransaction(transaction);
-        const data = this.proxyProperty(inflate(allKeys.result), []);
+        for(const key of allKeys.result) {
+            this.objects.set(key as string, null);
+        }
+    }
 
-        this.data = data;
+    public has(key: string) {
+        return this.objects.has(key);
+    }
+
+    public async create(key: string, data: Omit<Schema, KeyPath>) {
+        console.log("CREATE " + key);
+        const object = new DatabaseObject<KeyPath, Schema>(this.db, this, key, data);
+
+        await object.save();
+        this.objects.set(key, object);
+        
+        return object;
+    }
+
+    public async get(key: string) {
+        console.log("GET " + key);
+        if(this.objects.get(key) != null) return this.objects.get(key);
+
+        const transaction = this.db.transaction(this.name, "readonly");
+        const object = transaction.objectStore(this.name).get(key);
+
+        await waitForTransaction(transaction);
+        const data = inflate(object.result);
+        
+        const instance = new DatabaseObject<KeyPath, Schema>(this.db, this, key, data);
+        this.objects.set(key, instance);
+
+        return instance;
+    }
+    public async delete(key: string) {
+        const transaction = this.db.transaction(this.name, "readwrite");
+        transaction.objectStore(this.name).delete(key);
+        await waitForTransaction(transaction);
+        this.objects.delete(key);
     }
 
     public setIDBDatabase(db: IDBDatabase) {
@@ -75,7 +104,7 @@ export class DatabaseView {
     public name: string;
     public serverData: ServerData;
     private db: IDBDatabase;
-    private stores: Map<string, DatabaseObjectStore<any>>;
+    private stores: Map<string, DatabaseObjectStore<any>> = new Map;
     private dir: string;
 
     constructor(serverData: ServerData, name: string, dir: string) {
@@ -96,7 +125,7 @@ export class DatabaseView {
         const fullName = this.getFullName();
 
         const descriptor = await indexedDB.databases().then(dbs => dbs.find(db => db.name == fullName));
-        let version = descriptor.version ?? 1;
+        let version = descriptor?.version ?? 1;
         if(upgradeHandler != null) version++;
 
         return await new Promise<IDBDatabase>((res, rej) => {
@@ -108,17 +137,19 @@ export class DatabaseView {
             }
             if(upgradeHandler != null) {
                 request.onupgradeneeded = (event) => {
-                    upgradeHandler(event.target as IDBDatabase);
+                    upgradeHandler(request.result as IDBDatabase);
                 }
             }
         })
     }
 
-    public async createIDBObjectStores(...names: string[]) {
+    public async createIDBObjectStore<KeyPath extends string>(name: string, keyPath: KeyPath) {
         this.db.close();
         this.setDb(null);
         const db = await this.openDb(db => {
-            for(const name of names) db.createObjectStore(name);
+            db.createObjectStore(name, {
+                keyPath: keyPath
+            });
         })
         this.setDb(db);
     }
@@ -130,16 +161,16 @@ export class DatabaseView {
         }
     }
 
-    public async objectStore<Schema>(name: string): Promise<DatabaseObjectStore<Schema>> {
+    public async objectStore<KeyPath extends string, Schema>(name: string, keyPath: KeyPath): Promise<DatabaseObjectStore<KeyPath, Schema>> {
         if(this.db == null) await this.open();
 
         if(this.stores.has(name)) {
             return this.stores.get(name);
         }
 
-        const store = new DatabaseObjectStore<Schema>(this.db, this, name);
-        await store.open();
+        const store = new DatabaseObjectStore<KeyPath, Schema>(this.db, this, name, keyPath);
         this.stores.set(name, store);
+        await store.open();
         return store;
     }
 }

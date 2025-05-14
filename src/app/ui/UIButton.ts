@@ -7,7 +7,6 @@ export class UIButton extends UIElement<SerializedUIButton> {
     public static readonly type = UIElement.register("btn", () => new this);
     public readonly type = UIButton.type;
 
-    
     public text: string = "";
 
     public constructor(text?: string) {
@@ -44,5 +43,9 @@ export class UIButton extends UIElement<SerializedUIButton> {
     public deserialize(data: SerializedUIButton): void {
         super.deserialize(data);
         this.text = data.text;
+    }
+    public async setText(text: string) {
+        this.text = text;
+        await this.update();
     }
 }

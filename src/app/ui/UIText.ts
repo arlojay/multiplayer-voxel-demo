@@ -34,4 +34,8 @@ export class UIText extends UIElement<SerializedUIText> {
         super.deserialize(data);
         this.text = data.text;
     }
+    public async setText(text: string) {
+        this.text = text;
+        await this.update();
+    }
 }
