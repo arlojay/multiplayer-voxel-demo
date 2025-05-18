@@ -243,10 +243,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public sendPacket(packet: Packet) {
-        // console.log("send packet", packet);
         const buffer = new ArrayBuffer(packet.getBufferSize());
         packet.write(new BinaryBuffer(buffer));
-        // console.log(new Uint8Array(buffer));
         this.serverConnection.send(buffer);
     }
 

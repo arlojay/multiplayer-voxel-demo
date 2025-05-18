@@ -78,8 +78,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
             this.emit("frame", time, dt);
             this.worldRenderer.update(dt);
 
-            // const skyboxCamera = this.camera.clone();
-            // skyboxCamera.position.set(0, 0, 0);
             const prevPos = this.camera.position.clone();
             this.camera.position.set(0, 0, 0);
 

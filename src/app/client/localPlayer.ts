@@ -52,8 +52,8 @@ export class LocalPlayer extends Entity {
     private freecam = false;
     private yawFreecam: number = 0;
     private pitchFreecam: number = 0;
-    
-        public model: PlayerModel = new PlayerModel;
+
+    public model: PlayerModel = new PlayerModel;
     
     public username = "localplayer";
     public color = "#ff0000";
@@ -68,30 +68,7 @@ export class LocalPlayer extends Entity {
         if(!this.waitingForChunk) super.update(dt);
 
         if(!this.world.blocks.chunkExists(this.chunkX, this.chunkY, this.chunkZ)) {
-            if(!this.waitingForChunk) {
-                this.waitingForChunk = true;
-                
-                // getClient().serverSession.fetchChunk(this.chunkX, this.chunkY, this.chunkZ).then((chunk) => {
-                //     const localChunk = this.world.blocks.getChunk(this.chunkX, this.chunkY, this.chunkZ);
-                //     localChunk.data.set(chunk.data);
-
-                //     this.world.markChunkDirty(localChunk);
-
-                //     const tryChunkDirty = (x: number, y: number, z: number) => {
-                //         const chunk = this.world.blocks.getChunk(x, y, z);
-                //         if(chunk == null) return;
-                //         this.world.markChunkDirty(chunk);
-                //     }
-                //     tryChunkDirty(this.chunkX - 1, this.chunkY, this.chunkZ);
-                //     tryChunkDirty(this.chunkX + 1, this.chunkY, this.chunkZ);
-                //     tryChunkDirty(this.chunkX, this.chunkY - 1, this.chunkZ);
-                //     tryChunkDirty(this.chunkX, this.chunkY + 1, this.chunkZ);
-                //     tryChunkDirty(this.chunkX, this.chunkY, this.chunkZ - 1);
-                //     tryChunkDirty(this.chunkX, this.chunkY, this.chunkZ + 1);
-
-                //     this.waitingForChunk = false;
-                // })
-            }
+            if(!this.waitingForChunk) this.waitingForChunk = true;
             return;
         } else {
             this.waitingForChunk = false;

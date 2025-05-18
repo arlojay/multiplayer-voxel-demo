@@ -95,51 +95,6 @@ async function main() {
 
 
 
-    // const serverCreation = document.querySelector('.modal[data-name="create-server"]')!;
-
-    // serverCreation.querySelector("form").addEventListener("submit", async (event: SubmitEvent) => {
-    //     event.preventDefault();
-    //     const data = new FormData(event.target as HTMLFormElement);
-
-    //     const serverName = data.get("name").toString();
-
-    //     let server: ServerManager;
-
-    //     const plugins: string[] = new Array;
-
-    //     const pluginList = document.querySelector("#plugin-list");
-    //     for(const child of Array.from(pluginList.children) as HTMLElement[]) {
-    //         if(child.querySelector(":checked") != null) {
-    //             plugins.push(child.dataset.name);
-    //         }
-    //     }
-
-    //     try {
-    //         serverCreation.classList.remove("visible");
-    //         const descriptor = await client.gameData.createServer(serverName);
-    //         server = await launchServer({
-    //             id: descriptor.id,
-    //             overrideSettings: {
-    //                 name: serverName, plugins
-    //             }
-    //         });
-            
-    //         const connection = await connectToServer(server.id, getConnectionOptions());
-    //         connection.addListener("disconnected", () => {
-    //             server.close();
-    //         });
-
-    //         gameRoot.classList.remove("hidden");
-    //         gameRoot.focus();
-    //     } catch(e) {
-    //         serverCreation.classList.add("visible");
-    //         alert(e.message);
-    //         console.error(e);
-    //     }
-    // })
-
-
-
     const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
     const serverSelect = document.querySelector('#join-game')!;
 
@@ -184,25 +139,6 @@ async function main() {
 
     await client.login();
     await updateServerListScreen();
-
-    // const pluginList = document.querySelector("#plugin-list");
-    // for(const pluginName of PluginLoader.getPluginList()) {
-    //     const element = document.createElement("li");
-    //     element.dataset.name = pluginName;
-
-    //     const checkbox = document.createElement("input");
-    //     checkbox.type = "checkbox";
-
-    //     const name = document.createElement("span");
-    //     name.textContent = pluginName;
-
-    //     element.append(checkbox, name);
-    //     pluginList.append(element);
-
-    //     element.addEventListener("click", e => {
-    //         if(e.target != checkbox) checkbox.click();
-    //     });
-    // }
 
 
     const settingsUI = makeSettingsUI();
@@ -562,23 +498,5 @@ function loadChunks(serverSession: ServerSession) {
 
     serverSession.addListener("disconnected", () => {
         clearInterval(interval);
-    })
-    // for(let x = -3; x < 3; x++) {
-    //     for(let y = -3; y < 3; y++) {
-    //         for(let z = -3; z < 3; z++) {
-    //             serverSession.fetchChunk(x, y, z).then(response => {
-    //                 const localChunk = serverSession.localWorld.blocks.getChunk(x, y, z);
-    //                 localChunk.data.set(response.data);
-
-    //                 serverSession.localWorld.markChunkDirty(localChunk);
-    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x + 1, y, z));
-    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x - 1, y, z));
-    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y + 1, z));
-    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y - 1, z));
-    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z + 1));
-    //                 serverSession.localWorld.markChunkDirty(serverSession.localWorld.blocks.getChunk(x, y, z - 1));
-    //             });
-    //         }
-    //     }
-    // }
+    });
 }

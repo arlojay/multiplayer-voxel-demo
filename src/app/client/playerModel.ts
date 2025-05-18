@@ -40,7 +40,6 @@ export class PlayerModel {
         this.skin.material = material;
 
         
-        // material.colorNode = vec4(vec3(...color).mul(dot(attribute("objectNormal", "mat3x3<f32>").mul(attribute("normal", "vec3f")), sunPos)), 1);
         material.colorNode = mix(
             color(0, 0, 0),
             uniform(this.colorNode),

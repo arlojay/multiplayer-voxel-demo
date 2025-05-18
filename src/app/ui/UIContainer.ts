@@ -84,17 +84,6 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
     }
     public getPathOfElement(locatingElement: UIElement): number[] {
         return locatingElement.getPathFrom(this);
-        // let i = 0;
-        // for(const element of this.elements) {
-        //     if(element == locatingElement) {
-        //         return [i];
-        //     }
-        //     if(element instanceof UIContainer) {
-        //         const subResult = element.getPathOfElement(locatingElement);
-        //         if(subResult != null) return [i, ...subResult];
-        //     }
-        //     i++;
-        // }
     }
     public getElementByPath(path: number[]): UIElement | null {
         if(path.length == 0) return this;
