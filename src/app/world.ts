@@ -18,6 +18,7 @@ export class Chunk {
     public mesh: Mesh | null;
 
     public surroundedChunks: boolean[] = new Array(27).fill(false);
+    private surroundings = 0;
 
     constructor(voxelChunk: VoxelGridChunk) {
         this.voxelChunk = voxelChunk;
@@ -51,13 +52,15 @@ export class Chunk {
     }
 
     public markSurrounded(dx: number, dy: number, dz: number) {
-        this.surroundedChunks[(dx + 1) * 9 + (dy + 1) * 3 + (dz + 1)] = true;
+        const i = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+        if(!this.surroundedChunks[i]) {
+            this.surroundedChunks[i] = true;
+            this.surroundings++;
+        }
     }
 
-    // TODO: Fix this in regard to chunk rendering after fetches (medium-bad code smell)
     public isFullySurrounded() {
-        return true;
-        // return this.hasPosX && this.hasPosY && this.hasPosZ && this.hasNegX && this.hasNegY && this.hasNegZ;
+        return this.surroundings == 26;
     }
 }
 
