@@ -53,19 +53,10 @@ export class LocalPlayer extends Entity {
     private yawFreecam: number = 0;
     private pitchFreecam: number = 0;
     
-    // private demoText = new FloatingText("hello world!");
-
-    public model: PlayerModel = new PlayerModel;
+        public model: PlayerModel = new PlayerModel;
     
     public username = "localplayer";
     public color = "#ff0000";
-
-    public constructor() {
-        super();
-
-        const scene = Client.instance.gameRenderer.scene;
-        // scene.add(this.demoText.mesh);
-    }
 
     public get camera() {
         return this.freecam ? this.freeCamera : this.playerCamera;
@@ -313,14 +304,6 @@ export class LocalPlayer extends Entity {
         } else {
             this.pressedFreecam = false;
         }
-
-        // if(this.controller.keyDown("o")) {
-        //     this.demoText.mesh.position.copy(
-        //         this.camera.position.clone()
-        //         .add(new Vector3(0, 0, -2).applyEuler(this.camera.rotation))
-        //     );
-        //     this.demoText.text = Math.random().toString().slice(2);
-        // }
 
         if(this.freecam && receivingControls) {
             let dx = 0;

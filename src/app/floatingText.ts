@@ -1,5 +1,5 @@
-import { BufferGeometry, Color, Mesh, MeshBasicMaterial, NearestFilter, PlaneGeometry, RGB, Texture } from "three";
-import { Fn, modelPosition, modelViewPosition, modelViewProjection, positionLocal, positionWorld, uniform } from "three/src/nodes/TSL";
+import { BufferGeometry, Color, Mesh, NearestFilter, PlaneGeometry, Texture } from "three";
+import { cameraProjectionMatrix, Fn, modelViewMatrix, positionGeometry, vec4 } from "three/src/nodes/TSL";
 import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
 
 function createTextImage(text: string, fontSize: number, backgroudColor: string, textColor: string) {
@@ -30,9 +30,9 @@ function createTextImage(text: string, fontSize: number, backgroudColor: string,
 export class FloatingText {
     private _text: string;
     public mesh: Mesh;
-    public resolution = 1;
+    public resolution = 320;
+    public size = 0.1;
     private material: MeshBasicNodeMaterial;
-    private textImage: Texture;
 
     public background = new Color(0x000000);
     public backgroundAlpha = 0x88;
@@ -50,14 +50,17 @@ export class FloatingText {
             })
         );
         this.material.vertexNode = Fn(() => {
-            return modelPosition.add(positionLocal);
+            const aspect = cameraProjectionMatrix.element(1).element(1).div(cameraProjectionMatrix.element(0).element(0));
+            return cameraProjectionMatrix.mul(modelViewMatrix)
+            .mul(vec4(0, 0, 0, 1))
+            .add(vec4(positionGeometry, 0).div(vec4(aspect, 1, 1, 1)));
         })();
         this.update();
     }
     private createTexture() {
         return createTextImage(
             this._text,
-            this.resolution * 32,
+            this.resolution * this.size,
             this.background.getHexString() + this.backgroundAlpha.toString(16).padStart(2, "0").slice(0, 2),
             this.color.getHexString() + this.colorAlpha.toString(16).padStart(2, "0").slice(0, 2)
         );
@@ -66,15 +69,16 @@ export class FloatingText {
         const text = this.createTexture();
 
         this.mesh.geometry.dispose();
-        this.mesh.geometry = new PlaneGeometry(text.aspect * this.resolution * 0.1, this.resolution * 0.1);
-        console.log(text.texture);
+        this.mesh.geometry = new PlaneGeometry(text.aspect * this.size, this.size);
         this.material.map = text.texture;
         this.material.map.dispose();
         this.material.map.needsUpdate = true;
     }
     public set text(text: string) {
-        this._text = text;
-        this.update();
+        if(this._text != text) {
+            this._text = text;
+            this.update();
+        }
     }
     public get text() {
         return this._text;
