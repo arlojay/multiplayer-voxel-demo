@@ -4,6 +4,9 @@ import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, CHUNK_SIZE, VoxelGrid, 
 import { WorldRaycaster } from "./worldRaycaster";
 import { clamp } from "./math";
 import { WorldGenerator } from "./worldGenerator";
+import { LocalEntity, SerializedEntity } from "./entity/localEntity";
+import { BinaryBuffer } from "./binary";
+import { RemoteEntity } from "./entity/remoteEntity";
 
 export type ColorType = Color | number | null;
 
@@ -68,6 +71,7 @@ export class World {
     public raycaster = new WorldRaycaster(this);
     public id: string;
     public generator: WorldGenerator;
+    public entities: Set<LocalEntity> = new Set;
 
     public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
 
@@ -204,5 +208,24 @@ export class World {
             return this.getChunk(x, y, z, true);
         }
         return this.generator.generateChunk(x, y, z);
+    }
+
+    public spawnEntity<T extends LocalEntity | RemoteEntity>(EntityClass: new () => T, entityData?: ArrayBuffer) {
+        const entity = new EntityClass();
+        entity.setWorld(this);
+
+        if(entity instanceof RemoteEntity) {
+            if(entityData != null) {
+                entity.deserialize(new BinaryBuffer(entityData));
+            }
+        }
+
+        this.entities.add(entity);
+
+        return entity;
+    }
+
+    public removeEntity(entity: LocalEntity) {
+        this.entities.delete(entity);
     }
 }

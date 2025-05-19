@@ -1,17 +1,34 @@
 import { Box3, Color, Euler, PerspectiveCamera, Ray, Vector3 } from "three";
-import { BLOCK_HITBOX, Entity } from "../entity/entity";
+import { BLOCK_HITBOX, LocalEntity } from "../entity/localEntity";
 import { PlayerController } from "../playerController";
 import { dlerp } from "../math";
 import { Client, getClient } from "./client";
 import { BreakBlockPacket, PlaceBlockPacket } from "../packet";
-import { simpleHash } from "./remotePlayer";
+import { RemotePlayer, simpleHash } from "./remotePlayer";
 import { ClientSounds } from "./clientSounds";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { PlayerModel } from "./playerModel";
 import { FloatingText } from "../floatingText";
+import { BaseEntity, entityRegistry } from "../entity/baseEntity";
+import { BinaryBuffer } from "../binary";
+
+export class PlayerBase extends BaseEntity<RemotePlayer, LocalPlayer> {
+    public static readonly id = entityRegistry.register(() => new this);
+    public readonly id = PlayerBase.id;
+
+    protected serialize(bin: BinaryBuffer): void {
+        
+    }
+    protected deserialize(bin: BinaryBuffer): void {
+        
+    }
+    protected getExpectedSize(): number {
+        
+    }
+}
 
 
-export class LocalPlayer extends Entity {
+export class LocalPlayer extends LocalEntity {
     public static readonly eyeHeightStanding = 1.7;
     public static readonly eyeHeightCrouching = 1.35;
     public static readonly hitboxStanding: Box3 = Object.freeze(new Box3(
@@ -60,6 +77,13 @@ export class LocalPlayer extends Entity {
 
     public get camera() {
         return this.freecam ? this.freeCamera : this.playerCamera;
+    }
+    
+    protected serialize(bin: BinaryBuffer): void {
+        
+    }
+    protected deserialize(bin: BinaryBuffer): void {
+        
     }
 
     public update(dt: number) {

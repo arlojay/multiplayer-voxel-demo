@@ -19,8 +19,8 @@ export class RemotePlayer extends RemoteEntity {
     public yaw: number = Math.PI * 0.25;
     public pitch: number = 0;
 
-    public id: string;
-    public model: PlayerModel;
+    public id = "";
+    public model = new PlayerModel;
     public username = "anonymous";
     public color = "#ffffff";
 
@@ -28,11 +28,6 @@ export class RemotePlayer extends RemoteEntity {
         return this.model.mesh;
     }
 
-    public constructor(id: string) {
-        super();
-        this.id = id;
-        this.model = new PlayerModel();
-    }
     public dispose() {
         this.model.dispose();
     }

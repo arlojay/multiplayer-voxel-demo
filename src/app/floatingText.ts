@@ -2,6 +2,20 @@ import { BufferGeometry, Color, Mesh, NearestFilter, PlaneGeometry, Texture } fr
 import { cameraProjectionMatrix, Fn, modelViewMatrix, positionGeometry, vec4 } from "three/src/nodes/TSL";
 import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
 
+export class ColorRGBA {
+    public color: Color;
+    public alpha: number;
+
+    constructor(color: Color, alpha = 1) {
+        this.color = color;
+        this.alpha = alpha;
+    }
+
+    public getHexString() {
+        return this.color.getHexString() + this.alpha.toString(16).padStart(2, "0").slice(0, 2);
+    }
+}
+
 function createTextImage(text: string, fontSize: number, backgroudColor: string, textColor: string) {
     const canvas = new OffscreenCanvas(1, 1);
     const ctx = canvas.getContext("2d");
@@ -34,10 +48,8 @@ export class FloatingText {
     public size = 0.1;
     private material: MeshBasicNodeMaterial;
 
-    public background = new Color(0x000000);
-    public backgroundAlpha = 0x88;
-    public color = new Color(0xffffff);
-    public colorAlpha = 0xff;
+    public background = new ColorRGBA(new Color(0x000000), 0x88);
+    public color = new ColorRGBA(new Color(0xffffff), 0xff);
 
     public constructor(text: string) {
         this._text = text;
@@ -57,12 +69,16 @@ export class FloatingText {
         })();
         this.update();
     }
+    public dispose() {
+        this.material.dispose();
+        this.mesh.geometry.dispose();
+    }
     private createTexture() {
         return createTextImage(
             this._text,
             this.resolution * this.size,
-            this.background.getHexString() + this.backgroundAlpha.toString(16).padStart(2, "0").slice(0, 2),
-            this.color.getHexString() + this.colorAlpha.toString(16).padStart(2, "0").slice(0, 2)
+            this.background.getHexString(),
+            this.color.getHexString(),
         );
     }
     public update() {

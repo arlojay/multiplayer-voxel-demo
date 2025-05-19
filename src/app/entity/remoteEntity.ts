@@ -1,23 +1,18 @@
 import { Box3, Vector3 } from "three";
 import { World } from "../world";
+import { BaseEntity } from "./baseEntity";
 
-export class RemoteEntity {
-    public position = new Vector3;
-    public velocity = new Vector3;
-    public hitbox: Box3 = new Box3;
-    public world: World = null;
-    
+export abstract class RemoteEntity {
+    protected base: BaseEntity<this, any>;
     public renderPosition = new Vector3;
     private timeSinceLastUpdate: number;
-    
-    constructor() {
-        this.position = new Vector3;
-        this.velocity = new Vector3;
+
+    public constructor(base: typeof this.base) {
+        this.base = base;
+        this.init();
     }
 
-    public setWorld(world: World) {
-        this.world = world;
-    }
+    protected abstract init(): void;
 
     public resetTimer() {
         this.timeSinceLastUpdate = 0;
@@ -25,12 +20,12 @@ export class RemoteEntity {
 
     public update(dt: number) {
         this.timeSinceLastUpdate += dt;
-        const newPosition = this.position.clone();
-        newPosition.add(this.velocity.clone().multiplyScalar(1 - 0.5 ** (this.timeSinceLastUpdate)));
+        const newPosition = this.base.position.clone();
+        newPosition.add(this.base.velocity.clone().multiplyScalar(1 - 0.5 ** (this.timeSinceLastUpdate)));
 
         this.renderPosition.lerp(newPosition, 1 - 0.5 ** (dt * 30));
         if(isNaN(this.renderPosition.x)) {
-            this.renderPosition.copy(this.position);
+            this.renderPosition.copy(this.base.position);
         }
     }
 }
