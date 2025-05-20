@@ -11,7 +11,7 @@ export const simpleHash = (str: string) => {
     return (hash >>> 0);
 }
 
-export class RemotePlayer extends RemoteEntity {
+export class RemotePlayer extends RemoteEntity<RemotePlayer> {
     public hitbox: Box3 = new Box3(
         new Vector3(-0.3, 0, -0.3),
         new Vector3(0.3, 1.8, 0.3)

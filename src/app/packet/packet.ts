@@ -2,12 +2,12 @@ import { BinaryBuffer, U16, U32 } from "../binary";
 import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
 import { makeAdvancingTimestamp } from "../timestamp";
 
-export const packetRegistry = new class PacketRegistry extends BufferSerializableRegistry<Packet> {
-
+export const packetRegistry = new class PacketRegistry extends BufferSerializableRegistry<Packet, ConstructorParameters<typeof Packet>> {
+    
 }
 
 export abstract class Packet extends BufferSerializable {
-    public static register(factory: () => Packet): number {
+    public static register(factory: new () => Packet): number {
         return packetRegistry.register(factory);
     }
     public static createFromBinary(buffer: ArrayBuffer) {

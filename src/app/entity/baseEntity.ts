@@ -1,16 +1,23 @@
 import { Box3, Vector3 } from "three";
-import { World } from "../world";
-import { CHUNK_INC_SCL } from "../voxelGrid";
 import { BinaryBuffer, U16 } from "../binary";
 import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
+import { CHUNK_INC_SCL } from "../voxelGrid";
+import { World } from "../world";
 import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
 
-export const entityRegistry = new class EntityRegistry extends BufferSerializableRegistry<BaseEntity<any, any>> {
+export const entityRegistry = new class EntityRegistry extends BufferSerializableRegistry<
+    BaseEntity<any, any, any>,
+    ConstructorParameters<typeof BaseEntity<any, any, any>>
+> {
 
 }
 
-export abstract class BaseEntity<RemoteLogic extends RemoteEntity, LocalLogic extends LocalEntity> extends BufferSerializable {
+export abstract class BaseEntity<
+    RemoteLogic extends RemoteEntity<RemoteLogic>,
+    LocalLogic extends LocalEntity<LocalLogic>,
+    Parameters extends ConstructorParameters<any> = []
+> extends BufferSerializable {
     public abstract id: number;
 
     public position = new Vector3;
@@ -21,29 +28,28 @@ export abstract class BaseEntity<RemoteLogic extends RemoteEntity, LocalLogic ex
 
     protected localLogic: LocalLogic;
     protected remoteLogic: RemoteLogic;
+    public isLocal: boolean;
+    public update: (dt: number) => void;
+
+    protected abstract instanceLogic(local: boolean): LocalLogic | RemoteLogic;
 
     public constructor(local: boolean) {
         super();
 
-        if(local) {
-            const Constructor = this.getLocalLogicConstructor();
-            this.localLogic = new Constructor(this);
-        } else {
-            const Constructor = this.getRemoteLogicConstructor();
-            this.remoteLogic = new Constructor(this);
-        }
-    }
+        this.isLocal = local;
+        const logic = this.instanceLogic(local);
 
-    protected abstract getLocalLogicConstructor(): new (base: this) => LocalLogic;
-    protected abstract getRemoteLogicConstructor(): new (base: this) => RemoteLogic;
+        if(logic instanceof LocalEntity) {
+            this.localLogic = logic;
+        }
+        if(logic instanceof RemoteEntity) {
+            this.remoteLogic = logic;
+        }
+        this.update = logic.update;
+    }
 
     public setWorld(world: World) {
         this.world = world;
-    }
-
-    public update(dt: number) {
-        this.localLogic?.update(dt);
-        this.remoteLogic?.update(dt);
     }
 
     public get x() {

@@ -1,9 +1,8 @@
-import { Box3, Vector3 } from "three";
-import { World } from "../world";
+import { Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
 
-export abstract class RemoteEntity {
-    protected base: BaseEntity<this, any>;
+export abstract class RemoteEntity<Subclass extends RemoteEntity<Subclass>> {
+    protected base: BaseEntity<Subclass, any, any>;
     public renderPosition = new Vector3;
     private timeSinceLastUpdate: number;
 
@@ -12,7 +11,9 @@ export abstract class RemoteEntity {
         this.init();
     }
 
-    protected abstract init(): void;
+    protected init() {
+
+    }
 
     public resetTimer() {
         this.timeSinceLastUpdate = 0;

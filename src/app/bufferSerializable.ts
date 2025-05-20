@@ -1,20 +1,24 @@
 import { BinaryBuffer, U16 } from "./binary";
 
-export abstract class BufferSerializableRegistry<T extends BufferSerializable> {
-    private types: Map<number, () => T> = new Map;
+export abstract class BufferSerializableRegistry<
+    SerializableType extends BufferSerializable,
+    FactoryParams extends ConstructorParameters<any>,
+    FactoryType = new (...params: FactoryParams) => SerializableType
+> {
+    private types: Map<number, FactoryType> = new Map;
     private nextId: number = 0;
 
-    public register(factory: () => T): number {
+    public register(factory: FactoryType): number {
         this.types.set(this.nextId, factory);
         return this.nextId++;
     }
-    public createFromBinary(buffer: ArrayBuffer) {
+    public createFromBinary(buffer: ArrayBuffer, ...args: FactoryParams) {
         const bin = new BinaryBuffer(buffer);
 
         const id = bin.read_u16();
 
-        const factory = this.types.get(id);
-        if(factory == null) throw new TypeError(
+        const Constructor = this.types.get(id);
+        if(Constructor == null) throw new TypeError(
             "Invalid registered object " + id + (
                 buffer.byteLength < 128
                     ? " (" + new Uint8Array(buffer).toString() + ")"
@@ -22,9 +26,8 @@ export abstract class BufferSerializableRegistry<T extends BufferSerializable> {
             )
         );
 
-        const instance = factory();
+        const instance = Reflect.construct(Constructor as (...params: unknown[]) => unknown, args);
         instance.read(bin);
-
         return instance;
     }
 }

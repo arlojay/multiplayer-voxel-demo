@@ -9,8 +9,8 @@ export const BLOCK_HITBOX = new Box3(
     new Vector3(1, 1, 1)
 );
 
-export abstract class LocalEntity {
-    protected base: BaseEntity<any, this>;
+export abstract class LocalEntity<Subclass extends LocalEntity<Subclass>> {
+    protected base: BaseEntity<any, Subclass, any>;
     public airTime: number = 0;
     public collisionChecker: CollisionChecker;
 
@@ -19,7 +19,9 @@ export abstract class LocalEntity {
         this.init();
     }
 
-    protected abstract init(): void;
+    protected init() {
+        
+    }
 
     public update(dt: number) {
         if(this.base.world == null) return;

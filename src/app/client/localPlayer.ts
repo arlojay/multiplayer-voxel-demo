@@ -12,9 +12,13 @@ import { FloatingText } from "../floatingText";
 import { BaseEntity, entityRegistry } from "../entity/baseEntity";
 import { BinaryBuffer } from "../binary";
 
-export class PlayerBase extends BaseEntity<RemotePlayer, LocalPlayer> {
-    public static readonly id = entityRegistry.register(() => new this);
-    public readonly id = PlayerBase.id;
+export class Player extends BaseEntity<RemotePlayer, LocalPlayer, ConstructorParameters<typeof Player>> {
+    public static readonly id = entityRegistry.register(this);
+    public readonly id = Player.id;
+
+    protected instanceLogic(local: boolean) {
+        return local ? new LocalPlayer(this) : new RemotePlayer(this);
+    }
 
     protected serialize(bin: BinaryBuffer): void {
         
@@ -28,7 +32,7 @@ export class PlayerBase extends BaseEntity<RemotePlayer, LocalPlayer> {
 }
 
 
-export class LocalPlayer extends LocalEntity {
+export class LocalPlayer extends LocalEntity<LocalPlayer> {
     public static readonly eyeHeightStanding = 1.7;
     public static readonly eyeHeightCrouching = 1.35;
     public static readonly hitboxStanding: Box3 = Object.freeze(new Box3(
@@ -74,6 +78,10 @@ export class LocalPlayer extends LocalEntity {
     
     public username = "localplayer";
     public color = "#ff0000";
+
+    protected init(): void {
+        
+    }
 
     public get camera() {
         return this.freecam ? this.freeCamera : this.playerCamera;
