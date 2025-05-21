@@ -6,9 +6,41 @@ export class ColorRGBA {
     public color: Color;
     public alpha: number;
 
-    constructor(color: Color, alpha = 1) {
+    constructor(color = new Color, alpha = 1) {
         this.color = color;
         this.alpha = alpha;
+    }
+
+    public get r() {
+        return this.color.r;
+    }
+    public set r(r: number) {
+        this.color.r = r;
+    }
+    public get g() {
+        return this.color.g;
+    }
+    public set g(g: number) {
+        this.color.g = g;
+    }
+    public get b() {
+        return this.color.b;
+    }
+    public set b(b: number) {
+        this.color.b = b;
+    }
+    public get a() {
+        return this.alpha;
+    }
+    public set a(a: number) {
+        this.alpha = a;
+    }
+    
+    public set(r: number, g: number, b: number, a: number) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
     }
 
     public getHexString() {

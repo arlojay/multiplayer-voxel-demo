@@ -1,8 +1,8 @@
 import { BinaryBuffer } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class RemoveEntityPacket extends Packet {
-    public static readonly id = Packet.register(() => new this);
+    public static readonly id = packetRegistry.register(this);
     public readonly id = RemoveEntityPacket.id;
 
     public uuid: string;

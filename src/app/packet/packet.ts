@@ -6,26 +6,19 @@ export const packetRegistry = new class PacketRegistry extends BufferSerializabl
     
 }
 
-export abstract class Packet extends BufferSerializable {
-    public static register(factory: new () => Packet): number {
-        return packetRegistry.register(factory);
-    }
-    public static createFromBinary(buffer: ArrayBuffer) {
-        return packetRegistry.createFromBinary(buffer);
-    }
-    
+export abstract class Packet extends BufferSerializable {    
     public timestamp: number = 0;
     protected abstract serialize(bin: BinaryBuffer): void;
     protected abstract deserialize(bin: BinaryBuffer): void;
 
     public read(bin: BinaryBuffer) {
-        this.timestamp = bin.read_u32();
         super.read(bin);
+        this.timestamp = bin.read_u32();
     }
     
     public write(bin: BinaryBuffer) {
-        bin.write_u32(this.timestamp = makeAdvancingTimestamp());
         super.write(bin);
+        bin.write_u32(this.timestamp = makeAdvancingTimestamp());
     }
 
     public getBufferSize() {

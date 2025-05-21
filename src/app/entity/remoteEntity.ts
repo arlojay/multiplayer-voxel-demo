@@ -1,18 +1,31 @@
-import { Vector3 } from "three";
+import { Box3, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
+import { CHUNK_INC_SCL } from "../voxelGrid";
+import { World } from "../world";
 
-export abstract class RemoteEntity<Subclass extends RemoteEntity<Subclass>> {
-    protected base: BaseEntity<Subclass, any, any>;
-    public renderPosition = new Vector3;
+export abstract class RemoteEntity<Base extends BaseEntity<any, any>> {
+    protected base: Base;
+    public readonly renderPosition = new Vector3;
     private timeSinceLastUpdate: number;
+    
+    public readonly position: Vector3;
+    public readonly velocity: Vector3;
+    public readonly hitbox: Box3;
 
     public constructor(base: typeof this.base) {
         this.base = base;
+        this.position = base.position;
+        this.velocity = base.velocity;
+        this.hitbox = base.hitbox;
         this.init();
     }
 
     protected init() {
 
+    }
+
+    public setWorld(world: World) {
+        
     }
 
     public resetTimer() {
@@ -28,5 +41,34 @@ export abstract class RemoteEntity<Subclass extends RemoteEntity<Subclass>> {
         if(isNaN(this.renderPosition.x)) {
             this.renderPosition.copy(this.base.position);
         }
+    }
+    
+    public get x() {
+        return this.position.x;
+    }
+    public get y() {
+        return this.position.y;
+    }
+    public get z() {
+        return this.position.z;
+    }
+    public get vx() {
+        return this.velocity.x;
+    }
+    public get vy() {
+        return this.velocity.y;
+    }
+    public get vz() {
+        return this.velocity.z;
+    }
+
+    public get chunkX() {
+        return this.position.x >> CHUNK_INC_SCL;
+    }
+    public get chunkY() {
+        return this.position.y >> CHUNK_INC_SCL;
+    }
+    public get chunkZ() {
+        return this.position.z >> CHUNK_INC_SCL;
     }
 }

@@ -1,12 +1,12 @@
 import { Color, Mesh } from "three";
-import { Server } from "./server/server";
-import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
-import { WorldRaycaster } from "./worldRaycaster";
+import { BaseEntity } from "./entity/baseEntity";
 import { clamp } from "./math";
+import { Server } from "./server/server";
+import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldGenerator } from "./worldGenerator";
-import { LocalEntity, SerializedEntity } from "./entity/localEntity";
-import { BinaryBuffer } from "./binary";
+import { WorldRaycaster } from "./worldRaycaster";
 import { RemoteEntity } from "./entity/remoteEntity";
+import { LocalEntity } from "./entity/localEntity";
 
 export type ColorType = Color | number | null;
 
@@ -71,7 +71,7 @@ export class World {
     public raycaster = new WorldRaycaster(this);
     public id: string;
     public generator: WorldGenerator;
-    public entities: Set<LocalEntity> = new Set;
+    public entities: Map<string, BaseEntity<RemoteEntity<any>, LocalEntity<any>>> = new Map;
 
     public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
 
@@ -210,22 +210,24 @@ export class World {
         return this.generator.generateChunk(x, y, z);
     }
 
-    public spawnEntity<T extends LocalEntity | RemoteEntity>(EntityClass: new () => T, entityData?: ArrayBuffer) {
-        const entity = new EntityClass();
-        entity.setWorld(this);
-
-        if(entity instanceof RemoteEntity) {
-            if(entityData != null) {
-                entity.deserialize(new BinaryBuffer(entityData));
-            }
+    public update(dt: number) {
+        for(const entity of this.entities.values()) {
+            entity.update(dt);
         }
-
-        this.entities.add(entity);
-
+    }
+    public addEntity(entity: BaseEntity<any, any>) {
+        entity.setWorld(this);
+        this.entities.set(entity.uuid, entity);
+    }
+    public spawnEntity<T extends BaseEntity<any, any>>(EntityClass: new () => T) {
+        const entity = new EntityClass();
+        this.addEntity(entity);
         return entity;
     }
-
-    public removeEntity(entity: LocalEntity) {
-        this.entities.delete(entity);
+    public removeEntity(entity: BaseEntity<any, any>) {
+        this.entities.delete(entity.uuid);
+    }
+    public getEntityByUUID(uuid: string) {
+        return this.entities.get(uuid);
     }
 }

@@ -3,22 +3,23 @@ import { DataConnection } from "peerjs";
 import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
+import { NetworkUI } from "../client/networkUI";
+import { EntityLogicType, entityRegistry } from "../entity/baseEntity";
+import { LocalPlayer, Player } from "../entity/impl/playerEntity";
 import { debugLog } from "../logging";
-import { ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket, SetLocalPlayerPositionPacket, OpenUIPacket, UIInteractionPacket, ChangeWorldPacket, RemoveUIElementPacket, InsertUIElementPacket } from "../packet";
+import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, UIInteractionPacket } from "../packet";
+import { AddEntityPacket } from "../packet/addEntityPacket";
+import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { LoopingMusic } from "../sound/loopingMusic";
+import { UIElement } from "../ui";
+import { CHUNK_INC_SCL } from "../voxelGrid";
 import { Chunk, World } from "../world";
 import { Client } from "./client";
-import { LocalPlayer } from "./localPlayer";
-import { RemotePlayer } from "./remotePlayer";
-import { CHUNK_INC_SCL } from "../voxelGrid";
-import { NetworkUI } from "../client/networkUI";
-import { ServerReadyPacket } from "../packet/serverReadyPacket";
-import { UIElement } from "../ui";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
-    "playerjoin": (player: RemotePlayer) => void;
-    "playerleave": (player: RemotePlayer) => void;
+    "playerjoin": (player: Player) => void;
+    "playerleave": (player: Player) => void;
     "changeworld": (world: World) => void;
 }
 
@@ -31,9 +32,9 @@ interface QueuedChunkPacket {
 export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public client: Client;
     public serverConnection: DataConnection;
-    public player: LocalPlayer;
+    public player: Player;
     public localWorld = new World(crypto.randomUUID());
-    public players: Map<string, RemotePlayer> = new Map;
+    // public players: Map<string, RemotePlayer> = new Map;
     public interfaces: Map<string, NetworkUI> = new Map;
 
     private lastPlayerPosition: Vector3 = new Vector3;
@@ -110,7 +111,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
     
     public handlePacket(data: ArrayBuffer) {
-        const packet = Packet.createFromBinary(data);
+        const packet = packetRegistry.createFromBinary(data);
         
         if(packet instanceof CombinedPacket) {
             for(const subPacket of packet.packets) {
@@ -128,43 +129,60 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             if(promise != null) promise.resolve(packet);
             this.waitingChunks.delete(key);
         }
-        if(packet instanceof PlayerMovePacket && !this.isPacketOld(packet)) {
-            const player = this.players.get(packet.player);
-            if(player == null) {
-                console.warn("Cannot move player " + packet.player + " as they do not exist");
-            } else {
-                player.position.set(packet.x, packet.y, packet.z);
-                player.velocity.set(packet.vx, packet.vy, packet.vz);
-                player.yaw = packet.yaw;
-                player.pitch = packet.pitch;
+        // if(packet instanceof PlayerMovePacket && !this.isPacketOld(packet)) {
+        //     const player = this.players.get(packet.player);
+        //     if(player == null) {
+        //         console.warn("Cannot move player " + packet.player + " as they do not exist");
+        //     } else {
+        //         player.position.set(packet.x, packet.y, packet.z);
+        //         player.velocity.set(packet.vx, packet.vy, packet.vz);
+        //         player.yaw = packet.yaw;
+        //         player.pitch = packet.pitch;
 
-                player.resetTimer();
-            }
-        }
-        if(packet instanceof PlayerJoinPacket) {
-            const remotePlayer = new RemotePlayer(packet.player);
-            remotePlayer.username = packet.username;
-            remotePlayer.color = packet.color;
-            remotePlayer.position.set(packet.x, packet.y, packet.z);
-            remotePlayer.velocity.set(packet.vx, packet.vy, packet.vz);
-            remotePlayer.yaw = packet.yaw;
-            remotePlayer.pitch = packet.pitch;
-            remotePlayer.setWorld(this.localWorld);
-            
-            this.players.set(packet.player, remotePlayer);
-            debugLog("Player " + packet.player + " joined the game");
-            this.emit("playerjoin", remotePlayer);
-        }
-        if(packet instanceof PlayerLeavePacket) {
-            const player = this.players.get(packet.player);
-            if(player == null) {
-                console.warn("Cannot remove nonexistent player " + packet.player);
+        //         player.resetTimer();
+        //     }
+        // }
+        if(packet instanceof EntityMovePacket && !this.isPacketOld(packet)) {
+            const entity = this.localWorld.getEntityByUUID(packet.uuid);
+            if(entity == null) {
+                console.warn("Cannot find entity " + entity.uuid + "!");
             } else {
-                this.emit("playerleave", player);
-                this.players.delete(packet.player);
-                debugLog("Player " + packet.player + " left the game");
+                entity.position.set(packet.x, packet.y, packet.z);
+                entity.velocity.set(packet.vx, packet.vy, packet.vz);
+
+                entity.remoteLogic?.resetTimer();
             }
         }
+        if(packet instanceof AddEntityPacket) {
+            const remoteEntity = entityRegistry.createFromBinary(packet.entityData, EntityLogicType.REMOTE_LOGIC);
+            this.localWorld.addEntity(remoteEntity);
+        }
+        // if(packet instanceof PlayerJoinPacket) {
+        //     const remotePlayer = new Player(EntityLogicType.REMOTE_LOGIC);
+        //     remotePlayer.setWorld(this.localWorld);
+            
+        //     this.players.set(packet.player, remotePlayer);
+        //     debugLog("Player " + packet.player + " joined the game");
+        //     this.emit("playerjoin", remotePlayer);
+        // }
+        if(packet instanceof RemoveEntityPacket) {
+            const remoteEntity = this.localWorld.getEntityByUUID(packet.uuid);
+            if(remoteEntity == null) {
+                console.warn("Cannot find entity " + packet.uuid + "!");
+            } else {
+                this.localWorld.removeEntity(remoteEntity);
+            }
+        }
+        // if(packet instanceof PlayerLeavePacket) {
+        //     const player = this.players.get(packet.player);
+        //     if(player == null) {
+        //         console.warn("Cannot remove nonexistent player " + packet.player);
+        //     } else {
+        //         this.emit("playerleave", player);
+        //         this.players.delete(packet.player);
+        //         debugLog("Player " + packet.player + " left the game");
+        //     }
+        // }
         if(packet instanceof PingPacket && !this.isPacketOld(packet)) {
             const responsePacket = new PingResponsePacket();
             this.sendPacket(responsePacket);
@@ -243,7 +261,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public sendPacket(packet: Packet) {
-        const buffer = new ArrayBuffer(packet.getBufferSize());
+        const buffer = packet.allocateBuffer();
         packet.write(new BinaryBuffer(buffer));
         this.serverConnection.send(buffer);
     }
@@ -401,7 +419,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public update(time: number, dt: number) {
         this.player.update(dt);
 
-        const playerCamera = this.player.camera;
+        const playerCamera = this.player.localLogic.camera;
         const rendererCamera = this.client.gameRenderer.camera;
 
         rendererCamera.position.copy(playerCamera.position);
@@ -442,23 +460,17 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.sendPacket(movementPacket);
         }
 
-
-
-        for(const id of this.players.keys()) {
-            const player = this.players.get(id);
-
-            player.update(dt);
-        }
+        this.localWorld.update(dt);
 
         this.updateChunkFetchQueue(dt);
     }
 
     private onConnected() {
-        this.player = new LocalPlayer;
+        this.player = new Player(EntityLogicType.LOCAL_LOGIC);
         this.player.setWorld(this.localWorld);
         this.player.position.set(0, 10, 0);
-        this.player.setController(this.client.playerController);
-        this.client.gameRenderer.scene.add(this.player.model.mesh);
+        this.player.localLogic.setController(this.client.playerController);
+        this.client.gameRenderer.scene.add(this.player.localLogic.model.mesh);
     }
 
     public updateViewDistance() {

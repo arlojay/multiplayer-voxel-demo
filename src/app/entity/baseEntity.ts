@@ -7,49 +7,63 @@ import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
 
 export const entityRegistry = new class EntityRegistry extends BufferSerializableRegistry<
-    BaseEntity<any, any, any>,
-    ConstructorParameters<typeof BaseEntity<any, any, any>>
+    BaseEntity<any, any>,
+    ConstructorParameters<typeof BaseEntity<any, any>>
 > {
 
 }
 
+export enum EntityLogicType {
+    LOCAL_LOGIC,
+    REMOTE_LOGIC,
+    NO_LOGIC
+}
+
 export abstract class BaseEntity<
-    RemoteLogic extends RemoteEntity<RemoteLogic>,
-    LocalLogic extends LocalEntity<LocalLogic>,
-    Parameters extends ConstructorParameters<any> = []
+    RemoteLogic extends RemoteEntity<any>,
+    LocalLogic extends LocalEntity<any>
 > extends BufferSerializable {
     public abstract id: number;
 
-    public position = new Vector3;
-    public velocity = new Vector3;
-    public hitbox: Box3 = new Box3;
+    public readonly position = new Vector3;
+    public readonly velocity = new Vector3;
+    public readonly hitbox: Box3 = new Box3;
     public world: World = null;
-    public uuid = crypto.randomUUID();
+    public uuid: string = crypto.randomUUID();
 
-    protected localLogic: LocalLogic;
-    protected remoteLogic: RemoteLogic;
-    public isLocal: boolean;
-    public update: (dt: number) => void;
+    public readonly localLogic: LocalLogic;
+    public readonly remoteLogic: RemoteLogic;
+    public readonly logicType: EntityLogicType;
+    public readonly update: (dt: number) => void = () => {};
 
     protected abstract instanceLogic(local: boolean): LocalLogic | RemoteLogic;
 
-    public constructor(local: boolean) {
+    public constructor(logicType: EntityLogicType) {
         super();
 
-        this.isLocal = local;
-        const logic = this.instanceLogic(local);
+        this.init();
 
-        if(logic instanceof LocalEntity) {
-            this.localLogic = logic;
+        
+        this.logicType = logicType;
+        if(logicType != EntityLogicType.NO_LOGIC) {
+            const logic = this.instanceLogic(logicType == EntityLogicType.LOCAL_LOGIC);
+
+            if(logic instanceof LocalEntity) {
+                this.localLogic = logic;
+            }
+            if(logic instanceof RemoteEntity) {
+                this.remoteLogic = logic;
+            }
+            this.update = logic.update.bind(logic);
         }
-        if(logic instanceof RemoteEntity) {
-            this.remoteLogic = logic;
-        }
-        this.update = logic.update;
     }
+
+    protected abstract init(): void;
 
     public setWorld(world: World) {
         this.world = world;
+        this.localLogic?.setWorld(world);
+        this.remoteLogic?.setWorld(world);
     }
 
     public get x() {

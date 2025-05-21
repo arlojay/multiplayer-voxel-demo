@@ -102,11 +102,11 @@ export class Client extends TypedEmitter<ClientEvents> {
             this.serverSession = null;
         });
         serverSession.addListener("playerjoin", player => {
-            this.gameRenderer.scene.add(player.mesh);
+            this.gameRenderer.scene.add(player.remoteLogic.mesh);
         });
         serverSession.addListener("playerleave", player => {
-            this.gameRenderer.scene.remove(player.mesh);
-            player.dispose();
+            this.gameRenderer.scene.remove(player.remoteLogic.mesh);
+            player.remoteLogic.dispose();
         });
         serverSession.addListener("changeworld", world => {
             this.gameRenderer.setWorld(world);

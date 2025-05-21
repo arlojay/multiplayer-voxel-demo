@@ -1,10 +1,10 @@
 import { BinaryBuffer } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 import { PlayerInfo } from "./playerInfoPacket";
 
 
 export class PlayerMovePacket extends PlayerInfo {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = PlayerMovePacket.id;
 
     public player: string;

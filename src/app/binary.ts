@@ -1,4 +1,5 @@
 import { BSON, Document as BSONDocument } from "bson";
+import { Vector3 } from "three";
 
 const textEncoder = new TextEncoder;
 const textDecoder = new TextDecoder;
@@ -15,6 +16,7 @@ export const F32 = 4;
 export const U64 = 8;
 export const I64 = 8;
 export const F64 = 8;
+export const VEC3 = F32 * 3;
 
 export const MIN_U8 = 0;
 export const MAX_U8 = 255;
@@ -192,5 +194,18 @@ export class BinaryBuffer {
     }
     public read_json(): any {
         return BSON.deserialize(new Uint8Array(this.read_buffer()));
+    }
+
+    public write_vec3(vector: Vector3){
+        this.write_f32(vector.x);
+        this.write_f32(vector.y);
+        this.write_f32(vector.z);
+    }
+    public read_vec3(out = new Vector3) {
+        return out.set(
+            this.read_f32(),
+            this.read_f32(),
+            this.read_f32()
+        );
     }
 }

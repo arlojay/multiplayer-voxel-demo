@@ -1,8 +1,8 @@
 import { BinaryBuffer, U16 } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class CombinedPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = CombinedPacket.id;
     
     public packets: Set<ArrayBuffer> = new Set;

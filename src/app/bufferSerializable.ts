@@ -26,7 +26,7 @@ export abstract class BufferSerializableRegistry<
             )
         );
 
-        const instance = Reflect.construct(Constructor as (...params: unknown[]) => unknown, args);
+        const instance: SerializableType = Reflect.construct(Constructor as (...params: unknown[]) => unknown, args);
         instance.read(bin);
         return instance;
     }
@@ -46,7 +46,11 @@ export abstract class BufferSerializable {
         this.serialize(bin);
     }
 
-    public getBufferSize() {
+    public allocateBuffer() {
+        return new ArrayBuffer(this.getBufferSize());
+    }
+
+    protected getBufferSize() {
         return this.getExpectedSize() + U16;
     }
 

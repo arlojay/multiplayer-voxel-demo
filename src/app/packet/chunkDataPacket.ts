@@ -1,10 +1,10 @@
 import { BinaryBuffer, I32, U16 } from "../binary";
 import { CHUNK_SIZE } from "../voxelGrid";
 import { GetChunkPacket } from "./getChunkPacket";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class ChunkDataPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = ChunkDataPacket.id;
 
     public x: number;

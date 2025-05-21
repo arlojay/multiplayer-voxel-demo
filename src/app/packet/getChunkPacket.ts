@@ -1,8 +1,8 @@
 import { BinaryBuffer, I32 } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class GetChunkPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = GetChunkPacket.id;
     
     public x: number;

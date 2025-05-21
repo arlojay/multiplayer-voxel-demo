@@ -1,6 +1,8 @@
 import { Box3, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
 import { CollisionChecker } from "./collisionChecker";
+import { CHUNK_INC_SCL } from "../voxelGrid";
+import { World } from "../world";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);
@@ -9,18 +11,31 @@ export const BLOCK_HITBOX = new Box3(
     new Vector3(1, 1, 1)
 );
 
-export abstract class LocalEntity<Subclass extends LocalEntity<Subclass>> {
-    protected base: BaseEntity<any, Subclass, any>;
+export abstract class LocalEntity<Base extends BaseEntity<any, any>> {
+    protected base: Base;
     public airTime: number = 0;
     public collisionChecker: CollisionChecker;
 
+    public readonly position: Vector3;
+    public readonly velocity: Vector3;
+    public readonly hitbox: Box3;
+
     public constructor(base: typeof this.base) {
         this.base = base;
+        this.position = base.position;
+        this.velocity = base.velocity;
+        this.hitbox = base.hitbox;
+        this.collisionChecker = new CollisionChecker(this.hitbox, this.position, base.world);
         this.init();
     }
 
     protected init() {
         
+    }
+
+    public setWorld(world: World) {
+        console.trace("change collision world");
+        this.collisionChecker.world = world;
     }
 
     public update(dt: number) {
@@ -72,5 +87,34 @@ export abstract class LocalEntity<Subclass extends LocalEntity<Subclass>> {
         } else if(dz > 0) {
             this.base.position.z += lastCollision.z + lastCollision.hitbox.min.z - (this.base.position.z + this.base.hitbox.max.z);
         }
+    }
+
+    public get x() {
+        return this.position.x;
+    }
+    public get y() {
+        return this.position.y;
+    }
+    public get z() {
+        return this.position.z;
+    }
+    public get vx() {
+        return this.velocity.x;
+    }
+    public get vy() {
+        return this.velocity.y;
+    }
+    public get vz() {
+        return this.velocity.z;
+    }
+
+    public get chunkX() {
+        return this.position.x >> CHUNK_INC_SCL;
+    }
+    public get chunkY() {
+        return this.position.y >> CHUNK_INC_SCL;
+    }
+    public get chunkZ() {
+        return this.position.z >> CHUNK_INC_SCL;
     }
 }

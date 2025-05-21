@@ -1,7 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, GetChunkPacket, KickPacket, Packet, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
+import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { MessagePortConnection } from "./thread";
@@ -120,7 +120,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public handlePacket(data: ArrayBuffer) {
         if(!this.connected) return;
 
-        const packet = Packet.createFromBinary(data);
+        const packet = packetRegistry.createFromBinary(data);
 
         if(packet instanceof ClientReadyPacket) {
             this.authenticate(packet);
@@ -137,52 +137,10 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             })
         }
         if(packet instanceof ClientMovePacket && !this.isPacketOld(packet)) {
-            if(!this.player.world.blocks.chunkExists(packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL)) {
-                this.player.syncPosition();
-                return;
-            }
+            const success = this.player.handleMovement(packet);
 
-            const wasColliding = this.player.collisionChecker.isCollidingWithWorld(-0.01);
-            const oldPosition = this.player.position.clone();
-            this.player.position.set(packet.x, packet.y, packet.z);
-            const isColliding = this.player.collisionChecker.isCollidingWithWorld(-0.01);
-
-            if(isColliding) {
-                if(wasColliding) {
-                    this.player.respawn();
-                } else {
-                    this.player.velocity.set(0, 0, 0);
-                    this.player.position.copy(oldPosition);
-                    this.player.syncPosition();
-                }
-            } else {
-                this.player.velocity.set(packet.vx, packet.vy, packet.vz);
-                this.player.yaw = packet.yaw;
-                this.player.pitch = packet.pitch;
-            }
-
-            
-            const event = new PeerMoveEvent(this.server);
-            event.peer = this;
-            event.player = this.player;
-            event.world = this.player.world;
-            event.x = packet.x;
-            event.y = packet.y;
-            event.z = packet.z;
-            event.vx = packet.vx;
-            event.vy = packet.vy;
-            event.vz = packet.vz;
-            event.yaw = packet.yaw;
-            event.pitch = packet.pitch;
-            this.server.emit(event);
-
-            if(event.isCancelled()) {
-                this.player.velocity.set(0, 0, 0);
-                this.player.position.copy(oldPosition);
-                this.player.syncPosition();
-            } else {
-                const broadcastPacket = new PlayerMovePacket(this.player);
-                broadcastPacket.player = this.id;
+            if(success) {
+                const broadcastPacket = new EntityMovePacket(this.player.player);
     
                 for(const otherPeer of this.server.peers.values()) {
                     if(otherPeer == this) continue;
@@ -242,7 +200,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     // TODO: refactor for "add to queue" instead of "send instantly" flag
     public sendPacket(packet: Packet, instant: boolean = false) {
-        const buffer = new ArrayBuffer(packet.getBufferSize());
+        const buffer = packet.allocateBuffer();
         packet.write(new BinaryBuffer(buffer));
 
         if(instant) {
