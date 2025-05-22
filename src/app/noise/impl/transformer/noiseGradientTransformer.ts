@@ -1,7 +1,7 @@
 import { loadNoiseNode, registerNoiseNode } from "../../noiseLoader";
 import { NoiseNode } from "../../noiseNode";
 
-export class NoiseGradientTransformer implements NoiseNode {
+export class NoiseGradientTransformer extends NoiseNode {
     private noise: NoiseNode;
     private h: number;
 
@@ -24,6 +24,7 @@ export class NoiseGradientTransformer implements NoiseNode {
     }
 
     public constructor(noise: NoiseNode, h: number = 0.001) {
+        super();
         this.noise = noise;
         this.h = h;
     }

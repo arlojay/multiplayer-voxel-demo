@@ -2,32 +2,22 @@ import { WorldGenerator } from "../../worldGenerator";
 import { ServerPlugin } from "../serverPlugin";
 import { NoiseNode } from "../../noise/noiseNode";
 import { World } from "../../world";
-import { NoiseScaler } from "../../noise/impl/transformer/noiseScaler";
-import { NoiseOperation, OperationType } from "../../noise/impl/transformer/noiseOperation";
-import { OctaveNoise } from "../../noise/impl/transformer/octaveNoise";
-import { SimplexNoiseGenerator } from "../../noise/impl/generator/simplexNoiseGenerator";
-import { ConstantValueGenerator } from "../../noise/impl/generator/constantValueGenerator";
 import { CHUNK_INC_SCL, CHUNK_SIZE, VoxelGridChunk } from "../../voxelGrid";
 import { Subscribe } from "../events";
 import { PluginEvents, ServerLoadedEvent } from "../pluginEvents";
+import { OctaveNoise, SimplexNoiseGenerator } from "../../noise";
 
 export class SimplexTerrainGenerator extends WorldGenerator {
     private noise: NoiseNode;
+    private grassColor: NoiseNode;
 
     constructor(world: World) {
         super(world);
 
-        this.noise = new NoiseScaler(
-            new NoiseOperation(
-                new OctaveNoise(
-                    new SimplexNoiseGenerator(0, 0),
-                    8, 0.5, 2, 0.3
-                ),
-                new ConstantValueGenerator(60),
-                OperationType.MULTIPLY
-            ),
-            100, 100, 100, 100
-        );
+        this.noise = new OctaveNoise(
+            new SimplexNoiseGenerator(0, 0),
+            8, 0.5, 2, 0.3
+        ).mul(60).scale(1000);
     }
     public generateChunk(x: number, y: number, z: number): VoxelGridChunk {
         const world = this.world;
@@ -40,6 +30,7 @@ export class SimplexTerrainGenerator extends WorldGenerator {
         for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
             for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
                 const height = this.noise.sample2d(globalX, globalZ);
+                // const grassColor = this.grassColor.sample2d(globalX, globalZ);
                 for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
                     let color = 0x000000;
 

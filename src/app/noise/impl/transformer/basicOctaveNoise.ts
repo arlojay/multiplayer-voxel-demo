@@ -1,7 +1,7 @@
 import { loadNoiseNode, registerNoiseNode } from "../../noiseLoader";
 import { NoiseNode } from "../../noiseNode";
 
-export class BasicOctaveNoise implements NoiseNode {
+export class BasicOctaveNoise extends NoiseNode {
     private noise: NoiseNode;
     public amplitudes: number[];
     
@@ -30,6 +30,7 @@ export class BasicOctaveNoise implements NoiseNode {
     }
 
     public constructor(noise: NoiseNode, amplitudes: number[]) {
+        super();
         this.noise = noise;
         this.amplitudes = amplitudes;
     }

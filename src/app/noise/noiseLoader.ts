@@ -10,9 +10,10 @@ import { NoiseSpline } from "./impl/transformer/noiseSpline";
 import { OctaveNoise } from "./impl/transformer/octaveNoise";
 import { NoiseNode } from "./noiseNode";
 
-export class RefNode implements NoiseNode {
+export class RefNode extends NoiseNode {
     public file: string;
     public constructor(file: string) {
+        super();
         this.file = file;
     }
 

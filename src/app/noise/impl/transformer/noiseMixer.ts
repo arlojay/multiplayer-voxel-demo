@@ -2,7 +2,7 @@ import { MultiInputNoiseTransformer } from "../../multiInputNoiseTransformer";
 import { loadNoiseNode, registerNoiseNode } from "../../noiseLoader";
 import { NoiseNode } from "../../noiseNode";
 
-interface MixerSource {
+export interface MixerSource {
     factor: number;
     noise: NoiseNode;
 }

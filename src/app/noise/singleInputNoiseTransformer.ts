@@ -1,9 +1,10 @@
 import { NoiseNode } from "./noiseNode";
 
-export abstract class SingleInputNoiseTransformer implements NoiseNode {
+export abstract class SingleInputNoiseTransformer extends NoiseNode {
     protected source: NoiseNode;
 
     public constructor(source: NoiseNode) {
+        super();
         this.source = source;
     }
     sample1d(t: number): number {

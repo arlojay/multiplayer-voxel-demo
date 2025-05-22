@@ -1,11 +1,12 @@
 import { NoiseNode } from "./noiseNode";
 
-export abstract class MultiInputNoiseTransformer implements NoiseNode {
+export abstract class MultiInputNoiseTransformer extends NoiseNode {
     protected sources: NoiseNode[];
     protected sourceCount: number;
     private samples: any[];
 
     public constructor(sources: NoiseNode[]) {
+        super();
         this.sources = sources;
         this.sourceCount = sources.length;
         this.samples = new Array(this.sourceCount);

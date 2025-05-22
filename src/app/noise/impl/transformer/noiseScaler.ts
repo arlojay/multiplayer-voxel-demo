@@ -1,7 +1,7 @@
 import { loadNoiseNode, registerNoiseNode } from "../../noiseLoader";
 import { NoiseNode } from "../../noiseNode";
 
-export class NoiseScaler implements NoiseNode {
+export class NoiseScaler extends NoiseNode {
     private noise: NoiseNode;
     public scaleX: number;
     public scaleY: number;
@@ -38,6 +38,7 @@ export class NoiseScaler implements NoiseNode {
     }
 
     public constructor(noise: NoiseNode, scaleX: number, scaleY: number, scaleZ: number, scaleW: number) {
+        super();
         this.noise = noise;
         this.scaleX = scaleX;
         this.scaleY = scaleY;

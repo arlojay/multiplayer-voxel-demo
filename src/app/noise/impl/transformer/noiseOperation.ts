@@ -10,7 +10,7 @@ export enum OperationType {
     POWER = "POWER"
 };
 
-export class NoiseOperation implements NoiseNode {
+export class NoiseOperation extends NoiseNode {
     sourceA: NoiseNode;
     sourceB: NoiseNode;
     operation: OperationType;
@@ -45,6 +45,7 @@ export class NoiseOperation implements NoiseNode {
     }
 
     public constructor(sourceA: NoiseNode, sourceB: NoiseNode, operation: OperationType) {
+        super();
         this.sourceA = sourceA;
         this.sourceB = sourceB;
         this.operation = operation;

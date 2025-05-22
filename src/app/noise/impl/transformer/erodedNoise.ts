@@ -2,7 +2,7 @@ import { loadNoiseNode, registerNoiseNode } from "../../noiseLoader";
 import { NoiseNode } from "../../noiseNode";
 import { OctaveNoiseSampler } from "../../octaveNoiseSampler";
 
-export class ErodedNoise implements NoiseNode {
+export class ErodedNoise extends NoiseNode {
     private noise: NoiseNode;
     public detail: number;
     public depth: number;
@@ -46,6 +46,7 @@ export class ErodedNoise implements NoiseNode {
     }
 
     public constructor(noise: NoiseNode, detail: number, depth: number, lacunarity: number, stride: number, roughness: number, distortion: number) {
+        super();
         this.noise = noise;
         this.detail = detail;
         this.depth = depth;

@@ -1,6 +1,6 @@
 import { NoiseNode } from "./noiseNode";
 
-export abstract class NoiseGenerator implements NoiseNode {
+export abstract class NoiseGenerator extends NoiseNode {
     public seed: number;
     public baseSeed: number;
     public seedOffset: number;
@@ -11,6 +11,7 @@ export abstract class NoiseGenerator implements NoiseNode {
     abstract sample4d(x: number, y: number, z: number, w: number): number;
     
     public constructor(seed: number, seedOffset?: number) {
+        super();
         this.seedOffset = seedOffset ?? 0;
         this.setSeed(seed);
     }
