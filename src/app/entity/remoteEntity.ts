@@ -1,4 +1,4 @@
-import { Box3, Vector3 } from "three";
+import { Box3, Scene, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
@@ -41,6 +41,13 @@ export abstract class RemoteEntity<Base extends BaseEntity<any, any>> {
         if(isNaN(this.renderPosition.x)) {
             this.renderPosition.copy(this.base.position);
         }
+    }
+
+    public onAdd(scene: Scene) {
+        
+    }
+    public onRemove() {
+        
     }
     
     public get x() {

@@ -1,4 +1,4 @@
-import { Box3, Vector3 } from "three";
+import { Box3, Scene, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
 import { CollisionChecker } from "./collisionChecker";
 import { CHUNK_INC_SCL } from "../voxelGrid";

@@ -18,8 +18,6 @@ import { Client } from "./client";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
-    "playerjoin": (player: Player) => void;
-    "playerleave": (player: Player) => void;
     "changeworld": (world: World) => void;
 }
 
@@ -145,7 +143,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof EntityMovePacket && !this.isPacketOld(packet)) {
             const entity = this.localWorld.getEntityByUUID(packet.uuid);
             if(entity == null) {
-                console.warn("Cannot find entity " + entity.uuid + "!");
+                console.warn("Cannot find entity " + packet.uuid + "!");
             } else {
                 entity.position.set(packet.x, packet.y, packet.z);
                 entity.velocity.set(packet.vx, packet.vy, packet.vz);
@@ -156,6 +154,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof AddEntityPacket) {
             const remoteEntity = entityRegistry.createFromBinary(packet.entityData, EntityLogicType.REMOTE_LOGIC);
             this.localWorld.addEntity(remoteEntity);
+            console.log(remoteEntity);
+            remoteEntity.remoteLogic.onAdd(this.client.gameRenderer.scene);
         }
         // if(packet instanceof PlayerJoinPacket) {
         //     const remotePlayer = new Player(EntityLogicType.REMOTE_LOGIC);
@@ -171,6 +171,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                 console.warn("Cannot find entity " + packet.uuid + "!");
             } else {
                 this.localWorld.removeEntity(remoteEntity);
+                remoteEntity.remoteLogic.onRemove();
             }
         }
         // if(packet instanceof PlayerLeavePacket) {
@@ -262,7 +263,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     public sendPacket(packet: Packet) {
         const buffer = packet.allocateBuffer();
-        packet.write(new BinaryBuffer(buffer));
+        try {
+            packet.write(new BinaryBuffer(buffer));
+        } catch(e) {
+            throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
+        }
         this.serverConnection.send(buffer);
     }
 

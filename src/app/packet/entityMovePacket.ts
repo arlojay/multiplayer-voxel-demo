@@ -20,11 +20,14 @@ export class EntityMovePacket extends Packet {
 
         if(entity == null) return;
 
+        this.uuid = entity.uuid;
+
         [ this.x, this.y, this.z ] = entity.position.toArray();
         [ this.vx, this.vy, this.vz ] = entity.velocity.toArray();
     }
 
     protected serialize(bin: BinaryBuffer): void {
+        console.log(this.uuid);
         bin.write_string(this.uuid);
         bin.write_f32(this.x);
         bin.write_f32(this.y);
@@ -45,6 +48,10 @@ export class EntityMovePacket extends Packet {
     }
 
     protected getExpectedSize(): number {
-        return (F32 * 3) + (F32 * 3);
+        return (
+            BinaryBuffer.stringByteCount(this.uuid) +
+            (F32 * 3) +
+            (F32 * 3)
+        );
     }
 }

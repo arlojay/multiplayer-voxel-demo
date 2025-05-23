@@ -1,16 +1,16 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, PlayerJoinPacket, PlayerLeavePacket, PlayerMovePacket, SetBlockPacket } from "../packet";
+import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, SetBlockPacket } from "../packet";
+import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { UIContainer } from "../ui";
+import { CHUNK_INC_SCL } from "../voxelGrid";
+import { World } from "../world";
+import { BreakBlockEvent, PlaceBlockEvent } from "./pluginEvents";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
-import { MessagePortConnection } from "./thread";
-import { CHUNK_INC_SCL } from "../voxelGrid";
 import { ServerUI } from "./serverUI";
-import { UIContainer } from "../ui";
-import { BreakBlockEvent, PeerMoveEvent, PlaceBlockEvent } from "./pluginEvents";
-import { World } from "../world";
-import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { MessagePortConnection } from "./thread";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -201,7 +201,11 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     // TODO: refactor for "add to queue" instead of "send instantly" flag
     public sendPacket(packet: Packet, instant: boolean = false) {
         const buffer = packet.allocateBuffer();
-        packet.write(new BinaryBuffer(buffer));
+        try {
+            packet.write(new BinaryBuffer(buffer));
+        } catch(e) {
+            throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
+        }
 
         if(instant) {
             if(this.connected) {
@@ -334,8 +338,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         if(peer == this) return;
         if(this.visiblePeers.has(peer)) return;
 
-        const joinPacket = new PlayerJoinPacket(peer);
-        joinPacket.player = peer.id;
+        const joinPacket = new AddEntityPacket(peer.player.player);
         this.visiblePeers.add(peer);
 
         this.sendPacket(joinPacket);
@@ -344,8 +347,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         if(peer == this) return;
         if(!this.visiblePeers.has(peer)) return;
 
-        const leavePacket = new PlayerLeavePacket();
-        leavePacket.player = peer.id;
+        const leavePacket = new RemoveEntityPacket(peer.player.player);
         this.visiblePeers.delete(peer);
 
         this.sendPacket(leavePacket);

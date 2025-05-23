@@ -1,4 +1,5 @@
 import { BinaryBuffer } from "../binary";
+import { BaseEntity } from "../entity/baseEntity";
 import { Packet, packetRegistry } from "./packet";
 
 export class RemoveEntityPacket extends Packet {
@@ -6,6 +7,14 @@ export class RemoveEntityPacket extends Packet {
     public readonly id = RemoveEntityPacket.id;
 
     public uuid: string;
+    
+    public constructor(entity?: BaseEntity<any, any>) {
+        super();
+
+        if(entity != null) {
+            this.uuid = entity.uuid;
+        }
+    }
 
     protected serialize(bin: BinaryBuffer): void {
         bin.write_string(this.uuid);

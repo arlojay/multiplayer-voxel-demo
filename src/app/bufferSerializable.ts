@@ -27,7 +27,12 @@ export abstract class BufferSerializableRegistry<
         );
 
         const instance: SerializableType = Reflect.construct(Constructor as (...params: unknown[]) => unknown, args);
-        instance.read(bin);
+        
+        try {
+            instance.read(bin);
+        } catch(e) {
+            throw new Error("Failed to create object from binary " + (instance.constructor?.name), { cause: e });
+        }
         return instance;
     }
 }
