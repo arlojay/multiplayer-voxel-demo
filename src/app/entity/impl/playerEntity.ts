@@ -1,4 +1,4 @@
-import { Box3, Color, Euler, PerspectiveCamera, Ray, Vector3 } from "three";
+import { Box3, Color, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
 import { BinaryBuffer, F32, VEC3 } from "../../binary";
 import { BaseEntity, entityRegistry } from "../baseEntity";
 import { BLOCK_HITBOX, LocalEntity } from "../localEntity";
@@ -443,9 +443,6 @@ export class RemotePlayer extends RemoteEntity<Player> {
         return this.model.mesh;
     }
 
-    public dispose() {
-        this.model.dispose();
-    }
     public update(dt: number): void {
         super.update(dt);
 
@@ -455,5 +452,14 @@ export class RemotePlayer extends RemoteEntity<Player> {
         this.model.username = this.base.username;
         this.model.color = this.base.color;
         this.model.update(dt);
+    }
+
+    public onAdd(scene: Scene): void {
+        scene.add(this.model.mesh);
+    }
+
+    public onRemove(): void {
+        this.model.mesh.parent.remove(this.model.mesh);
+        this.model.dispose();
     }
 }

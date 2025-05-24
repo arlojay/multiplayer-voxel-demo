@@ -1,4 +1,5 @@
 import { BinaryBuffer, U32 } from "../binary";
+import { BaseEntity } from "../entity/baseEntity";
 import { Packet, packetRegistry } from "./packet";
 
 export class AddEntityPacket extends Packet {
@@ -8,6 +9,19 @@ export class AddEntityPacket extends Packet {
     public uuid: string;
     public type: number;
     public entityData: ArrayBuffer;
+
+    public constructor(entity?: BaseEntity<any, any>) {
+        super();
+
+        if(entity != null) {
+            this.uuid = entity.uuid;
+            this.type = entity.id;
+
+            const bin = new BinaryBuffer(entity.allocateBuffer());
+            entity.write(bin);
+            this.entityData = bin.buffer;
+        }
+    }
 
     protected serialize(bin: BinaryBuffer): void {
         bin.write_string(this.uuid);

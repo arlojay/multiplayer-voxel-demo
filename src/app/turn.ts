@@ -55,9 +55,9 @@ export const iceServers = [
 export function createPeer(id: string) {
     debugLog("Creating peer with id " + id);
     return new Peer(id, {
-        // host: "peerjs.arlojay.cc",
-        // secure: document.location.hostname == "localhost" ? true : undefined,
-        // port: 443,
+        host: "peerjs.arlojay.cc",
+        secure: document.location.hostname == "localhost" ? true : undefined,
+        port: 443,
         config: {
             iceServers: [
                 { url: "stun:stun.l.google.com:19302" },

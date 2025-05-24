@@ -1,4 +1,4 @@
-import { Box3, Vector3 } from "three";
+import { Box3, Scene, Vector3 } from "three";
 import { BinaryBuffer, U16 } from "../binary";
 import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -7,7 +7,7 @@ import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
 
 export const entityRegistry = new class EntityRegistry extends BufferSerializableRegistry<
-    BaseEntity<any, any>,
+    BaseEntity<RemoteEntity<any>, LocalEntity<any>>,
     ConstructorParameters<typeof BaseEntity<any, any>>
 > {
 
@@ -108,7 +108,7 @@ export abstract class BaseEntity<
     }
 
     public getBufferSize() {
-        return this.getExpectedSize() + U16;
+        return super.getBufferSize() + U16;
     }
 
     protected abstract getExpectedSize(): number;
