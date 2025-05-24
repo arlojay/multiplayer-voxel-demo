@@ -24,6 +24,4 @@ export abstract class Packet extends BufferSerializable {
     public getBufferSize() {
         return super.getBufferSize() + U32;
     }
-
-    protected abstract getExpectedSize(): number;
 }
