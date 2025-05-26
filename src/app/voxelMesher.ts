@@ -69,7 +69,7 @@ export class VoxelMesher {
                     block = chunkCache[i];
                     if(~block & SOLID_BITMASK) continue;
 
-                    color = (~block & SOLID_BITMASK) ? 0b111111111111111 : (block & ~SOLID_BITMASK);
+                    color = (~block & SOLID_BITMASK) ? 0b0111110000011111 : (block & ~SOLID_BITMASK);
 
                     nnn = +((chunkCache[i - OFF_X - OFF_Y - OFF_Z] & SOLID_BITMASK) > 0);
                     nnp = +((chunkCache[i - OFF_X - OFF_Y + OFF_Z] & SOLID_BITMASK) > 0);

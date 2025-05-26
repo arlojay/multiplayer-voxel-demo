@@ -78,7 +78,7 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
         normal.assign(vec3(0, 1, 0));
     });
 
-    const vColor = int(attribute("blockColor", "f32").sub(0.5)).toVar();
+    const vColor = int(attribute("blockColor", "f32").add(0.5).floor()).toVar();
     const vColorR = vColor.bitAnd(0b0111110000000000).shiftRight(10);
     const vColorG = vColor.bitAnd(0b0000001111100000).shiftRight(5);
     const vColorB = vColor.bitAnd(0b0000000000011111);

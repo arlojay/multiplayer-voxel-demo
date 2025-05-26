@@ -86,16 +86,16 @@ export class World {
         if(color instanceof Color) {
             return (
                 1 << 15 |
-                Math.round(clamp(color.r * 32, 0, 31)) << 10 |
-                Math.round(clamp(color.g * 32, 0, 31)) << 5 |
-                Math.round(clamp(color.b * 32, 0, 31)) << 0
+                clamp(Math.floor(color.r * 32), 0, 31) << 10 |
+                clamp(Math.floor(color.g * 32), 0, 31) << 5 |
+                clamp(Math.floor(color.b * 32), 0, 31) << 0
             );
         } else {
             return (
                 1 << 15 |
-                (((color & 0xff0000) >> 19) << 10) |
-                (((color & 0x00ff00) >> 11) << 5) |
-                (((color & 0x0000ff) >> 3) << 0)
+                (((color & 0xff0000) >> 3 >> 16) << 10) |
+                (((color & 0x00ff00) >> 3 >> 8) << 5) |
+                (((color & 0x0000ff) >> 3 >> 0) << 0)
             )
         }
     }
