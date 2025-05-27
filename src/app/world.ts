@@ -1,17 +1,17 @@
 import { Color, Mesh } from "three";
-import { BaseEntity } from "./entity/baseEntity";
+import { BaseEntity, EntityLogicType } from "./entity/baseEntity";
 import { clamp } from "./math";
 import { Server } from "./server/server";
 import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldGenerator } from "./worldGenerator";
 import { WorldRaycaster } from "./worldRaycaster";
-import { RemoteEntity } from "./entity/remoteEntity";
-import { LocalEntity } from "./entity/localEntity";
+import { EntityGrid, EntityGridChunk } from "./entityGrid";
 
 export type ColorType = Color | number | null;
 
 export class Chunk {
     public voxelChunk: VoxelGridChunk;
+    public entityChunk: EntityGridChunk;
     public x: number;
     public y: number;
     public z: number;
@@ -22,8 +22,9 @@ export class Chunk {
 
     public surroundedChunks: boolean[] = new Array(27).fill(false);
 
-    constructor(voxelChunk: VoxelGridChunk) {
+    constructor(voxelChunk: VoxelGridChunk, entityChunk: EntityGridChunk) {
         this.voxelChunk = voxelChunk;
+        this.entityChunk = entityChunk;
         this.x = voxelChunk.x;
         this.y = voxelChunk.y;
         this.z = voxelChunk.z;
@@ -40,6 +41,9 @@ export class Chunk {
     }
     public get data() {
         return this.voxelChunk.data;
+    }
+    public get entities() {
+        return this.entityChunk.entities;
     }
 
     public hasMesh() {
@@ -67,11 +71,11 @@ export class Chunk {
 export class World {
     public server: Server = null;
     public blocks: VoxelGrid = new VoxelGrid;
+    public entities: EntityGrid = new EntityGrid;
     public dirtyChunkQueue: Set<Chunk> = new Set;
     public raycaster = new WorldRaycaster(this);
     public id: string;
     public generator: WorldGenerator;
-    public entities: Map<string, BaseEntity<RemoteEntity<any>, LocalEntity<any>>> = new Map;
 
     public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
 
@@ -183,7 +187,7 @@ export class World {
 
         let chunk = this.chunkMap.get(voxelChunk);
         if(chunk == null && create) {
-            chunk = new Chunk(voxelChunk);
+            chunk = new Chunk(voxelChunk, this.entities.getChunk(x, y, z));
             this.chunkMap.set(voxelChunk, chunk);
         }
 
@@ -211,23 +215,27 @@ export class World {
     }
 
     public update(dt: number) {
-        for(const entity of this.entities.values()) {
+        for(const entity of this.entities.allEntities.values()) {
             entity.update(dt);
         }
     }
-    public addEntity(entity: BaseEntity<any, any>) {
+    public addEntity(entity: BaseEntity) {
         entity.setWorld(this);
-        this.entities.set(entity.uuid, entity);
+        this.entities.addEntity(entity);
     }
-    public spawnEntity<T extends BaseEntity<any, any>>(EntityClass: new () => T) {
-        const entity = new EntityClass();
+    public spawnEntity<T extends BaseEntity>(EntityClass: new (logicType: EntityLogicType) => T) {
+        const entity = new EntityClass(EntityLogicType.LOCAL_LOGIC);
         this.addEntity(entity);
+        if(this.server != null) {
+            entity.server = this.server;
+            this.server.spawnEntity(entity);
+        }
         return entity;
     }
-    public removeEntity(entity: BaseEntity<any, any>) {
-        this.entities.delete(entity.uuid);
+    public removeEntity(entity: BaseEntity) {
+        this.entities.removeEntity(entity);
     }
     public getEntityByUUID(uuid: string) {
-        return this.entities.get(uuid);
+        return this.entities.allEntities.get(uuid);
     }
 }

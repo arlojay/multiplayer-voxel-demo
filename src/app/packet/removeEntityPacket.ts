@@ -8,7 +8,7 @@ export class RemoveEntityPacket extends Packet {
 
     public uuid: string;
     
-    public constructor(entity?: BaseEntity<any, any>) {
+    public constructor(entity?: BaseEntity) {
         super();
 
         if(entity != null) {

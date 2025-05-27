@@ -1,14 +1,15 @@
 import { Box3, Scene, Vector3 } from "three";
-import { BinaryBuffer, U16 } from "../binary";
+import { BinaryBuffer, F16, U16 } from "../binary";
 import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
 import { CHUNK_INC_SCL } from "../voxelGrid";
-import { World } from "../world";
+import { Chunk, World } from "../world";
 import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
+import { Server } from "../server/server";
 
 export const entityRegistry = new class EntityRegistry extends BufferSerializableRegistry<
-    BaseEntity<RemoteEntity<any>, LocalEntity<any>>,
-    ConstructorParameters<typeof BaseEntity<any, any>>
+    BaseEntity,
+    ConstructorParameters<typeof BaseEntity>
 > {
 
 }
@@ -19,15 +20,67 @@ export enum EntityLogicType {
     NO_LOGIC
 }
 
+export interface EntityComponent {
+    serialize(bin: BinaryBuffer): void;
+    deserialize(bin: BinaryBuffer): void;
+    getExpectedSize(): number;
+}
+
+export class EntityRotation implements EntityComponent {
+    public pitch = 0;
+    public yaw = 0;
+
+    private lastYaw = this.yaw;
+    private lastPitch = this.pitch;
+    private lastMoveTime = 0;
+    
+    public serialize(bin: BinaryBuffer): void {
+        bin.write_f16(this.pitch);
+        bin.write_f16(this.yaw);
+    }
+    public deserialize(bin: BinaryBuffer): void {
+        this.pitch = bin.read_f16();
+        this.yaw = bin.read_f16();
+    }
+    public getExpectedSize(): number {
+        return F16 * 2;
+    }
+    
+    public hasMovedSince(time: number) {
+        if(time == this.lastMoveTime) return true;
+        
+        let moved = false;
+        if(this.yaw != this.lastYaw) {
+            this.lastYaw = this.yaw;
+            moved = true;
+        }
+        if(this.pitch != this.lastPitch) {
+            this.lastPitch = this.pitch;
+            moved = true;
+        }
+        if(moved) {
+            this.lastMoveTime = time;
+        } else {
+            this.lastMoveTime = 0;
+        }
+        return moved;
+    }
+}
+
+export interface RotatingEntity {
+    rotation: EntityRotation;
+}
+
 export abstract class BaseEntity<
-    RemoteLogic extends RemoteEntity<any>,
-    LocalLogic extends LocalEntity<any>
+    RemoteLogic extends RemoteEntity = RemoteEntity,
+    LocalLogic extends LocalEntity = LocalEntity
 > extends BufferSerializable {
     public abstract id: number;
 
     public readonly position = new Vector3;
     public readonly velocity = new Vector3;
     public readonly hitbox: Box3 = new Box3;
+    public server: Server = null;
     public world: World = null;
     public uuid: string = crypto.randomUUID();
 

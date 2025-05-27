@@ -1,5 +1,6 @@
+import { BaseEntity } from "../entity/baseEntity";
 import { debugLog } from "../logging";
-import { Packet, SetBlockPacket } from "../packet";
+import { AddEntityPacket, Packet, SetBlockPacket } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
 import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { World } from "../world";
@@ -137,7 +138,7 @@ export class Server extends EventPublisher {
         const world = this.getDefaultWorld();
         this.peers.set(peer.id, peer);
 
-        peer.player.setWorld(world);
+        peer.serverPlayer.setWorld(world);
 
         connection.addListener("data", data => {
             try {
@@ -170,7 +171,8 @@ export class Server extends EventPublisher {
 
         const joinEvent = new PeerJoinEvent(this);
         joinEvent.peer = peer;
-        joinEvent.player = peer.player;
+        joinEvent.serverPlayer = peer.serverPlayer;
+        joinEvent.player = peer.serverPlayer.base;
         joinEvent.world = world;
         this.emit(joinEvent);
 
@@ -199,8 +201,9 @@ export class Server extends EventPublisher {
 
         const event = new PeerLeaveEvent(this);
         event.peer = peer;
-        event.player = peer.player;
-        event.world = peer.player.world;
+        event.serverPlayer = peer.serverPlayer;
+        event.player = peer.serverPlayer.base;
+        event.world = peer.serverPlayer.world;
         this.emit(event);
 
         this.peers.delete(peer.id);
@@ -213,7 +216,7 @@ export class Server extends EventPublisher {
     public broadcastPacket(packet: Packet, world?: World, instant: boolean = false) {
         for(const id of this.peers.keys()) {
             const peer = this.peers.get(id);
-            if(world == null || peer.player.world == world) {
+            if(world == null || peer.serverPlayer.world == world) {
                 peer.sendPacket(packet, instant);
             }
         }
@@ -251,6 +254,11 @@ export class Server extends EventPublisher {
         packet.block = world.blocks.get(x, y, z);
         
         this.broadcastPacket(packet, world);
+    }
+
+    public spawnEntity(entity: BaseEntity) {
+        const packet = new AddEntityPacket(entity);
+        this.broadcastPacket(packet, entity.world);
     }
 
     public logDebug(text: string) {

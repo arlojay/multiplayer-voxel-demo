@@ -1,9 +1,10 @@
 import { UIButton, UISection, UIText } from "../../ui";
 import { Subscribe } from "../events";
-import { DatabaseObject, DatabaseObjectStore, DatabaseView } from "../pluginConfig";
-import { PeerJoinEvent, PluginEvents, ServerLoadedEvent } from "../pluginEvents";
+import { DatabaseObjectStore, DatabaseView } from "../pluginConfig";
+import { PeerJoinEvent, PlaceBlockEvent, PluginEvents, ServerLoadedEvent } from "../pluginEvents";
 import { ServerPlugin } from "../serverPlugin";
 import { ServerUI } from "../serverUI";
+import { TextEntity } from "../../entity/impl";
 
 interface PlayerClicksEntry {
     username: string;
@@ -53,5 +54,12 @@ export class DemoPlugin extends ServerPlugin {
         });
         
         updateClicks();
+    }
+
+    @Subscribe(PluginEvents.PLACE_BLOCK)
+    public onPlaceBlock(event: PlaceBlockEvent) {
+        const floatingText = event.serverPlayer.world.spawnEntity(TextEntity);
+        floatingText.text = "Placed by " + event.peer.username;
+        floatingText.position.set(event.x + 0.5, event.y + 1.25, event.z + 0.5);
     }
 }

@@ -4,8 +4,8 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { NetworkUI } from "../client/networkUI";
-import { EntityLogicType, entityRegistry } from "../entity/baseEntity";
-import { LocalPlayer, Player } from "../entity/impl/playerEntity";
+import { EntityLogicType, entityRegistry, EntityRotation } from "../entity/baseEntity";
+import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
 import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, UIInteractionPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
@@ -15,6 +15,7 @@ import { UIElement } from "../ui";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { Chunk, World } from "../world";
 import { Client } from "./client";
+import { EntityLookPacket } from "../packet/entityLookPacket";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -34,11 +35,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public localWorld = new World(crypto.randomUUID());
     // public players: Map<string, RemotePlayer> = new Map;
     public interfaces: Map<string, NetworkUI> = new Map;
-
-    private lastPlayerPosition: Vector3 = new Vector3;
-    private lastPlayerVelocity: Vector3 = new Vector3;
-    private lastPlayerPitch: number = 0;
-    private lastPlayerYaw: number = 0;
     
     private lastPacketReceived: Map<number, number> = new Map;
     private waitingChunks: Map<string, { reject: () => void, resolve: (packet: ChunkDataPacket) => void }> = new Map;
@@ -108,6 +104,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
     
+    // TODO: make this less cancerous
     public handlePacket(data: ArrayBuffer) {
         const packet = packetRegistry.createFromBinary(data);
         
@@ -149,6 +146,16 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                 entity.velocity.set(packet.vx, packet.vy, packet.vz);
 
                 entity.remoteLogic?.resetTimer();
+            }
+        }
+        if(packet instanceof EntityLookPacket && !this.isPacketOld(packet)) {
+            const entity = this.localWorld.getEntityByUUID(packet.uuid);
+            if(entity == null) {
+                console.warn("Cannot find entity " + packet.uuid + "!");
+            } else if("rotation" in entity) {
+                const rotation = entity.rotation as EntityRotation;
+                rotation.pitch = packet.pitch;
+                rotation.yaw = packet.yaw;
             }
         }
         if(packet instanceof AddEntityPacket) {
@@ -195,10 +202,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.serverConnection.close();
         }
         if(packet instanceof SetLocalPlayerPositionPacket) {
-            this.player.position.set(packet.x, packet.y, packet.z);
-            this.player.velocity.set(packet.vx, packet.vy, packet.vz);
-            this.player.pitch = packet.pitch;
-            this.player.yaw = packet.yaw;
+            this.player.position.copy(packet.position);
+            this.player.velocity.copy(packet.velocity);
+            this.player.rotation.pitch = packet.pitch;
+            this.player.rotation.yaw = packet.yaw;
         }
         if(packet instanceof OpenUIPacket) {
             const ui = new NetworkUI(packet.ui, packet.interfaceId);
@@ -432,36 +439,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         rendererCamera.fov = playerCamera.fov;
         rendererCamera.updateProjectionMatrix();
 
-
-
-        let playerMoved = false;
-        if(this.player.position.clone().sub(this.lastPlayerPosition).length() > 0.01) {
-            this.lastPlayerPosition.copy(this.player.position);
-            playerMoved = true;
-        }
-        if(this.player.velocity.clone().sub(this.lastPlayerVelocity).length() > 0.01) {
-            this.lastPlayerVelocity.copy(this.player.velocity);
-            playerMoved = true;
-        }
-        if(this.player.yaw != this.lastPlayerYaw) {
-            this.lastPlayerYaw = this.player.yaw;
-            playerMoved = true;
-        }
-        if(this.player.pitch != this.lastPlayerPitch) {
-            this.lastPlayerPitch = this.player.pitch;
-            playerMoved = true;
-        }
-
-        if(playerMoved) {
-            const movementPacket = new ClientMovePacket;
-            movementPacket.x = this.player.position.x;
-            movementPacket.y = this.player.position.y;
-            movementPacket.z = this.player.position.z;
-            movementPacket.vx = this.player.velocity.x;
-            movementPacket.vy = this.player.velocity.y;
-            movementPacket.vz = this.player.velocity.z;
-            movementPacket.yaw = this.player.yaw;
-            movementPacket.pitch = this.player.pitch;
+        if(this.player.localLogic.hasMovedSince(time) || this.player.rotation.hasMovedSince(time)) {
+            const movementPacket = new ClientMovePacket(this.player);
             this.sendPacket(movementPacket);
         }
 

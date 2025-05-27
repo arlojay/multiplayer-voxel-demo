@@ -11,7 +11,7 @@ export const BLOCK_HITBOX = new Box3(
     new Vector3(1, 1, 1)
 );
 
-export abstract class LocalEntity<Base extends BaseEntity<any, any>> {
+export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, LocalEntity<any>>> {
     protected base: Base;
     public airTime: number = 0;
     public collisionChecker: CollisionChecker;
@@ -19,6 +19,10 @@ export abstract class LocalEntity<Base extends BaseEntity<any, any>> {
     public readonly position: Vector3;
     public readonly velocity: Vector3;
     public readonly hitbox: Box3;
+
+    private readonly lastPosition = new Vector3;
+    private readonly lastVelocity = new Vector3;
+    private lastMoveTime = 0;
 
     public constructor(base: typeof this.base) {
         this.base = base;
@@ -87,6 +91,26 @@ export abstract class LocalEntity<Base extends BaseEntity<any, any>> {
         } else if(dz > 0) {
             this.base.position.z += lastCollision.z + lastCollision.hitbox.min.z - (this.base.position.z + this.base.hitbox.max.z);
         }
+    }
+
+    public hasMovedSince(time: number) {
+        if(time == this.lastMoveTime) return true;
+
+        let moved = false;
+        if(this.position.clone().sub(this.lastPosition).length() > 0.01) {
+            this.lastPosition.copy(this.position);
+            moved = true;
+        }
+        if(this.velocity.clone().sub(this.lastVelocity).length() > 0.01) {
+            this.lastVelocity.copy(this.velocity);
+            moved = true;
+        }
+        if(moved) {
+            this.lastMoveTime = time;
+        } else {
+            this.lastMoveTime = 0;
+        }
+        return moved;
     }
 
     public get x() {

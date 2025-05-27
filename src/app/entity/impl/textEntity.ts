@@ -1,4 +1,4 @@
-import { BinaryBuffer, F32, U8 } from "src/app/binary";
+import { BinaryBuffer, F32, U8 } from "../../binary";
 import { ColorRGBA, FloatingText } from "../../floatingText";
 import { BaseEntity, entityRegistry } from "../baseEntity";
 import { LocalEntity } from "../localEntity";
@@ -8,7 +8,7 @@ export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
     public static readonly id = entityRegistry.register(this);
     public readonly id = TextEntity.id;
 
-    public text: string;
+    public text = "";
     public color: ColorRGBA = new ColorRGBA;
     public background: ColorRGBA = new ColorRGBA;
 

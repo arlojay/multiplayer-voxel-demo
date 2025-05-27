@@ -1,6 +1,6 @@
 import { Box3, Color, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
 import { BinaryBuffer, F32, VEC3 } from "../../binary";
-import { BaseEntity, entityRegistry } from "../baseEntity";
+import { BaseEntity, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
 import { BLOCK_HITBOX, LocalEntity } from "../localEntity";
 import { dlerp } from "../../math";
 import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
@@ -11,12 +11,11 @@ import { ClientSounds } from "../../client/clientSounds";
 import { PlayerModel } from "../../client/playerModel";
 import { RemoteEntity } from "../remoteEntity";
 
-export class Player extends BaseEntity<RemotePlayer, LocalPlayer> {
+export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements RotatingEntity {
     public static readonly id = entityRegistry.register(this);
     public readonly id = Player.id;
 
-    public yaw: number = Math.PI * 0.25;
-    public pitch: number = 0;
+    public rotation = new EntityRotation;
 
     public username = "anonymous";
     public color = "#ffffff";
@@ -38,8 +37,7 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> {
         bin.write_string(this.color);
         bin.write_vec3(this.position);
         bin.write_vec3(this.velocity);
-        bin.write_f32(this.yaw);
-        bin.write_f32(this.pitch);
+        this.rotation.serialize(bin);
     }
     protected deserialize(bin: BinaryBuffer): void {
         this.uuid = bin.read_string();
@@ -47,8 +45,7 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> {
         this.color = bin.read_string();
         bin.read_vec3(this.position);
         bin.read_vec3(this.velocity);
-        this.yaw = bin.read_f32();
-        this.pitch = bin.read_f32();
+        this.rotation.deserialize(bin);
     }
     protected getExpectedSize(): number {
         return (
@@ -57,8 +54,7 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> {
             BinaryBuffer.stringByteCount(this.color) +
             VEC3 +
             VEC3 +
-            F32 +
-            F32
+            this.rotation.getExpectedSize()
         )
     }
 }
@@ -101,9 +97,6 @@ export class LocalPlayer extends LocalEntity<Player> {
     private pitchFreecam: number = 0;
 
     public model: PlayerModel = new PlayerModel;
-    
-    public username = "localplayer";
-    public color = "#ff0000";
 
     protected init() {
         
@@ -111,13 +104,6 @@ export class LocalPlayer extends LocalEntity<Player> {
 
     public get camera() {
         return this.freecam ? this.freeCamera : this.playerCamera;
-    }
-    
-    protected serialize(bin: BinaryBuffer) {
-        
-    }
-    protected deserialize(bin: BinaryBuffer) {
-        
     }
 
     public update(dt: number) {
@@ -188,8 +174,8 @@ export class LocalPlayer extends LocalEntity<Player> {
             dz /= length;
         }
 
-        const zMovement = (Math.cos(this.base.yaw) * dz + Math.sin(this.base.yaw) * dx) * dt * speed;
-        const xMovement = -(Math.sin(this.base.yaw) * dz - Math.cos(this.base.yaw) * dx) * dt * speed;
+        const zMovement = (Math.cos(this.base.rotation.yaw) * dz + Math.sin(this.base.rotation.yaw) * dx) * dt * speed;
+        const xMovement = -(Math.sin(this.base.rotation.yaw) * dz - Math.cos(this.base.rotation.yaw) * dx) * dt * speed;
 
         const newSpeed = Math.sqrt((this.base.velocity.x + xMovement) ** 2 + (this.base.velocity.z + zMovement) ** 2);        
         const dampFactor = Math.min(1, maxHorizontalSpeed / Math.max(newSpeed));
@@ -215,15 +201,15 @@ export class LocalPlayer extends LocalEntity<Player> {
 
         this.panRoll = dlerp(this.panRoll, 0, dt, 50);
         if(receivingControls && !this.freecam) {
-            this.base.yaw += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
-            this.base.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
+            this.base.rotation.yaw += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
+            this.base.rotation.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
 
             const panRollVelocity = Math.sqrt(this.base.velocity.x ** 2 + this.base.velocity.z ** 2) + 2;
             this.panRoll += this.controller.pointerMovement.x * controlOptions.mouseSensitivity / dt * 0.00001 * panRollVelocity;
         }
 
-        if(this.base.pitch > Math.PI * 0.5) this.base.pitch = Math.PI * 0.5;
-        if(this.base.pitch < Math.PI * -0.5) this.base.pitch = Math.PI * -0.5;
+        if(this.base.rotation.pitch > Math.PI * 0.5) this.base.rotation.pitch = Math.PI * 0.5;
+        if(this.base.rotation.pitch < Math.PI * -0.5) this.base.rotation.pitch = Math.PI * -0.5;
 
         if(this.crouching) {
             this.base.hitbox.copy(LocalPlayer.hitboxCrouching);
@@ -245,8 +231,8 @@ export class LocalPlayer extends LocalEntity<Player> {
         this.playerCamera.position.y += this.eyeHeight;
         this.playerCamera.fov = this.fovBase * this.fovMultiplier;
 
-        let yaw = -this.base.yaw;
-        let pitch = -this.base.pitch;
+        let yaw = -this.base.rotation.yaw;
+        let pitch = -this.base.rotation.pitch;
         let roll = 0;
 
         pitch += this.pitchOffset;
@@ -266,9 +252,9 @@ export class LocalPlayer extends LocalEntity<Player> {
         cameraOffsetX += Math.cos(this.viewBobTime) * this.viewBobIntensity * 0.5;
         cameraOffsetY += (0.5 - Math.abs(Math.sin(this.viewBobTime))) * this.viewBobIntensity;
 
-        this.playerCamera.position.x += Math.sin(this.base.yaw) * cameraOffsetZ + Math.cos(this.base.yaw) * cameraOffsetX;
+        this.playerCamera.position.x += Math.sin(this.base.rotation.yaw) * cameraOffsetZ + Math.cos(this.base.rotation.yaw) * cameraOffsetX;
         this.playerCamera.position.y += cameraOffsetY;
-        this.playerCamera.position.z -= Math.cos(this.base.yaw) * cameraOffsetZ - Math.sin(this.base.yaw) * cameraOffsetX;
+        this.playerCamera.position.z -= Math.cos(this.base.rotation.yaw) * cameraOffsetZ - Math.sin(this.base.rotation.yaw) * cameraOffsetX;
 
         roll += -Math.atan(this.panRoll) * 0.25;
         roll += Math.cos(this.viewBobTime) * this.viewBobIntensity * 0.2;
@@ -374,11 +360,11 @@ export class LocalPlayer extends LocalEntity<Player> {
 
         this.model.mesh.visible = this.freecam;
 
-        this.model.pitch = this.base.pitch;
-        this.model.yaw = this.base.yaw;
+        this.model.pitch = this.base.rotation.pitch;
+        this.model.yaw = this.base.rotation.yaw;
         this.model.position.copy(this.base.position);
-        this.model.username = this.username;
-        this.model.color = this.color;
+        this.model.username = this.base.username;
+        this.model.color = this.base.color;
         this.model.update(dt);
     }
 
@@ -410,7 +396,7 @@ export class LocalPlayer extends LocalEntity<Player> {
     public placeBlock(x: number, y: number, z: number) {
         if(!this.base.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
-        const color = new Color(this.color).getHex();
+        const color = new Color(this.base.color);
 
         const hitbox = BLOCK_HITBOX;
         if(this.collisionChecker.collidesWithHitbox(x, y, z, hitbox)) return;
@@ -439,6 +425,9 @@ export class LocalPlayer extends LocalEntity<Player> {
 export class RemotePlayer extends RemoteEntity<Player> {
     public model = new PlayerModel;
 
+    private renderPitch = 0;
+    private renderYaw = 0;
+
     public get mesh() {
         return this.model.mesh;
     }
@@ -446,8 +435,11 @@ export class RemotePlayer extends RemoteEntity<Player> {
     public update(dt: number): void {
         super.update(dt);
 
-        this.model.pitch = this.base.pitch;
-        this.model.yaw = this.base.yaw;
+        this.renderPitch = dlerp(this.renderPitch, this.base.rotation.pitch, dt, 50);
+        this.renderYaw = dlerp(this.renderYaw, this.base.rotation.yaw, dt, 50);
+
+        this.model.pitch = this.renderPitch;
+        this.model.yaw = this.renderYaw;
         this.model.position.copy(this.renderPosition);
         this.model.username = this.base.username;
         this.model.color = this.base.color;

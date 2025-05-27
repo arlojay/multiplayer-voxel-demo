@@ -1,6 +1,6 @@
 import { BinaryBuffer } from "../binary";
 import { Packet, packetRegistry } from "./packet";
-import { PlayerInfo } from "./playerInfoPacket";
+import { PlayerInfo } from "./playerInfo";
 
 
 export class PlayerMovePacket extends PlayerInfo {

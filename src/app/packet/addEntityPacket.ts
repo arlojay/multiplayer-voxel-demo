@@ -10,7 +10,7 @@ export class AddEntityPacket extends Packet {
     public type: number;
     public entityData: ArrayBuffer;
 
-    public constructor(entity?: BaseEntity<any, any>) {
+    public constructor(entity?: BaseEntity) {
         super();
 
         if(entity != null) {

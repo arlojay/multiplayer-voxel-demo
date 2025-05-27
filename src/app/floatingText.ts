@@ -48,6 +48,7 @@ export class ColorRGBA {
     }
 }
 
+// approx 372µs per image
 function createTextImage(text: string, fontSize: number, backgroudColor: string, textColor: string) {
     const canvas = new OffscreenCanvas(1, 1);
     const ctx = canvas.getContext("2d");
@@ -118,8 +119,8 @@ export class FloatingText {
 
         this.mesh.geometry.dispose();
         this.mesh.geometry = new PlaneGeometry(text.aspect * this.size, this.size);
-        this.material.map = text.texture;
         this.material.map.dispose();
+        this.material.map = text.texture;
         this.material.map.needsUpdate = true;
     }
     public set text(text: string) {

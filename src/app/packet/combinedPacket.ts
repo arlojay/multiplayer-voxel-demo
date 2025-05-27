@@ -7,6 +7,12 @@ export class CombinedPacket extends Packet {
     
     public packets: Set<ArrayBuffer> = new Set;
 
+    public addPacket(packet: Packet) {
+        const bin = new BinaryBuffer(packet.allocateBuffer());
+        packet.write(bin);
+        this.packets.add(bin.buffer);
+    }
+
     protected deserialize(bin: BinaryBuffer) {
         this.packets.clear();
 

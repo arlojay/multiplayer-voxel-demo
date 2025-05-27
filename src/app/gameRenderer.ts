@@ -30,6 +30,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
     private terrainShader: MeshBasicNodeMaterial = null;
     private lastRenderTime: number = 0;
+    private regainingRendererContext = false;
     public framerate = 0;
     public frametime = 0;
 
@@ -40,7 +41,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         this.UIRoot = UIRoot;
     }
     public async init() {
-        this.initRenderer();
+        await this.initRenderer();
 
         this.resize();
         window.addEventListener("resize", () => this.resize());
@@ -54,12 +55,46 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         requestAnimationFrame(time => this.render(time));
     }
 
-    private initRenderer() {
+    private async initRenderer() {
         this.renderer = new WebGPURenderer({ canvas: this.canvas, powerPreference: "high-performance", antialias: false });
 
         this.renderer.autoClearColor = false;
         this.renderer.autoClearDepth = false;
         this.renderer.autoClearStencil = false;
+
+        this.renderer.onDeviceLost = (info) => {
+            if(this.regainingRendererContext) return;
+            this.regainingRendererContext = true;
+
+            console.log("Device lost!", info);
+            setTimeout(() => {
+                console.log("Recreating renderer...");
+                
+                this.initRenderer()
+                .then(() => {
+                    this.regainingRendererContext = false;
+                })
+                .catch(e => {
+                    console.error(new Error("Failed to re-initialize renderer", { cause: e }));
+
+                    let attempts = 0;
+                    const interval = setInterval(() => {
+                        attempts++;
+                        console.log("Recreating renderer (" + attempts + ")...");
+                        this.initRenderer()
+                        .then(() => {
+                            this.regainingRendererContext = false;
+                            clearInterval(interval);
+                        })
+                        .catch(e => {
+                            console.warn(new Error("Failed to recreate renderer", { cause: e }));
+                        })
+                    }, 2000);
+                });
+            }, 100);
+        }
+
+        await this.renderer.init();
     }
 
     public async render(time: number) {

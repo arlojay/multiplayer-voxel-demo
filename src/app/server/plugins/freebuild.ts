@@ -37,14 +37,14 @@ export class FreebuildPlugin extends ServerPlugin {
                 this.privateWorlds.set(peer, world);
             }
             peer.sendToWorld(world);
-            peer.player.respawn();
+            peer.serverPlayer.respawn();
         });
 
         const mainWorldButton = new UIButton("Main World");
         mainWorldButton.style.display = "block";
         mainWorldButton.onClick(async () => {
             peer.sendToWorld(this.server.getDefaultWorld());
-            peer.player.respawn();
+            peer.serverPlayer.respawn();
         });
 
         ui.addChild(tempWorldButton);

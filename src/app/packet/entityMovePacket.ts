@@ -15,7 +15,7 @@ export class EntityMovePacket extends Packet {
     public vy: number;
     public vz: number;
 
-    public constructor(entity?: BaseEntity<any, any>) {
+    public constructor(entity?: BaseEntity) {
         super();
 
         if(entity == null) return;
@@ -27,7 +27,6 @@ export class EntityMovePacket extends Packet {
     }
 
     protected serialize(bin: BinaryBuffer): void {
-        console.log(this.uuid);
         bin.write_string(this.uuid);
         bin.write_f32(this.x);
         bin.write_f32(this.y);

@@ -3,7 +3,7 @@ import { BaseEntity } from "./baseEntity";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
 
-export abstract class RemoteEntity<Base extends BaseEntity<any, any>> {
+export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
     protected base: Base;
     public readonly renderPosition = new Vector3;
     private timeSinceLastUpdate: number;

@@ -1,3 +1,4 @@
+import { Player } from "../entity/impl";
 import { World } from "../world";
 import { EmittedEvent } from "./events";
 import { Server } from "./server";
@@ -27,7 +28,8 @@ abstract class ServerPluginPeerEvent extends EmittedEvent {
 
     public peer: ServerPeer;
     public world: World;
-    public player: ServerPlayer;
+    public serverPlayer: ServerPlayer;
+    public player: Player;
 
     constructor(server: Server) {
         super();
@@ -68,6 +70,7 @@ export class PeerMoveEvent extends ServerPluginPeerEvent {
     public readonly name = PluginEvents.BREAK_BLOCK;
     public readonly cancellable = true;
 
+    public playerData: Player;
     public x: number;
     public y: number;
     public z: number;
