@@ -1,11 +1,12 @@
-import { Box3, Scene, Vector3 } from "three";
-import { BinaryBuffer, F16, U16 } from "../binary";
+import { Box3, Vector3 } from "three";
+import { $enum } from "ts-enum-util";
+import { BinaryBuffer, F16, U16, VEC3 } from "../binary";
 import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
+import { Server } from "../server/server";
 import { CHUNK_INC_SCL } from "../voxelGrid";
-import { Chunk, World } from "../world";
+import { World } from "../world";
 import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
-import { Server } from "../server/server";
 
 export const entityRegistry = new class EntityRegistry extends BufferSerializableRegistry<
     BaseEntity,
@@ -75,7 +76,7 @@ export abstract class BaseEntity<
     RemoteLogic extends RemoteEntity = RemoteEntity,
     LocalLogic extends LocalEntity = LocalEntity
 > extends BufferSerializable {
-    public abstract id: number;
+    public abstract readonly id: number;
 
     public readonly position = new Vector3;
     public readonly velocity = new Vector3;
@@ -93,30 +94,34 @@ export abstract class BaseEntity<
 
     public constructor(logicType: EntityLogicType) {
         super();
-
-        this.init();
-
         
         this.logicType = logicType;
         if(logicType != EntityLogicType.NO_LOGIC) {
             const logic = this.instanceLogic(logicType == EntityLogicType.LOCAL_LOGIC);
 
+            const invalidTypeMessage = "Wrong logic type returned from instanceLogic (expected " + $enum(EntityLogicType).getKeyOrThrow(logicType) + " instance, got " + logic.constructor?.name + ")";
             if(logic instanceof LocalEntity) {
+                if(logicType != EntityLogicType.LOCAL_LOGIC) throw new TypeError(invalidTypeMessage);
                 this.localLogic = logic;
             }
             if(logic instanceof RemoteEntity) {
+                if(logicType != EntityLogicType.REMOTE_LOGIC) throw new TypeError(invalidTypeMessage);
                 this.remoteLogic = logic;
             }
             this.update = logic.update.bind(logic);
         }
     }
 
-    protected abstract init(): void;
-
     public setWorld(world: World) {
         this.world = world;
         this.localLogic?.setWorld(world);
         this.remoteLogic?.setWorld(world);
+    }
+
+    public sendNetworkUpdate() {
+        if(this.server != null) {
+            this.server.updateEntity(this);
+        }
     }
 
     public get x() {
@@ -157,11 +162,23 @@ export abstract class BaseEntity<
     
     public write(bin: BinaryBuffer) {
         bin.write_u16(this.id);
+        bin.write_vec3(this.position);
+        bin.write_vec3(this.velocity);
         this.serialize(bin);
     }
 
+    public allocateExtraDataBuffer() {
+        return new ArrayBuffer(this.getExpectedSize());
+    }
+    public writeExtraData(bin: BinaryBuffer) {
+        this.serialize(bin);
+    }
+    public readExtraData(bin: BinaryBuffer) {
+        this.deserialize(bin);
+    }
+
     public getBufferSize() {
-        return super.getBufferSize() + U16;
+        return super.getBufferSize() + VEC3 + VEC3 + U16;
     }
 
     protected abstract getExpectedSize(): number;

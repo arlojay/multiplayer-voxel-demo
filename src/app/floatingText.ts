@@ -3,7 +3,7 @@ import { cameraProjectionMatrix, Fn, modelViewMatrix, positionGeometry, vec4 } f
 import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
 
 export class ColorRGBA {
-    public color: Color;
+    public readonly color: Color;
     public alpha: number;
 
     constructor(color = new Color, alpha = 1) {
@@ -42,6 +42,12 @@ export class ColorRGBA {
         this.b = b;
         this.a = a;
     }
+    public copy(color: ColorRGBA) {
+        this.r = color.r;
+        this.g = color.g;
+        this.b = color.b;
+        this.a = color.a;
+    }
 
     public getHexString() {
         return this.color.getHexString() + this.alpha.toString(16).padStart(2, "0").slice(0, 2);
@@ -76,13 +82,13 @@ function createTextImage(text: string, fontSize: number, backgroudColor: string,
 
 export class FloatingText {
     private _text: string;
-    public mesh: Mesh;
+    public readonly mesh: Mesh;
     public resolution = 320;
     public size = 0.1;
     private material: MeshBasicNodeMaterial;
 
-    public background = new ColorRGBA(new Color(0x000000), 0x88);
-    public color = new ColorRGBA(new Color(0xffffff), 0xff);
+    public readonly background = new ColorRGBA(new Color(0x000000), 0x88);
+    public readonly color = new ColorRGBA(new Color(0xffffff), 0xff);
 
     public constructor(text: string) {
         this._text = text;

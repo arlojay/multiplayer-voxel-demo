@@ -1,6 +1,6 @@
 import { Box3, Color, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
 import { BinaryBuffer, F32, VEC3 } from "../../binary";
-import { BaseEntity, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
+import { BaseEntity, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
 import { BLOCK_HITBOX, LocalEntity } from "../localEntity";
 import { dlerp } from "../../math";
 import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
@@ -20,7 +20,9 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements Rot
     public username = "anonymous";
     public color = "#ffffff";
 
-    protected init(): void {
+    constructor(logicType: EntityLogicType) {
+        super(logicType);
+
         this.hitbox.set(
             new Vector3(-0.3, 0, -0.3),
             new Vector3(0.3, 1.8, 0.3)
@@ -35,16 +37,12 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements Rot
         bin.write_string(this.uuid);
         bin.write_string(this.username);
         bin.write_string(this.color);
-        bin.write_vec3(this.position);
-        bin.write_vec3(this.velocity);
         this.rotation.serialize(bin);
     }
     protected deserialize(bin: BinaryBuffer): void {
         this.uuid = bin.read_string();
         this.username = bin.read_string();
         this.color = bin.read_string();
-        bin.read_vec3(this.position);
-        bin.read_vec3(this.velocity);
         this.rotation.deserialize(bin);
     }
     protected getExpectedSize(): number {
@@ -97,10 +95,6 @@ export class LocalPlayer extends LocalEntity<Player> {
     private pitchFreecam: number = 0;
 
     public model: PlayerModel = new PlayerModel;
-
-    protected init() {
-        
-    }
 
     public get camera() {
         return this.freecam ? this.freeCamera : this.playerCamera;

@@ -7,7 +7,7 @@ import { NetworkUI } from "../client/networkUI";
 import { EntityLogicType, entityRegistry, EntityRotation } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
-import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, UIInteractionPacket } from "../packet";
+import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, UIInteractionPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
 import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { LoopingMusic } from "../sound/loopingMusic";
@@ -158,8 +158,17 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                 rotation.yaw = packet.yaw;
             }
         }
+        if(packet instanceof EntityDataPacket && !this.isPacketOld(packet)) {
+            const entity = this.localWorld.getEntityByUUID(packet.uuid);
+            if(entity == null) {
+                console.warn("Cannot find entity " + packet.uuid + "!");
+            } else {
+                entity.readExtraData(new BinaryBuffer(packet.data));
+            }
+        }
         if(packet instanceof AddEntityPacket) {
             const remoteEntity = entityRegistry.createFromBinary(packet.entityData, EntityLogicType.REMOTE_LOGIC);
+            remoteEntity.uuid = packet.uuid;
             this.localWorld.addEntity(remoteEntity);
             console.log(remoteEntity);
             remoteEntity.remoteLogic.onAdd(this.client.gameRenderer.scene);

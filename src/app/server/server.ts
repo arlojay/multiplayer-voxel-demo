@@ -1,6 +1,6 @@
 import { BaseEntity } from "../entity/baseEntity";
 import { debugLog } from "../logging";
-import { AddEntityPacket, Packet, SetBlockPacket } from "../packet";
+import { AddEntityPacket, EntityDataPacket, Packet, SetBlockPacket } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
 import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { World } from "../world";
@@ -258,6 +258,10 @@ export class Server extends EventPublisher {
 
     public spawnEntity(entity: BaseEntity) {
         const packet = new AddEntityPacket(entity);
+        this.broadcastPacket(packet, entity.world);
+    }
+    public updateEntity(entity: BaseEntity) {
+        const packet = new EntityDataPacket(entity);
         this.broadcastPacket(packet, entity.world);
     }
 

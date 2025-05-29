@@ -12,9 +12,9 @@ export const BLOCK_HITBOX = new Box3(
 );
 
 export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, LocalEntity<any>>> {
-    protected base: Base;
+    protected readonly base: Base;
     public airTime: number = 0;
-    public collisionChecker: CollisionChecker;
+    public readonly collisionChecker: CollisionChecker;
 
     public readonly position: Vector3;
     public readonly velocity: Vector3;
@@ -30,15 +30,9 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         this.velocity = base.velocity;
         this.hitbox = base.hitbox;
         this.collisionChecker = new CollisionChecker(this.hitbox, this.position, base.world);
-        this.init();
-    }
-
-    protected init() {
-        
     }
 
     public setWorld(world: World) {
-        console.trace("change collision world");
         this.collisionChecker.world = world;
     }
 

@@ -4,9 +4,9 @@ import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
 
 export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
-    protected base: Base;
+    protected readonly base: Base;
     public readonly renderPosition = new Vector3;
-    private timeSinceLastUpdate: number;
+    private timeSinceLastUpdate = 0;
     
     public readonly position: Vector3;
     public readonly velocity: Vector3;

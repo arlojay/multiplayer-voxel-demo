@@ -61,5 +61,6 @@ export class DemoPlugin extends ServerPlugin {
         const floatingText = event.serverPlayer.world.spawnEntity(TextEntity);
         floatingText.text = "Placed by " + event.peer.username;
         floatingText.position.set(event.x + 0.5, event.y + 1.25, event.z + 0.5);
+        floatingText.sendNetworkUpdate();
     }
 }

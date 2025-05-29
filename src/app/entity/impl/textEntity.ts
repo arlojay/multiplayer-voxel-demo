@@ -12,12 +12,8 @@ export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
     public color: ColorRGBA = new ColorRGBA;
     public background: ColorRGBA = new ColorRGBA;
 
-    protected init(): void {
-        
-    }
-
     protected instanceLogic(local: boolean) {
-        return local ? new RemoteTextEntity(this) : new LocalTextEntity(this);
+        return local ? new LocalTextEntity(this) : new RemoteTextEntity(this);
     }
     protected serialize(bin: BinaryBuffer): void {
         bin.write_string(this.text);
@@ -39,15 +35,17 @@ export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
 }
 
 export class RemoteTextEntity extends RemoteEntity<TextEntity> {
-    public model: FloatingText;
+    public readonly model: FloatingText;
 
     public get mesh() {
         return this.model.mesh;
     }
 
-    public init() {
+    constructor(base: TextEntity) {
+        super(base);
         this.model = new FloatingText(this.base.text);
     }
+
     public dispose() {
         this.model.dispose();
     }
@@ -55,7 +53,7 @@ export class RemoteTextEntity extends RemoteEntity<TextEntity> {
         super.update(dt);
 
         this.model.text = this.base.text;
-        this.model.color = this.base.color;
+        this.model.color.copy(this.base.color);
     }
 }
 export class LocalTextEntity extends LocalEntity<TextEntity> {

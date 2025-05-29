@@ -64,7 +64,6 @@ export class DatabaseObjectStore<KeyPath extends string, Schema = any> {
     }
 
     public async create(key: string, data: Omit<Schema, KeyPath>) {
-        console.log("CREATE " + key);
         const object = new DatabaseObject<KeyPath, Schema>(this.db, this, key, data);
 
         await object.save();
@@ -74,7 +73,6 @@ export class DatabaseObjectStore<KeyPath extends string, Schema = any> {
     }
 
     public async get(key: string) {
-        console.log("GET " + key);
         if(this.objects.get(key) != null) return this.objects.get(key);
 
         const transaction = this.db.transaction(this.name, "readonly");
