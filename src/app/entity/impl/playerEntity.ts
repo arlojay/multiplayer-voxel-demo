@@ -417,7 +417,7 @@ export class LocalPlayer extends LocalEntity<Player> {
 }
 
 export class RemotePlayer extends RemoteEntity<Player> {
-    public model = new PlayerModel;
+    public readonly model = new PlayerModel;
 
     private renderPitch = 0;
     private renderYaw = 0;
@@ -445,7 +445,7 @@ export class RemotePlayer extends RemoteEntity<Player> {
     }
 
     public onRemove(): void {
-        this.model.mesh.parent.remove(this.model.mesh);
+        this.model.mesh.removeFromParent();
         this.model.dispose();
     }
 }

@@ -20,9 +20,9 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
     public readonly velocity: Vector3;
     public readonly hitbox: Box3;
 
-    private readonly lastPosition = new Vector3;
-    private readonly lastVelocity = new Vector3;
-    private lastMoveTime = 0;
+    private readonly lastPosition = new Vector3();
+    private readonly lastVelocity = new Vector3();
+    private lastMoveTime = -1;
 
     public constructor(base: typeof this.base) {
         this.base = base;
@@ -91,11 +91,11 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         if(time == this.lastMoveTime) return true;
 
         let moved = false;
-        if(this.position.clone().sub(this.lastPosition).length() > 0.01) {
+        if(this.position.clone().sub(this.lastPosition).length() > 0.01 || this.lastMoveTime == -1) {
             this.lastPosition.copy(this.position);
             moved = true;
         }
-        if(this.velocity.clone().sub(this.lastVelocity).length() > 0.01) {
+        if(this.velocity.clone().sub(this.lastVelocity).length() > 0.01 || this.lastMoveTime == -1) {
             this.lastVelocity.copy(this.velocity);
             moved = true;
         }

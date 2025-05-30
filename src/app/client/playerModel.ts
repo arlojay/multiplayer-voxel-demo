@@ -9,15 +9,17 @@ import { FloatingText } from "../floatingText";
 const loader = new GLTFLoader();
 
 export class PlayerModel {
-    public position = new Vector3;
-    public yaw: number = Math.PI * 0.25;
-    public pitch: number = 0;
-    public mesh: Object3D = new Object3D;
-    public skin: SkinnedMesh;
     public username = "anonymous";
     public color = "#ffffff";
-    private colorNode = new Color(this.color);
-    private nametag = new FloatingText(this.username);
+
+    public readonly position = new Vector3;
+    public yaw: number = Math.PI * 0.25;
+    public pitch: number = 0;
+
+    private readonly colorNode = new Color(this.color);
+    private readonly nametag = new FloatingText(this.username);
+    public readonly mesh: Object3D = new Object3D;
+    public skin: SkinnedMesh;
 
     public constructor() {
         this.createModel();

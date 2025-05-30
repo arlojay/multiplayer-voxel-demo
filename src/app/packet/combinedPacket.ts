@@ -40,3 +40,17 @@ export class CombinedPacket extends Packet {
         return size;
     }
 }
+
+export function combinePackets(...packets: (Packet | null)[]): Packet | null {
+    packets = packets.filter(v => v != null);
+
+    if(packets.length == 0) return null;
+    if(packets.length == 1) return packets[0];
+    
+    const combinedPacket = new CombinedPacket();
+    for(const packet of packets) {
+        combinedPacket.addPacket(packet);
+    }
+
+    return combinedPacket;
+}

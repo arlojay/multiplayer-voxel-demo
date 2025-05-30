@@ -1,7 +1,9 @@
-import { BaseEntity } from "../entity/baseEntity";
+import { BaseEntity, EntityLogicType, EntityRotation, instanceof_RotatingEntity, RotatingEntity } from "../entity/baseEntity";
+import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
-import { AddEntityPacket, EntityDataPacket, Packet, SetBlockPacket } from "../packet";
+import { AddEntityPacket, CombinedPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, SetBlockPacket } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { EntityLookPacket } from "../packet/entityLookPacket";
 import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { World } from "../world";
 import { WorldGenerator } from "../worldGenerator";
@@ -32,6 +34,7 @@ export class Server extends EventPublisher {
     public launchOptions: ServerLaunchOptions;
     public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
+    public time: number;
 
     public constructor(launchOptions: ServerLaunchOptions) {
         super();
@@ -101,6 +104,22 @@ export class Server extends EventPublisher {
         }, 1000 / 2);
 
         setInterval(() => {
+            const time = performance.now();
+
+            const worldsWithPeers: Set<World> = new Set;
+
+            for(const peer of this.peers.values()) {
+                worldsWithPeers.add(peer.serverPlayer.world);
+            }
+
+            for(const world of this.worlds.values()) {
+                if(!worldsWithPeers.has(world)) continue;
+
+                for(const entity of world.entities.allEntities.values()) {
+                    this.updateEntityLocationImmediate(entity, time, false);
+                }
+            }
+            
             for(const peer of this.peers.values()) {
                 peer.flushPacketQueue();
             }
@@ -116,6 +135,36 @@ export class Server extends EventPublisher {
                 peer.update(dt);
             }
         }, 1000 / 20);
+
+
+        const animate = (time: number) => {
+            this.time = time;
+            requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
+    }
+
+    public updateEntityLocationImmediate(entity: BaseEntity, time: number, instant = true) {
+        if(entity.logicType != EntityLogicType.LOCAL_LOGIC) return;
+        if(entity instanceof Player) {
+            // don't send automatic updates for player entities
+            // this is handled differently when packets are received...
+            return;
+        }
+
+        if(!entity.localLogic.hasMovedSince(time)) return;
+        console.log(entity);
+
+        const movedLocation = entity.localLogic.hasMovedSince(time);
+        const movedRotation = instanceof_RotatingEntity(entity) && entity.rotation.hasMovedSince(time);
+        const packet = combinePackets(
+            movedLocation ? new EntityMovePacket(entity): null,
+            movedRotation ? new EntityLookPacket(entity): null
+        );
+
+        console.log(packet);
+
+        if(packet != null) this.broadcastPacket(packet, entity.world, instant);
     }
 
     private flushWorldUpdateQueue() {

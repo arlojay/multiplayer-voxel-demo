@@ -4,7 +4,7 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { NetworkUI } from "../client/networkUI";
-import { EntityLogicType, entityRegistry, EntityRotation } from "../entity/baseEntity";
+import { EntityLogicType, entityRegistry, EntityRotation, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
 import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, UIInteractionPacket } from "../packet";
@@ -145,6 +145,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                 entity.position.set(packet.x, packet.y, packet.z);
                 entity.velocity.set(packet.vx, packet.vy, packet.vz);
 
+                entity.remoteLogic?.onMoved();
                 entity.remoteLogic?.resetTimer();
             }
         }
@@ -152,10 +153,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             const entity = this.localWorld.getEntityByUUID(packet.uuid);
             if(entity == null) {
                 console.warn("Cannot find entity " + packet.uuid + "!");
-            } else if("rotation" in entity) {
-                const rotation = entity.rotation as EntityRotation;
-                rotation.pitch = packet.pitch;
-                rotation.yaw = packet.yaw;
+            } else if(instanceof_RotatingEntity(entity)) {
+                entity.rotation.pitch = packet.pitch;
+                entity.rotation.yaw = packet.yaw;
             }
         }
         if(packet instanceof EntityDataPacket && !this.isPacketOld(packet)) {
@@ -164,6 +164,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                 console.warn("Cannot find entity " + packet.uuid + "!");
             } else {
                 entity.readExtraData(new BinaryBuffer(packet.data));
+                entity.remoteLogic?.onUpdated();
             }
         }
         if(packet instanceof AddEntityPacket) {

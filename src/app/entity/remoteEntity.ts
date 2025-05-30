@@ -2,6 +2,7 @@ import { Box3, Scene, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
+import { EntityMovePacket } from "../packet";
 
 export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
     protected readonly base: Base;
@@ -43,6 +44,12 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
         }
     }
 
+    public onMoved() {
+
+    }
+    public onUpdated() {
+
+    }
     public onAdd(scene: Scene) {
         
     }

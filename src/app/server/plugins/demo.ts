@@ -5,6 +5,7 @@ import { PeerJoinEvent, PlaceBlockEvent, PluginEvents, ServerLoadedEvent } from 
 import { ServerPlugin } from "../serverPlugin";
 import { ServerUI } from "../serverUI";
 import { TextEntity } from "../../entity/impl";
+import { Vector3 } from "three";
 
 interface PlayerClicksEntry {
     username: string;
@@ -62,5 +63,10 @@ export class DemoPlugin extends ServerPlugin {
         floatingText.text = "Placed by " + event.peer.username;
         floatingText.position.set(event.x + 0.5, event.y + 1.25, event.z + 0.5);
         floatingText.sendNetworkUpdate();
+
+        setInterval(() => {
+            floatingText.position.add(new Vector3(0, 0.0025, 0));
+            this.server.updateEntityLocationImmediate(floatingText, this.server.time);
+        }, 1);
     }
 }

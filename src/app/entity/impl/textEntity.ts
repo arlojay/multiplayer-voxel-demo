@@ -1,8 +1,10 @@
+import { Scene } from "three";
 import { BinaryBuffer, F32, U8 } from "../../binary";
 import { ColorRGBA, FloatingText } from "../../floatingText";
 import { BaseEntity, entityRegistry } from "../baseEntity";
 import { LocalEntity } from "../localEntity";
 import { RemoteEntity } from "../remoteEntity";
+import { EntityMovePacket } from "src/app/packet";
 
 export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
     public static readonly id = entityRegistry.register(this);
@@ -51,9 +53,21 @@ export class RemoteTextEntity extends RemoteEntity<TextEntity> {
     }
     public update(dt: number): void {
         super.update(dt);
-
+    }
+    
+    public onMoved(): void {
+        this.model.mesh.position.copy(this.position);
+    }
+    public onUpdated(): void {
         this.model.text = this.base.text;
         this.model.color.copy(this.base.color);
+    }
+    public onAdd(scene: Scene): void {
+        scene.add(this.model.mesh);
+    }
+    public onRemove(): void {
+        this.model.mesh.removeFromParent();
+        this.model.dispose();
     }
 }
 export class LocalTextEntity extends LocalEntity<TextEntity> {

@@ -71,6 +71,9 @@ export class EntityRotation implements EntityComponent {
 export interface RotatingEntity {
     rotation: EntityRotation;
 }
+export function instanceof_RotatingEntity(object: any): object is RotatingEntity {
+    return "rotation" in object;
+}
 
 export abstract class BaseEntity<
     RemoteLogic extends RemoteEntity = RemoteEntity,
