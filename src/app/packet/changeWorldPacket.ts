@@ -1,9 +1,9 @@
 import { BinaryBuffer } from "../binary";
 import { World } from "../world";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class ChangeWorldPacket extends Packet {
-    public static id = Packet.register(() => new this);
+    public static id = packetRegistry.register(this);
     public id = ChangeWorldPacket.id;
     public world: string;
 

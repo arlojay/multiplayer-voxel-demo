@@ -1,9 +1,9 @@
 import { BinaryBuffer } from "../binary";
 import { SerializedUIContainer } from "../ui";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class OpenUIPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = OpenUIPacket.id;
 
     public ui: SerializedUIContainer;

@@ -1,8 +1,8 @@
 import { BinaryBuffer } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class CloseUIPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = CloseUIPacket.id;
 
     public interfaceId: string;

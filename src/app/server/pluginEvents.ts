@@ -1,3 +1,4 @@
+import { Player } from "../entity/impl";
 import { World } from "../world";
 import { EmittedEvent } from "./events";
 import { Server } from "./server";
@@ -12,6 +13,8 @@ export enum PluginEvents {
     WORLD_CREATE = "worldCreate",
     SERVER_PREINIT = "serverPreinit",
     SERVER_LOADED = "serverLoaded",
+    SERVER_TICK = "serverTick",
+    FLUSH_PACKET_QUEUE = "flushPacketQueue"
 }
 
 abstract class ServerPluginEvent extends EmittedEvent {
@@ -27,7 +30,8 @@ abstract class ServerPluginPeerEvent extends EmittedEvent {
 
     public peer: ServerPeer;
     public world: World;
-    public player: ServerPlayer;
+    public serverPlayer: ServerPlayer;
+    public player: Player;
 
     constructor(server: Server) {
         super();
@@ -68,6 +72,7 @@ export class PeerMoveEvent extends ServerPluginPeerEvent {
     public readonly name = PluginEvents.BREAK_BLOCK;
     public readonly cancellable = true;
 
+    public playerData: Player;
     public x: number;
     public y: number;
     public z: number;
@@ -96,4 +101,18 @@ export class ServerPreinitEvent extends ServerPluginEvent {
 export class ServerLoadedEvent extends ServerPluginEvent {
     public readonly name = PluginEvents.SERVER_LOADED;
     public readonly cancellable = true;
+}
+
+export class ServerTickEvent extends ServerPluginEvent {
+    public readonly name = PluginEvents.SERVER_TICK;
+    public readonly cancellable = false;
+    
+    public dt: number;
+}
+
+export class FlushPacketQueueEvent extends ServerPluginEvent {
+    public readonly name = PluginEvents.FLUSH_PACKET_QUEUE;
+    public readonly cancellable = true;
+
+    public peer: ServerPeer;
 }

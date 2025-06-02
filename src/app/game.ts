@@ -437,7 +437,6 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
                     element.checked = false;
                 }
             }
-            console.log("remove all...", serverOptions.plugins.splice(0));
             pluginList.update();
         })
         
@@ -456,7 +455,6 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
 
             if(serverListing != null) {
                 serverListing.name = serverOptions.name;
-                console.log("update server listing name", serverListing, serverOptions);
                 promise = promise.then(() => client.gameData.updateServer(serverListing));
             }
 
@@ -483,7 +481,6 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
 
     
         root.update().then(element => {
-            console.log(element);
             createServerModal.append(element);
             createServerModal.classList.add("visible");
         });

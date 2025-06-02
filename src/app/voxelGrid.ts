@@ -1,7 +1,7 @@
 import { AugmentedUint16Array, Uint16ArrayPool } from "./arrayPool";
 
-export const SOLID_BITMASK = 1 << 15;
-export const AIR_VALUE = 0b100000000000000000000000;
+export const SOLID_BITMASK = 0b1000000000000000;
+export const AIR_VALUE = 0b0000000000000000;
 
 export const BLOCK_INC_SCL = 4;
 export const BLOCK_X_INC_BYTE = BLOCK_INC_SCL * 2;
@@ -28,63 +28,63 @@ const REGION_VOLUME = (1 << REGION_INC_SCL) ** 3;
 
 
 export class VoxelGridChunk {
-    data: AugmentedUint16Array;
-    x: number;
-    y: number;
-    z: number;
+    public data: AugmentedUint16Array;
+    public x: number;
+    public y: number;
+    public z: number;
 
-    constructor(x: number, y: number, z: number) {
+    public constructor(x: number, y: number, z: number) {
         this.data = Uint16ArrayPool.create();
         this.x = x;
         this.y = y;
         this.z = z;
     }
     
-    get(x: number, y: number, z: number): number {
+    public get(x: number, y: number, z: number): number {
         return this.data[x << BLOCK_X_INC_BYTE | y << BLOCK_Y_INC_BYTE | z << BLOCK_Z_INC_BYTE];
     }
-    set(x: number, y: number, z: number, value: number): void {
+    public set(x: number, y: number, z: number, value: number): void {
         this.data[x << BLOCK_X_INC_BYTE | y << BLOCK_Y_INC_BYTE | z << BLOCK_Z_INC_BYTE] = value;
     }
-    dispose(): void {
+    public dispose(): void {
         this.data.dispose();
     }
 }
 
 export class VoxelGridRegion {
-    chunks: VoxelGridChunk[];
-    x: number;
-    y: number;
-    z: number;
+    public chunks: VoxelGridChunk[];
+    public x: number;
+    public y: number;
+    public z: number;
 
-    constructor(x: number, y: number, z: number) {
+    public constructor(x: number, y: number, z: number) {
         this.chunks = new Array(CHUNK_SIZE ** 3);
         this.x = x;
         this.y = y;
         this.z = z;
     }
 
-    chunkExists(x: number, y: number, z: number): boolean {
+    public chunkExists(x: number, y: number, z: number): boolean {
         return this.chunks[x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE] != null;
     }
-    getChunk(x: number, y: number, z: number, create = true): VoxelGridChunk {
+    public getChunk(x: number, y: number, z: number, create = true): VoxelGridChunk {
         let chunk = this.chunks[x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE];
         if(chunk == null && create) {
             chunk = this.createChunk(x, y, z);
         }
         return chunk;
     }
-    deleteChunk(x: number, y: number, z: number) {
+    public deleteChunk(x: number, y: number, z: number) {
         const n = x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE;
         const old = this.chunks[n];
         delete this.chunks[n];
         return old;
     }
-    createChunk(x: number, y: number, z: number): VoxelGridChunk {
+    public createChunk(x: number, y: number, z: number): VoxelGridChunk {
         return this.chunks[x << CHUNK_X_INC_BYTE | y << CHUNK_Y_INC_BYTE | z << CHUNK_Z_INC_BYTE] = new VoxelGridChunk(x + this.x * REGION_SIZE, y + this.y * REGION_SIZE, z + this.z * REGION_SIZE);
     }
 
-    get(x: number, y: number, z: number, createChunk = true): number {
+    public get(x: number, y: number, z: number, createChunk = true): number {
         const chunk = this.getChunk(
             x >> CHUNK_INC_SCL,
             y >> CHUNK_INC_SCL,
@@ -99,7 +99,7 @@ export class VoxelGridRegion {
             z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL),
         );
     }
-    set(x: number, y: number, z: number, value: number): void {
+    public set(x: number, y: number, z: number, value: number): void {
         const chunk = this.getChunk(
             x >> CHUNK_INC_SCL,
             y >> CHUNK_INC_SCL,
@@ -112,7 +112,7 @@ export class VoxelGridRegion {
             value
         );
     }
-    dispose(): void {
+    public dispose(): void {
         let chunk;
         for(let i = 0; i < REGION_VOLUME; i++) {
             if((chunk = this.chunks[i]) == null) continue;
@@ -122,11 +122,11 @@ export class VoxelGridRegion {
 }
 
 export class VoxelGrid {
-    regions: Map<string, VoxelGridRegion>;
-    cachedRegion: VoxelGridRegion;
-    cachedRegionX: number;
-    cachedRegionY: number;
-    cachedRegionZ: number;
+    public regions: Map<string, VoxelGridRegion>;
+    private cachedRegion: VoxelGridRegion;
+    private cachedRegionX: number;
+    private cachedRegionY: number;
+    private cachedRegionZ: number;
 
     constructor() {
         this.regions = new Map;
@@ -135,7 +135,7 @@ export class VoxelGrid {
         this.cachedRegionY = Infinity;
         this.cachedRegionZ = Infinity;
     }
-    getRegion(x: number, y: number, z: number): VoxelGridRegion {
+    public getRegion(x: number, y: number, z: number): VoxelGridRegion {
         if(x == this.cachedRegionX && y == this.cachedRegionY && z == this.cachedRegionZ) return this.cachedRegion;
         this.cachedRegionX = x;
         this.cachedRegionY = y;
@@ -148,7 +148,7 @@ export class VoxelGrid {
         }
         return this.cachedRegion = cachedRegion;
     }
-    chunkExists(x: number, y: number, z: number): boolean {
+    public chunkExists(x: number, y: number, z: number): boolean {
         const region = this.getRegion(
             x >> REGION_INC_SCL,
             y >> REGION_INC_SCL,
@@ -161,7 +161,7 @@ export class VoxelGrid {
             z - (z >> REGION_INC_SCL << REGION_INC_SCL)
         );
     }
-    getChunk(x: number, y: number, z: number, create = true): VoxelGridChunk {
+    public getChunk(x: number, y: number, z: number, create = true): VoxelGridChunk {
         const region = this.getRegion(
             x >> REGION_INC_SCL,
             y >> REGION_INC_SCL,
@@ -175,7 +175,7 @@ export class VoxelGrid {
             create
         );
     }
-    deleteChunk(x: number, y: number, z: number) {
+    public deleteChunk(x: number, y: number, z: number) {
         const region = this.getRegion(
             x >> REGION_INC_SCL,
             y >> REGION_INC_SCL,
@@ -188,7 +188,7 @@ export class VoxelGrid {
             z - (z >> REGION_INC_SCL << REGION_INC_SCL)
         );
     }
-    get(x: number, y: number, z: number, createChunk = true): number {
+    public get(x: number, y: number, z: number, createChunk = true): number {
         const region = this.getRegion(
             x >> REGION_BLOCK_INC,
             y >> REGION_BLOCK_INC,
@@ -202,7 +202,7 @@ export class VoxelGrid {
             createChunk
         );
     }
-    set(x: number, y: number, z: number, value: number): void {
+    public set(x: number, y: number, z: number, value: number): void {
         const region = this.getRegion(
             x >> REGION_BLOCK_INC,
             y >> REGION_BLOCK_INC,

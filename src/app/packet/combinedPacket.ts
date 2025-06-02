@@ -1,11 +1,17 @@
 import { BinaryBuffer, U16 } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class CombinedPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = CombinedPacket.id;
     
     public packets: Set<ArrayBuffer> = new Set;
+
+    public addPacket(packet: Packet) {
+        const bin = new BinaryBuffer(packet.allocateBuffer());
+        packet.write(bin);
+        this.packets.add(bin.buffer);
+    }
 
     protected deserialize(bin: BinaryBuffer) {
         this.packets.clear();
@@ -33,4 +39,18 @@ export class CombinedPacket extends Packet {
 
         return size;
     }
+}
+
+export function combinePackets(...packets: (Packet | null)[]): Packet | null {
+    packets = packets.filter(v => v != null);
+
+    if(packets.length == 0) return null;
+    if(packets.length == 1) return packets[0];
+    
+    const combinedPacket = new CombinedPacket();
+    for(const packet of packets) {
+        combinedPacket.addPacket(packet);
+    }
+
+    return combinedPacket;
 }

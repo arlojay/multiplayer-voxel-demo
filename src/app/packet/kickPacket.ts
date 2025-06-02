@@ -1,8 +1,8 @@
 import { BinaryBuffer } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class KickPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = KickPacket.id;
 
     public reason: string;

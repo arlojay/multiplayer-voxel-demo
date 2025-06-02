@@ -1,14 +1,17 @@
 import { Color, Mesh } from "three";
-import { Server } from "./server/server";
-import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, CHUNK_SIZE, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
-import { WorldRaycaster } from "./worldRaycaster";
+import { BaseEntity, EntityLogicType } from "./entity/baseEntity";
 import { clamp } from "./math";
+import { Server } from "./server/server";
+import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldGenerator } from "./worldGenerator";
+import { WorldRaycaster } from "./worldRaycaster";
+import { EntityGrid, EntityGridChunk } from "./entityGrid";
 
 export type ColorType = Color | number | null;
 
 export class Chunk {
     public voxelChunk: VoxelGridChunk;
+    public entityChunk: EntityGridChunk;
     public x: number;
     public y: number;
     public z: number;
@@ -20,8 +23,9 @@ export class Chunk {
     public surroundedChunks: boolean[] = new Array(27).fill(false);
     private surroundings = 0;
 
-    constructor(voxelChunk: VoxelGridChunk) {
+    constructor(voxelChunk: VoxelGridChunk, entityChunk: EntityGridChunk) {
         this.voxelChunk = voxelChunk;
+        this.entityChunk = entityChunk;
         this.x = voxelChunk.x;
         this.y = voxelChunk.y;
         this.z = voxelChunk.z;
@@ -38,6 +42,9 @@ export class Chunk {
     }
     public get data() {
         return this.voxelChunk.data;
+    }
+    public get entities() {
+        return this.entityChunk.entities;
     }
 
     public hasMesh() {
@@ -67,6 +74,7 @@ export class Chunk {
 export class World {
     public server: Server = null;
     public blocks: VoxelGrid = new VoxelGrid;
+    public entities: EntityGrid = new EntityGrid;
     public dirtyChunkQueue: Set<Chunk> = new Set;
     public raycaster = new WorldRaycaster(this);
     public id: string;
@@ -85,16 +93,16 @@ export class World {
         if(color instanceof Color) {
             return (
                 1 << 15 |
-                Math.round(clamp(color.r * 32, 0, 31)) << 10 |
-                Math.round(clamp(color.g * 32, 0, 31)) << 5 |
-                Math.round(clamp(color.b * 32, 0, 31)) << 0
+                clamp(Math.floor(color.r * 32), 0, 31) << 10 |
+                clamp(Math.floor(color.g * 32), 0, 31) << 5 |
+                clamp(Math.floor(color.b * 32), 0, 31) << 0
             );
         } else {
             return (
                 1 << 15 |
-                (((color & 0xff0000) >> 19) << 10) |
-                (((color & 0x00ff00) >> 11) << 5) |
-                (((color & 0x0000ff) >> 3) << 0)
+                (((color & 0xff0000) >> 3 >> 16) << 10) |
+                (((color & 0x00ff00) >> 3 >> 8) << 5) |
+                (((color & 0x0000ff) >> 3 >> 0) << 0)
             )
         }
     }
@@ -182,7 +190,7 @@ export class World {
 
         let chunk = this.chunkMap.get(voxelChunk);
         if(chunk == null && create) {
-            chunk = new Chunk(voxelChunk);
+            chunk = new Chunk(voxelChunk, this.entities.getChunk(x, y, z));
             this.chunkMap.set(voxelChunk, chunk);
         }
 
@@ -207,5 +215,35 @@ export class World {
             return this.getChunk(x, y, z, true);
         }
         return this.generator.generateChunk(x, y, z);
+    }
+
+    public update(dt: number) {
+        for(const entity of this.entities.allEntities.values()) {
+            entity.update(dt);
+        }
+    }
+    public addEntity(entity: BaseEntity) {
+        entity.setWorld(this);
+        this.entities.addEntity(entity);
+    }
+    public spawnEntity<T extends BaseEntity>(EntityClass: new (logicType: EntityLogicType) => T) {
+        const entity = new EntityClass(EntityLogicType.LOCAL_LOGIC);
+        this.addEntity(entity);
+        if(this.server != null) {
+            entity.server = this.server;
+            this.server.spawnEntity(entity);
+        }
+        return entity;
+    }
+    public removeEntity(entity: BaseEntity) {
+        this.entities.removeEntity(entity);
+        entity.setWorld(null);
+        
+        if(this.server != null) {
+            this.server.removeEntity(entity);
+        }
+    }
+    public getEntityByUUID(uuid: string) {
+        return this.entities.allEntities.get(uuid);
     }
 }

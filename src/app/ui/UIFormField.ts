@@ -65,7 +65,6 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
     }
 
     protected async buildElement(): Promise<HTMLElement> {
-        console.log("build form field");
         const element = document.createElement("div");
         const name = crypto.randomUUID();
 
@@ -130,7 +129,6 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
     }
     public onChange(callback: () => void) {
         this.eventBinder.on("change", (event?: Event) => {
-            console.log("change");
             callback();
         });
     }

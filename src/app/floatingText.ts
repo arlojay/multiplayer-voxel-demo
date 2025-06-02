@@ -1,86 +1,155 @@
-import { BufferGeometry, Color, Mesh, NearestFilter, PlaneGeometry, Texture } from "three";
-import { cameraProjectionMatrix, Fn, modelViewMatrix, positionGeometry, vec4 } from "three/src/nodes/TSL";
+import { BufferGeometry, Color, Mesh } from "three";
+import { attribute, cameraProjectionMatrix, Fn, mix, modelViewMatrix, positionGeometry, texture, vec4 } from "three/src/nodes/TSL";
 import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
+import { TextGlyphAtlas } from "./text/textGlyphAtlas";
+import { TextGeometryBuilder } from "./text/textGeometryBuilder";
 
-function createTextImage(text: string, fontSize: number, backgroudColor: string, textColor: string) {
-    const canvas = new OffscreenCanvas(1, 1);
-    const ctx = canvas.getContext("2d");
-    const font = fontSize + "px sans-serif";
+export class ColorRGBA {
+    public readonly color: Color;
+    public alpha: number;
 
-    ctx.font = font;
-    const measurement = ctx.measureText(text);
+    constructor(color = new Color, alpha = 255) {
+        this.color = color;
+        this.alpha = alpha;
+    }
 
-    canvas.width = Math.ceil(measurement.actualBoundingBoxRight - measurement.actualBoundingBoxLeft);
-    canvas.height = Math.ceil(measurement.actualBoundingBoxAscent + measurement.actualBoundingBoxDescent);
-    ctx.font = font;
+    public get r() {
+        return this.color.r * 255;
+    }
+    public set r(r: number) {
+        this.color.r = r / 255;
+    }
+    public get g() {
+        return this.color.g * 255;
+    }
+    public set g(g: number) {
+        this.color.g = g / 255;
+    }
+    public get b() {
+        return this.color.b * 255;
+    }
+    public set b(b: number) {
+        this.color.b = b / 255;
+    }
+    public get a() {
+        return this.alpha;
+    }
+    public set a(a: number) {
+        this.alpha = a;
+    }
+    
+    public set(r: number, g: number, b: number, a: number) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
+    }
+    public copy(color: ColorRGBA) {
+        this.r = color.r;
+        this.g = color.g;
+        this.b = color.b;
+        this.a = color.a;
+    }
 
-
-    ctx.fillStyle = "#" + backgroudColor;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = "#" + textColor;
-    ctx.fillText(text, -measurement.actualBoundingBoxLeft, measurement.actualBoundingBoxAscent);
-
-    const texture = new Texture(canvas);
-    texture.magFilter = NearestFilter;
-    return { aspect: canvas.width / canvas.height, texture };
+    public getHexString() {
+        return this.color.getHexString() + this.alpha.toString(16).padStart(2, "0").slice(0, 2);
+    }
 }
+
+const atlas = new TextGlyphAtlas("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()`~-_=+[]{}<>,./?\\| ", "64px Arial, sans-serif");
+atlas.build();
+const builder = new TextGeometryBuilder(atlas);
+
+const material = new MeshBasicNodeMaterial({
+    color: 0xffffff,
+    transparent: true
+});
+material.vertexNode = Fn(() => {
+    const aspect = cameraProjectionMatrix.element(1).element(1).div(cameraProjectionMatrix.element(0).element(0));
+    return cameraProjectionMatrix.mul(modelViewMatrix)
+    .mul(vec4(0, 0, 0, 1))
+    .add(vec4(positionGeometry, 0).div(vec4(aspect, 1, 1, 1)));
+})();
+material.colorNode = Fn(() => {
+    const backgroundColor = attribute("backgroundColor", "vec4");
+    const textColor = attribute("textColor", "vec4");
+    
+    return mix(
+        vec4(
+            backgroundColor.r.toFloat(),
+            backgroundColor.g.toFloat(),
+            backgroundColor.b.toFloat(),
+            backgroundColor.a.toFloat()
+        ).div(255),
+        vec4(
+            textColor.r.toFloat(),
+            textColor.g.toFloat(),
+            textColor.b.toFloat(),
+            textColor.a.toFloat()
+        ).div(255),
+        texture(atlas.texture).a
+    );
+})();
 
 export class FloatingText {
     private _text: string;
-    public mesh: Mesh;
-    public resolution = 320;
-    public size = 0.1;
-    private material: MeshBasicNodeMaterial;
+    public readonly mesh: Mesh;
+    public size = 0.25;
 
-    public background = new Color(0x000000);
-    public backgroundAlpha = 0x88;
-    public color = new Color(0xffffff);
-    public colorAlpha = 0xff;
+    private readonly _background = new ColorRGBA(new Color(0x000000), 0x88);
+    private readonly _color = new ColorRGBA(new Color(0xffffff), 0xff);
+    public needsUpdate = false;
 
     public constructor(text: string) {
         this._text = text;
         this.mesh = new Mesh(
             new BufferGeometry(),
-            this.material = new MeshBasicNodeMaterial({
-                color: 0xffffff,
-                map: this.createTexture().texture,
-                transparent: true
-            })
+            material
         );
-        this.material.vertexNode = Fn(() => {
-            const aspect = cameraProjectionMatrix.element(1).element(1).div(cameraProjectionMatrix.element(0).element(0));
-            return cameraProjectionMatrix.mul(modelViewMatrix)
-            .mul(vec4(0, 0, 0, 1))
-            .add(vec4(positionGeometry, 0).div(vec4(aspect, 1, 1, 1)));
-        })();
+        this.mesh.onBeforeRender = () => {
+            if(this.needsUpdate) this.update();
+        }
         this.update();
     }
-    private createTexture() {
-        return createTextImage(
-            this._text,
-            this.resolution * this.size,
-            this.background.getHexString() + this.backgroundAlpha.toString(16).padStart(2, "0").slice(0, 2),
-            this.color.getHexString() + this.colorAlpha.toString(16).padStart(2, "0").slice(0, 2)
-        );
+    public dispose() {
+        this.mesh.geometry.dispose();
     }
     public update() {
-        const text = this.createTexture();
+        const geometry = builder.create(this._text, this._color, this._background);
+        geometry.computeBoundingBox();
+        geometry.translate(geometry.boundingBox.max.x * -0.5, geometry.boundingBox.max.y * -0.5, 0);
+        geometry.scale(this.size, this.size, this.size);
 
         this.mesh.geometry.dispose();
-        this.mesh.geometry = new PlaneGeometry(text.aspect * this.size, this.size);
-        this.material.map = text.texture;
-        this.material.map.dispose();
-        this.material.map.needsUpdate = true;
+        this.mesh.geometry = geometry;
+        
+        this.needsUpdate = false;
     }
     public set text(text: string) {
         if(this._text != text) {
             this._text = text;
-            this.update();
+            this.needsUpdate = true;
         }
     }
     public get text() {
         return this._text;
+    }
+    public set color(color: ColorRGBA) {
+        if(color.r != this._color.r || color.g != this._color.g || color.b != this._color.b || color.a != this._color.a) {
+            this._color.copy(color);
+            this.needsUpdate = true;
+        }
+    }
+    public get color() {
+        return this._color;
+    }
+    public set background(color: ColorRGBA) {
+        if(color.r != this._background.r || color.g != this._background.g || color.b != this._background.b || color.a != this._background.a) {
+            this._background.copy(color);
+            this.needsUpdate = true;
+        }
+    }
+    public get background() {
+        return this._background;
     }
 }

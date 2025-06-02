@@ -1,8 +1,8 @@
 import { BinaryBuffer, I32 } from "../binary";
-import { Packet } from "./packet";
+import { Packet, packetRegistry } from "./packet";
 
 export class BreakBlockPacket extends Packet {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = BreakBlockPacket.id;
 
     public x: number;
