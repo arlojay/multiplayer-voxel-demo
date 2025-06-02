@@ -115,7 +115,10 @@ async function main() {
             gameRoot.classList.remove("hidden");
             gameRoot.focus();
         } catch(e) {
-            serverSelect.querySelector(".connect-error").textContent = "Error while connecting/creating server " + serverId + ": " + e.message;
+            let rootError = e;
+            while(rootError.cause != null) rootError = rootError.cause;
+            
+            serverSelect.querySelector(".connect-error").textContent = "Error while joining server " + serverId + ": " + rootError.message;
             console.error(e);
         }
     })
@@ -178,19 +181,62 @@ function getConnectionOptions(): ClientCustomizationOptions {
 }
 
 async function connectToServer(id: string, connectionOptions: ClientCustomizationOptions) {
-    const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
+    return await new Promise<ServerSession>(async (res, rej) => {
+        const gameSelect = document.querySelector('.modal[data-name="game-select"]')!;
+        const connectionError = document.querySelector("#join-game .connect-error");
+        const serverConnection = document.querySelector('.modal[data-name="server-connection"]')!;
+        const serverConnectionIdElement = serverConnection.querySelector(".server-id");
+        const cancelConnectionButton = serverConnection.querySelector(".cancel");
 
-    gameSelect.classList.remove("visible");
-    const serverSession = await Client.instance.connect("server-" + id.toUpperCase() + "-mvd", connectionOptions);
-    serverSession.addListener("disconnected", (reason) => {
-        document.querySelector("#join-game .connect-error").textContent = "Kicked from server: " + reason;
-        gameSelect.classList.add("visible");
-        gameRoot.classList.add("hidden");
-        Client.instance.gameRenderer.destroyWorldRenderer();
+
+        serverConnectionIdElement.textContent = id;
+
+        const showConnectionScreen = () => {
+            serverConnection.classList.add("visible");
+            gameSelect.classList.remove("visible");
+        }
+        const returnToMainScreen = () => {
+            gameSelect.classList.add("visible");
+            gameRoot.classList.add("hidden");
+            serverConnection.classList.remove("visible");
+        }
+        
+        showConnectionScreen();
+
+        const fullServerId = "server-" + id.toUpperCase() + "-mvd";
+        const connectionController = await Client.instance.initServerConnection(fullServerId, connectionOptions);
+
+        // catches errors and premature "disconnect" events
+        connectionController.onerror = error => {
+            cancelConnectionButton.removeEventListener("click", cancelButtonCallback);
+            returnToMainScreen();
+
+            rej(new Error("Failed to connect to server", { cause: error }));
+        };
+
+        const cancelButtonCallback = () => {
+            connectionController.prematureServerSession.close(); // runs "disconnect" event
+            cancelConnectionButton.removeEventListener("click", cancelButtonCallback);
+        };
+
+        cancelConnectionButton.addEventListener("click", cancelButtonCallback);
+        
+
+
+        const connectedServerSession = await connectionController.promise; // resolves with completed server connection
+        serverConnection.classList.remove("visible");
+        cancelConnectionButton.removeEventListener("click", cancelButtonCallback);
+        
+        loadChunks(connectedServerSession);
+
+        
+        connectedServerSession.addListener("disconnected", reason => {
+            connectionError.textContent = "Kicked from server: " + reason;
+            returnToMainScreen();
+            Client.instance.gameRenderer.destroyWorldRenderer();
+        });
+        res(connectedServerSession);
     })
-    
-    loadChunks(serverSession);
-    return serverSession;
 }
 
 async function launchServer(launchOptions: ServerLaunchOptions) {
@@ -220,7 +266,6 @@ async function launchServer(launchOptions: ServerLaunchOptions) {
 }
 
 async function updateServerListScreen() {
-    const serverCreation = document.querySelector('.modal[data-name="create-server"]')!;
     const serverSelect = document.querySelector("#select-server")!;
     const dateFormatter = new Intl.RelativeTimeFormat();
 

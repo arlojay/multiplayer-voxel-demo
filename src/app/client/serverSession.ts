@@ -85,6 +85,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         this.onConnected();
     }
+
+    public close() {
+        this.serverConnection.close();
+        this.onDisconnected();
+        this.emit("disconnected", "Cancelled by user");
+    }
     
     private initConnectionEvents() {
         this.serverConnection.addListener("data", data => {
