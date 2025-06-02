@@ -147,6 +147,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
                 entity.remoteLogic?.onMoved();
                 entity.remoteLogic?.resetTimer();
+
+                if(packet.skipInterpolation) {
+                    entity.remoteLogic?.renderPosition.copy(entity.remoteLogic.position);
+                }
             }
         }
         if(packet instanceof EntityLookPacket && !this.isPacketOld(packet)) {
@@ -171,7 +175,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             const remoteEntity = entityRegistry.createFromBinary(packet.entityData, EntityLogicType.REMOTE_LOGIC);
             remoteEntity.uuid = packet.uuid;
             this.localWorld.addEntity(remoteEntity);
-            console.log(remoteEntity);
+            
             remoteEntity.remoteLogic.onAdd(this.client.gameRenderer.scene);
         }
         // if(packet instanceof PlayerJoinPacket) {

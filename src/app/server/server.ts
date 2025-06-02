@@ -1,19 +1,19 @@
 import { BaseEntity, EntityLogicType, EntityRotation, instanceof_RotatingEntity, RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
-import { AddEntityPacket, CombinedPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, SetBlockPacket } from "../packet";
+import { AddEntityPacket, CombinedPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
 import { EntityLookPacket } from "../packet/entityLookPacket";
 import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { World } from "../world";
 import { WorldGenerator } from "../worldGenerator";
 import { EventPublisher } from "./events";
-import { PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, WorldCreateEvent } from "./pluginEvents";
+import { FlushPacketQueueEvent, PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, ServerTickEvent, WorldCreateEvent } from "./pluginEvents";
 import { PluginLoader } from "./pluginLoader";
 import { ServerData, ServerOptions } from "./serverData";
 import { ServerPeer, TimedOutError } from "./serverPeer";
 import { ServerPlugin } from "./serverPlugin";
-import { MessagePortConnection } from "./thread";
+import { MessagePortConnection, serverCrash } from "./thread";
 import { WorldSaver } from "./worldSaver";
 
 export interface ServerLaunchOptions {
@@ -35,6 +35,9 @@ export class Server extends EventPublisher {
     public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
     public time: number;
+    private worldSavingInterval: number;
+    private packetFlushInterval: number;
+    private tickingInterval: number;
 
     public constructor(launchOptions: ServerLaunchOptions) {
         super();
@@ -99,12 +102,12 @@ export class Server extends EventPublisher {
     }
 
     private startLoop() {
-        setInterval(() => {
+        this.worldSavingInterval = setInterval(() => {
             this.flushWorldUpdateQueue();
         }, 1000 / 2);
 
-        setInterval(() => {
-            const time = performance.now();
+        this.packetFlushInterval = setInterval(() => {
+            const time = this.time;
 
             const worldsWithPeers: Set<World> = new Set;
 
@@ -116,23 +119,36 @@ export class Server extends EventPublisher {
                 if(!worldsWithPeers.has(world)) continue;
 
                 for(const entity of world.entities.allEntities.values()) {
-                    this.updateEntityLocationImmediate(entity, time, false);
+                    this.updateEntityLocation(entity, time, false);
                 }
             }
             
             for(const peer of this.peers.values()) {
-                peer.flushPacketQueue();
+                const event = new FlushPacketQueueEvent(this);
+                event.peer = peer;
+                
+                this.emit(event);
+                if(!event.isCancelled()) peer.flushPacketQueue();
             }
         }, 1000 / 10);
 
         let lastTick = 0;
-        setInterval(() => {
-            const time = performance.now();
+        this.tickingInterval = setInterval(() => {
+            const time = this.time;
             const dt = Math.min(time - lastTick, 100) * 0.001;
             lastTick = time;
 
-            for(const peer of this.peers.values()) {
-                peer.update(dt);
+            const tickEvent = new ServerTickEvent(this);
+            tickEvent.dt = dt;
+
+            try {
+                this.emit(tickEvent);
+
+                for(const peer of this.peers.values()) {
+                    peer.update(dt);
+                }
+            } catch(e) {
+                serverCrash(new Error("Internal error whilst ticking", { cause: e }));
             }
         }, 1000 / 20);
 
@@ -144,7 +160,7 @@ export class Server extends EventPublisher {
         requestAnimationFrame(animate);
     }
 
-    public updateEntityLocationImmediate(entity: BaseEntity, time: number, instant = true) {
+    public updateEntityLocation(entity: BaseEntity, time: number, instant = true, teleport = false) {
         if(entity.logicType != EntityLogicType.LOCAL_LOGIC) return;
         if(entity instanceof Player) {
             // don't send automatic updates for player entities
@@ -153,16 +169,13 @@ export class Server extends EventPublisher {
         }
 
         if(!entity.localLogic.hasMovedSince(time)) return;
-        console.log(entity);
 
         const movedLocation = entity.localLogic.hasMovedSince(time);
         const movedRotation = instanceof_RotatingEntity(entity) && entity.rotation.hasMovedSince(time);
         const packet = combinePackets(
-            movedLocation ? new EntityMovePacket(entity): null,
+            movedLocation ? new EntityMovePacket(entity, teleport): null,
             movedRotation ? new EntityLookPacket(entity): null
         );
-
-        console.log(packet);
 
         if(packet != null) this.broadcastPacket(packet, entity.world, instant);
     }
@@ -313,6 +326,10 @@ export class Server extends EventPublisher {
         const packet = new EntityDataPacket(entity);
         this.broadcastPacket(packet, entity.world);
     }
+    public removeEntity(entity: BaseEntity) {
+        const packet = new RemoveEntityPacket(entity);
+        this.broadcastPacket(packet, entity.world);
+    }
 
     public logDebug(text: string) {
         if(this.debugPort == null) return;
@@ -325,9 +342,24 @@ export class Server extends EventPublisher {
     }
 
     public async close() {
-        for await(const saver of this.savers.values()) {
-            await saver.saveModified();
+        clearInterval(this.worldSavingInterval);
+        clearInterval(this.packetFlushInterval);
+        clearInterval(this.tickingInterval);
+
+        const promises: Promise<unknown>[] = [];
+        for(const saver of this.savers.values()) {
+            promises.push(saver.saveModified());
         }
+        for(const plugin of this.plugins) {
+            this.removeSubscriber(plugin);
+            promises.push(plugin.close());
+            this.plugins.delete(plugin);
+        }
+        for(const peer of this.peers.values()) {
+            peer.kick("Server closing");
+        }
+
+        await Promise.all(promises);
     }
 
     public addPlugin(plugin: ServerPlugin) {

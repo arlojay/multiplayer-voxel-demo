@@ -18,6 +18,7 @@ export const U64 = 8;
 export const I64 = 8;
 export const F64 = 8;
 export const VEC3 = F32 * 3;
+export const BOOL = 1;
 
 export const MIN_U8 = 0;
 export const MAX_U8 = 255;

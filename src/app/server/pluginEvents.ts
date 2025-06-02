@@ -13,6 +13,8 @@ export enum PluginEvents {
     WORLD_CREATE = "worldCreate",
     SERVER_PREINIT = "serverPreinit",
     SERVER_LOADED = "serverLoaded",
+    SERVER_TICK = "serverTick",
+    FLUSH_PACKET_QUEUE = "flushPacketQueue"
 }
 
 abstract class ServerPluginEvent extends EmittedEvent {
@@ -99,4 +101,18 @@ export class ServerPreinitEvent extends ServerPluginEvent {
 export class ServerLoadedEvent extends ServerPluginEvent {
     public readonly name = PluginEvents.SERVER_LOADED;
     public readonly cancellable = true;
+}
+
+export class ServerTickEvent extends ServerPluginEvent {
+    public readonly name = PluginEvents.SERVER_TICK;
+    public readonly cancellable = false;
+    
+    public dt: number;
+}
+
+export class FlushPacketQueueEvent extends ServerPluginEvent {
+    public readonly name = PluginEvents.FLUSH_PACKET_QUEUE;
+    public readonly cancellable = true;
+
+    public peer: ServerPeer;
 }

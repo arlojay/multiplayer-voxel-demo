@@ -24,6 +24,7 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
     private readonly lastVelocity = new Vector3();
     private lastMoveTime = -1;
 
+    /** do NOT override */
     public constructor(base: typeof this.base) {
         this.base = base;
         this.position = base.position;

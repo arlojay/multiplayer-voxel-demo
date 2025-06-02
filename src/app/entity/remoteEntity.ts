@@ -2,7 +2,6 @@ import { Box3, Scene, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
-import { EntityMovePacket } from "../packet";
 
 export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
     protected readonly base: Base;
@@ -13,6 +12,7 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
     public readonly velocity: Vector3;
     public readonly hitbox: Box3;
 
+    /** do NOT override */
     public constructor(base: typeof this.base) {
         this.base = base;
         this.position = base.position;

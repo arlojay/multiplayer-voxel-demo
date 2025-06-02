@@ -95,6 +95,7 @@ export abstract class BaseEntity<
 
     protected abstract instanceLogic(local: boolean): LocalLogic | RemoteLogic;
 
+    /** do NOT override */
     public constructor(logicType: EntityLogicType) {
         super();
         
@@ -125,6 +126,17 @@ export abstract class BaseEntity<
         if(this.server != null) {
             this.server.updateEntity(this);
         }
+    }
+
+    public sendMovementUpdate(teleport = true) {
+        if(this.server != null) {
+            this.server.updateEntityLocation(this, this.server.time, false, teleport);
+        }
+    }
+
+    public remove() {
+        if(this.world == null) throw new ReferenceError("Entity already removed from world");
+        this.world.removeEntity(this);
     }
 
     public get x() {

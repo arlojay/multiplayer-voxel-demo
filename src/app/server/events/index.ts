@@ -7,14 +7,16 @@ type EventKey = string | number;
 export abstract class EmittedEvent {
     abstract readonly name: EventKey;
     abstract readonly cancellable: boolean;
-    private cancelled: boolean = false;
+    private readonly state = {
+        cancelled: false
+    };
 
     public cancel() {
         if(!this.cancellable) throw new ReferenceError("Event " + this.name + " cannot be cancelled");
-        this.cancelled = true;
+        this.state.cancelled = true;
     }
     public isCancelled() {
-        return this.cancelled;
+        return this.state.cancelled;
     }
 }
 
@@ -92,6 +94,8 @@ export class EventPublisher {
         }
     }
     public emit(event: EmittedEvent) {
+        Object.freeze(Object.seal(event));
+
         const eventList = this.events.get(event.name);
         if(eventList == null) return;
 

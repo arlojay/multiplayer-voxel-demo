@@ -34,7 +34,7 @@ export class PlayerModel {
         this.mesh.add(object);
 
         const nametagMesh = this.nametag.mesh;
-        nametagMesh.position.set(0, 2, 0);
+        nametagMesh.position.set(0, 2.2, 0);
         this.mesh.add(nametagMesh);
 
 

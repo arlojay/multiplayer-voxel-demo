@@ -1,21 +1,27 @@
 import { UIButton, UISection, UIText } from "../../ui";
 import { Subscribe } from "../events";
 import { DatabaseObjectStore, DatabaseView } from "../pluginConfig";
-import { PeerJoinEvent, PlaceBlockEvent, PluginEvents, ServerLoadedEvent } from "../pluginEvents";
+import { PeerJoinEvent, PlaceBlockEvent, PluginEvents, ServerLoadedEvent, ServerTickEvent } from "../pluginEvents";
 import { ServerPlugin } from "../serverPlugin";
 import { ServerUI } from "../serverUI";
 import { TextEntity } from "../../entity/impl";
-import { Vector3 } from "three";
+import hsl from "color-space/hsl";
 
 interface PlayerClicksEntry {
     username: string;
     clicks: number;
 }
 
+interface FloatingDemoText {
+    entity: TextEntity;
+    birth: number;
+}
+
 export class DemoPlugin extends ServerPlugin {
     public readonly name = "demo";
     private db: DatabaseView;
     private clicksStore: DatabaseObjectStore<"username", PlayerClicksEntry>;
+    private textBoxes: Set<FloatingDemoText> = new Set;
 
     @Subscribe(PluginEvents.SERVER_LOADED)
     public async onServerLoad(event: ServerLoadedEvent) {
@@ -57,16 +63,35 @@ export class DemoPlugin extends ServerPlugin {
         updateClicks();
     }
 
+    @Subscribe(PluginEvents.SERVER_TICK)
+    public onTick(event: ServerTickEvent) {
+        for(const textBox of this.textBoxes) {
+            if(this.server.time - textBox.birth > 5000) {
+                textBox.entity.remove();
+                this.textBoxes.delete(textBox);
+                continue;
+            }
+
+            const hue = (this.server.time - textBox.birth) / 5000 * 360;
+
+            textBox.entity.color.set(...hsl.rgb([ hue, 100, 70 ]), 0xff);
+            textBox.entity.background.set(...hsl.rgb([ hue, 100, 10 ]), 0x88);
+            textBox.entity.sendNetworkUpdate();
+        }
+    }
+
     @Subscribe(PluginEvents.PLACE_BLOCK)
     public onPlaceBlock(event: PlaceBlockEvent) {
         const floatingText = event.serverPlayer.world.spawnEntity(TextEntity);
         floatingText.text = "Placed by " + event.peer.username;
         floatingText.position.set(event.x + 0.5, event.y + 1.25, event.z + 0.5);
         floatingText.sendNetworkUpdate();
+        floatingText.sendMovementUpdate();
 
-        setInterval(() => {
-            floatingText.position.add(new Vector3(0, 0.0025, 0));
-            this.server.updateEntityLocationImmediate(floatingText, this.server.time);
-        }, 1);
+        const entry = {
+            entity: floatingText,
+            birth: this.server.time
+        }
+        this.textBoxes.add(entry);
     }
 }

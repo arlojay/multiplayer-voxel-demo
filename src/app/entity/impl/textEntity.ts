@@ -1,51 +1,45 @@
-import { Scene } from "three";
-import { BinaryBuffer, F32, U8 } from "../../binary";
+import { Color, Scene } from "three";
+import { BinaryBuffer, U8 } from "../../binary";
 import { ColorRGBA, FloatingText } from "../../floatingText";
 import { BaseEntity, entityRegistry } from "../baseEntity";
 import { LocalEntity } from "../localEntity";
 import { RemoteEntity } from "../remoteEntity";
-import { EntityMovePacket } from "src/app/packet";
 
 export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
     public static readonly id = entityRegistry.register(this);
     public readonly id = TextEntity.id;
 
     public text = "";
-    public color: ColorRGBA = new ColorRGBA;
-    public background: ColorRGBA = new ColorRGBA;
+    public color: ColorRGBA = new ColorRGBA(new Color(0xffffff), 0xff);
+    public background: ColorRGBA = new ColorRGBA(new Color(0x000000), 0x88);
 
     protected instanceLogic(local: boolean) {
         return local ? new LocalTextEntity(this) : new RemoteTextEntity(this);
     }
     protected serialize(bin: BinaryBuffer): void {
         bin.write_string(this.text);
-        bin.write_f32(this.color.r); bin.write_f32(this.color.g); bin.write_f32(this.color.b); bin.write_f32(this.color.a);
-        bin.write_f32(this.background.r); bin.write_f32(this.background.g); bin.write_f32(this.background.b); bin.write_f32(this.background.a);
+        bin.write_u8(this.color.r); bin.write_u8(this.color.g); bin.write_u8(this.color.b); bin.write_u8(this.color.a);
+        bin.write_u8(this.background.r); bin.write_u8(this.background.g); bin.write_u8(this.background.b); bin.write_u8(this.background.a);
     }
     protected deserialize(bin: BinaryBuffer): void {
         this.text = bin.read_string();
-        this.color.set(bin.read_f32(), bin.read_f32(), bin.read_f32(), bin.read_f32());
-        this.background.set(bin.read_f32(), bin.read_f32(), bin.read_f32(), bin.read_f32());
+        this.color.set(bin.read_u8(), bin.read_u8(), bin.read_u8(), bin.read_u8());
+        this.background.set(bin.read_u8(), bin.read_u8(), bin.read_u8(), bin.read_u8());
     }
     protected getExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.text) +
-            F32 * 4 +
-            F32 * 4
+            U8 * 4 +
+            U8 * 4
         );
     }
 }
 
 export class RemoteTextEntity extends RemoteEntity<TextEntity> {
-    public readonly model: FloatingText;
+    public readonly model = new FloatingText("");
 
     public get mesh() {
         return this.model.mesh;
-    }
-
-    constructor(base: TextEntity) {
-        super(base);
-        this.model = new FloatingText(this.base.text);
     }
 
     public dispose() {
@@ -53,14 +47,14 @@ export class RemoteTextEntity extends RemoteEntity<TextEntity> {
     }
     public update(dt: number): void {
         super.update(dt);
+        
+        this.model.mesh.position.copy(this.renderPosition);
     }
     
-    public onMoved(): void {
-        this.model.mesh.position.copy(this.position);
-    }
     public onUpdated(): void {
+        this.model.color = this.base.color;
+        this.model.background = this.base.background;
         this.model.text = this.base.text;
-        this.model.color.copy(this.base.color);
     }
     public onAdd(scene: Scene): void {
         scene.add(this.model.mesh);

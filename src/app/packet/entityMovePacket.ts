@@ -1,4 +1,4 @@
-import { BinaryBuffer, F32 } from "../binary";
+import { BinaryBuffer, BOOL, F32 } from "../binary";
 import { BaseEntity } from "../entity/baseEntity";
 import { Packet, packetRegistry } from "./packet";
 
@@ -15,7 +15,9 @@ export class EntityMovePacket extends Packet {
     public vy: number;
     public vz: number;
 
-    public constructor(entity?: BaseEntity) {
+    public skipInterpolation = false;
+
+    public constructor(entity?: BaseEntity, skipInterpolation?: boolean) {
         super();
 
         if(entity == null) return;
@@ -24,6 +26,7 @@ export class EntityMovePacket extends Packet {
 
         [ this.x, this.y, this.z ] = entity.position.toArray();
         [ this.vx, this.vy, this.vz ] = entity.velocity.toArray();
+        if(skipInterpolation != null) this.skipInterpolation = skipInterpolation;
     }
 
     protected serialize(bin: BinaryBuffer): void {
@@ -34,6 +37,7 @@ export class EntityMovePacket extends Packet {
         bin.write_f32(this.vx);
         bin.write_f32(this.vy);
         bin.write_f32(this.vz);
+        bin.write_boolean(this.skipInterpolation);
     }
 
     protected deserialize(bin: BinaryBuffer): void {
@@ -44,13 +48,15 @@ export class EntityMovePacket extends Packet {
         this.vx = bin.read_f32();
         this.vy = bin.read_f32();
         this.vz = bin.read_f32();
+        this.skipInterpolation = bin.read_boolean();
     }
 
     protected getExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.uuid) +
             (F32 * 3) +
-            (F32 * 3)
+            (F32 * 3) +
+            BOOL
         );
     }
 }

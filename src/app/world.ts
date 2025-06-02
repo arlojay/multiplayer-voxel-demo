@@ -234,6 +234,11 @@ export class World {
     }
     public removeEntity(entity: BaseEntity) {
         this.entities.removeEntity(entity);
+        entity.setWorld(null);
+        
+        if(this.server != null) {
+            this.server.removeEntity(entity);
+        }
     }
     public getEntityByUUID(uuid: string) {
         return this.entities.allEntities.get(uuid);
