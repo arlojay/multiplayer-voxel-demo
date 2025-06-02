@@ -1,10 +1,10 @@
 import { BinaryBuffer, CHAR } from "../binary";
 import { ServerPeer } from "../server/serverPeer";
-import { Packet } from "./packet";
-import { PlayerInfo } from "./playerInfoPacket";
+import { Packet, packetRegistry } from "./packet";
+import { PlayerInfo } from "./playerInfo";
 
 export class PlayerJoinPacket extends PlayerInfo {
-    static id = Packet.register(() => new this);
+    static id = packetRegistry.register(this);
     public id = PlayerJoinPacket.id;
 
     public player: string;
@@ -12,7 +12,7 @@ export class PlayerJoinPacket extends PlayerInfo {
     public color: string;
 
     constructor(peer?: ServerPeer) {
-        super(peer?.player);
+        super(peer?.serverPlayer.base);
 
         if(peer != null) {
             this.username = peer.username;

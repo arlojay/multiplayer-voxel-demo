@@ -9,15 +9,17 @@ import { FloatingText } from "../floatingText";
 const loader = new GLTFLoader();
 
 export class PlayerModel {
-    public position = new Vector3;
-    public yaw: number = Math.PI * 0.25;
-    public pitch: number = 0;
-    public mesh: Object3D = new Object3D;
-    public skin: SkinnedMesh;
     public username = "anonymous";
     public color = "#ffffff";
-    private colorNode = new Color(this.color);
-    private nametag = new FloatingText(this.username);
+
+    public readonly position = new Vector3;
+    public yaw: number = Math.PI * 0.25;
+    public pitch: number = 0;
+
+    private readonly colorNode = new Color(this.color);
+    private readonly nametag = new FloatingText(this.username);
+    public readonly mesh: Object3D = new Object3D;
+    public skin: SkinnedMesh;
 
     public constructor() {
         this.createModel();
@@ -32,7 +34,7 @@ export class PlayerModel {
         this.mesh.add(object);
 
         const nametagMesh = this.nametag.mesh;
-        nametagMesh.position.set(0, 2, 0);
+        nametagMesh.position.set(0, 2.2, 0);
         this.mesh.add(nametagMesh);
 
 

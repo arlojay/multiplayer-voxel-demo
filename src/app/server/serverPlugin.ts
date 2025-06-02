@@ -8,4 +8,8 @@ export abstract class ServerPlugin extends EventSubscriber {
     public setServer(server: Server) {
         this.server = server;
     }
+
+    public async close() {
+
+    }
 }

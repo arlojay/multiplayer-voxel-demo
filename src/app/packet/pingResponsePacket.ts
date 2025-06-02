@@ -1,9 +1,9 @@
 import { BinaryBuffer } from "../binary";
 import { Packet, packetRegistry } from "./packet";
 
-export class PingPacket extends Packet {
+export class PingResponsePacket extends Packet {
     static id = packetRegistry.register(this);
-    public id = PingPacket.id;
+    public id = PingResponsePacket.id;
 
     protected serialize(bin: BinaryBuffer): void {
         

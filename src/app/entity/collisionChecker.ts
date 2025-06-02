@@ -1,7 +1,7 @@
 import { Box3, Vector3 } from "three";
 import { SOLID_BITMASK } from "../voxelGrid";
 import { World } from "../world";
-import { BLOCK_HITBOX } from "./entity";
+import { BLOCK_HITBOX } from "./localEntity";
 
 export class CollisionChecker {
     public hitbox: Box3;

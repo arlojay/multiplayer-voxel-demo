@@ -101,13 +101,6 @@ export class Client extends TypedEmitter<ClientEvents> {
             this.playerController.setPointerLocked(false);
             this.serverSession = null;
         });
-        serverSession.addListener("playerjoin", player => {
-            this.gameRenderer.scene.add(player.mesh);
-        });
-        serverSession.addListener("playerleave", player => {
-            this.gameRenderer.scene.remove(player.mesh);
-            player.dispose();
-        });
         serverSession.addListener("changeworld", world => {
             this.gameRenderer.setWorld(world);
         })

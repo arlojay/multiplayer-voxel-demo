@@ -1,6 +1,6 @@
 import { Box3, Ray, Vector3 } from "three";
 import { World } from "./world";
-import { BLOCK_HITBOX } from "./entity/entity";
+import { BLOCK_HITBOX } from "./entity/localEntity";
 import { SOLID_BITMASK } from "./voxelGrid";
 
 interface IntersectionResult {
