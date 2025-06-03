@@ -1,5 +1,6 @@
 import { BSON, Document as BSONDocument } from "bson";
 import { Vector3 } from "three";
+import { capabilities } from "./capability";
 
 const textEncoder = new TextEncoder;
 const textDecoder = new TextDecoder;
@@ -277,11 +278,11 @@ export class BinaryBuffer {
 
     // Polyfill for https://github.com/arlojay/multiplayer-voxel-demo/issues/9
     private _getFloat16(index: number, littleEndian: boolean) {
-        // if("getFloat16" in (this.view as any)) return this.view.getFloat16(index, littleEndian);
+        if(capabilities.DATAVIEW_F16) return this.view.getFloat16(index, littleEndian);
         return U16toF16(this.view.getUint16(index, littleEndian));
     }
     private _setFloat16(index: number, value: number, littleEndian: boolean) {
-        // if("setFloat16" in (this.view as any)) return this.view.setFloat16(index, value, littleEndian);
+        if(capabilities.DATAVIEW_F16) return this.view.setFloat16(index, value, littleEndian);
         this.view.setUint16(index, F16toU16(value), littleEndian);
     }
 }

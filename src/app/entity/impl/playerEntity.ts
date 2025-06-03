@@ -10,6 +10,7 @@ import { Client, getClient } from "../../client/client";
 import { ClientSounds } from "../../client/clientSounds";
 import { PlayerModel } from "../../client/playerModel";
 import { RemoteEntity } from "../remoteEntity";
+import { capabilities } from "../../capability";
 
 export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements RotatingEntity {
     public static readonly id = entityRegistry.register(this);
@@ -115,7 +116,7 @@ export class LocalPlayer extends LocalEntity<Player> {
 
     private updateControls(dt: number) {
         const client = getClient();
-        const receivingControls = this.controller.pointerCurrentlyLocked;
+        const receivingControls = this.controller.pointerCurrentlyLocked || !capabilities.REQUEST_POINTER_LOCK;
         const controlOptions = client.gameData.clientOptions.controls;
 
         const onGround = this.airTime < 0.01;
@@ -128,6 +129,18 @@ export class LocalPlayer extends LocalEntity<Player> {
         if(!onGround) {
             speed *= 0.2;
         }
+
+        let pointerMoveX = this.controller.pointerMovement.x;
+        let pointerMoveY = this.controller.pointerMovement.y;
+        if(!capabilities.REQUEST_POINTER_LOCK) {
+            const scx = this.controller.pointer.x / innerWidth;
+            const scy = this.controller.pointer.y / innerHeight;
+            if(scx < 0.2) pointerMoveX -= (0.2 - scx) * controlOptions.mouseSensitivity * Math.PI * 100;
+            if(scx > 0.8) pointerMoveX += (scx - 0.8) * controlOptions.mouseSensitivity * Math.PI * 100;
+            if(scy < 0.2) pointerMoveY -= (0.2 - scy) * controlOptions.mouseSensitivity * Math.PI * 100;
+            if(scy > 0.8) pointerMoveY += (scy - 0.8) * controlOptions.mouseSensitivity * Math.PI * 100;
+        }
+        this.controller.resetPointerMovement();
 
         if(receivingControls && !this.freecam) {
             if(this.controller.keyDown("shift")) {
@@ -195,11 +208,11 @@ export class LocalPlayer extends LocalEntity<Player> {
 
         this.panRoll = dlerp(this.panRoll, 0, dt, 50);
         if(receivingControls && !this.freecam) {
-            this.base.rotation.yaw += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
-            this.base.rotation.pitch += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
+            this.base.rotation.yaw += pointerMoveX * controlOptions.mouseSensitivity * (Math.PI / 180);
+            this.base.rotation.pitch += pointerMoveY * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
 
             const panRollVelocity = Math.sqrt(this.base.velocity.x ** 2 + this.base.velocity.z ** 2) + 2;
-            this.panRoll += this.controller.pointerMovement.x * controlOptions.mouseSensitivity / dt * 0.00001 * panRollVelocity;
+            this.panRoll += pointerMoveX * controlOptions.mouseSensitivity / dt * 0.00001 * panRollVelocity;
         }
 
         if(this.base.rotation.pitch > Math.PI * 0.5) this.base.rotation.pitch = Math.PI * 0.5;
@@ -342,15 +355,13 @@ export class LocalPlayer extends LocalEntity<Player> {
 
             this.freeCamera.position.add(xmove).add(zmove).add(ymove);
             
-            this.yawFreecam += this.controller.pointerMovement.x * controlOptions.mouseSensitivity * (Math.PI / 180);
-            this.pitchFreecam += this.controller.pointerMovement.y * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
+            this.yawFreecam += pointerMoveX * controlOptions.mouseSensitivity * (Math.PI / 180);
+            this.pitchFreecam += pointerMoveY * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
 
             this.freeCamera.rotation.set(0, 0, 0);
             this.freeCamera.rotateY(-this.yawFreecam);
             this.freeCamera.rotateX(-this.pitchFreecam);
         }
-
-        this.controller.resetPointerMovement();
 
         this.model.mesh.visible = this.freecam;
 

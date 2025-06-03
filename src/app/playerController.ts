@@ -1,4 +1,5 @@
 import { Vector2 } from "three";
+import { capabilities } from "./capability";
 
 export class PlayerController {
     public pointerRoot: HTMLElement;
@@ -83,13 +84,15 @@ export class PlayerController {
         this.lockPointer = locked;
 
         if(!locked && document.pointerLockElement == this.pointerRoot) {
-            document.exitPointerLock();
+            if(capabilities.REQUEST_POINTER_LOCK) document.exitPointerLock();
         } else if(locked) {
             this.tryPointerLock();
         }
     }
 
     private tryPointerLock() {
+        if(!capabilities.REQUEST_POINTER_LOCK) return;
+
         this.pointerRoot.requestPointerLock().catch(() => {});
     }
 
