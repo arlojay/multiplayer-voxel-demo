@@ -24,6 +24,7 @@ interface ConnectionRequestController {
     promise: Promise<ServerSession>;
     prematureServerSession: ServerSession;
     onerror?: (error: Error) => void;
+    failed: boolean;
 }
 
 export class Client extends TypedEmitter<ClientEvents> {
@@ -100,16 +101,20 @@ export class Client extends TypedEmitter<ClientEvents> {
         const serverSession = new ServerSession(this);
 
         const controller: ConnectionRequestController = {
+            failed: false,
             prematureServerSession: serverSession,
             promise: new Promise(async (res, rej) => {
                 await new Promise(r => setTimeout(r, 0));
 
                 const disconnectedCallback = (reason: string) => {
-                    const error = new Error(reason);
-                    if(controller.onerror == null) {
-                        throw error;
-                    } else {
-                        controller.onerror(error);
+                    if(!controller.failed) {
+                        controller.failed = true;
+                        const error = new Error(reason);
+                        if(controller.onerror == null) {
+                            throw error;
+                        } else {
+                            controller.onerror(error);
+                        }
                     }
                 }
                 serverSession.addListener("disconnected", disconnectedCallback);
@@ -139,10 +144,13 @@ export class Client extends TypedEmitter<ClientEvents> {
             
                     res(serverSession);
                 } catch(e) {
-                    if(controller.onerror == null) {
-                        throw e;
-                    } else {
-                        controller.onerror(e);
+                    if(!controller.failed) {
+                        controller.failed = true;
+                        if(controller.onerror == null) {
+                            throw e;
+                        } else {
+                            controller.onerror(e);
+                        }
                     }
                 }
             })

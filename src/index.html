@@ -33,9 +33,9 @@
                 <form>
                     <div>
                         <span>Game Code</span>
-                        <input type="text" name="id">
+                        <input type="text" name="id" style="font-size: 1.5em;">
                     </div>
-                    <input type="submit" value="Connect"></input>
+                    <input type="submit" value="Connect" style="font-size: 1.5em;"></input>
                 </form>
                 <p class="connect-error" style="color: red;"></p>
             </section>
@@ -56,8 +56,10 @@
             
         </div>
         <div class="modal centered" data-name="server-connection">
-            <h1>Connecting to <span class="server-id"></span></h1>
-            <button class="cancel">Cancel</button>
+            <div style="display: grid; grid-auto-rows: 1fr; align-items: center;">
+                <h1>Connecting to <span class="server-id"></span></h1>
+                <button class="cancel" style="font-size: 1.5em;">Cancel</button>
+            </div>
         </div>
     </div>
     <div id="debug-logs">
