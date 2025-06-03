@@ -94,7 +94,7 @@ material.colorNode = Fn(() => {
 export class FloatingText {
     private _text: string;
     public readonly mesh: Mesh;
-    public size = 0.25;
+    private _size = 0.25;
 
     private readonly _background = new ColorRGBA(new Color(0x000000), 0x88);
     private readonly _color = new ColorRGBA(new Color(0xffffff), 0xff);
@@ -118,7 +118,7 @@ export class FloatingText {
         const geometry = builder.create(this._text, this._color, this._background);
         geometry.computeBoundingBox();
         geometry.translate(geometry.boundingBox.max.x * -0.5, geometry.boundingBox.max.y * -0.5, 0);
-        geometry.scale(this.size, this.size, this.size);
+        geometry.scale(this._size, this._size, this._size);
 
         this.mesh.geometry.dispose();
         this.mesh.geometry = geometry;
@@ -133,6 +133,15 @@ export class FloatingText {
     }
     public get text() {
         return this._text;
+    }
+    public set size(size: number) {
+        if(this._size != size) {
+            this._size = size;
+            this.needsUpdate = true;
+        }
+    }
+    public get size() {
+        return this._size;
     }
     public set color(color: ColorRGBA) {
         if(color.r != this._color.r || color.g != this._color.g || color.b != this._color.b || color.a != this._color.a) {

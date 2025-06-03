@@ -172,11 +172,15 @@ export abstract class BaseEntity<
     protected abstract deserialize(bin: BinaryBuffer): void;
 
     public read(bin: BinaryBuffer) {
+        this.uuid = bin.read_string();
+        bin.read_vec3(this.position);
+        bin.read_vec3(this.velocity);
         this.deserialize(bin);
     }
     
     public write(bin: BinaryBuffer) {
         bin.write_u16(this.id);
+        bin.write_string(this.uuid);
         bin.write_vec3(this.position);
         bin.write_vec3(this.velocity);
         this.serialize(bin);
@@ -193,7 +197,7 @@ export abstract class BaseEntity<
     }
 
     public getBufferSize() {
-        return super.getBufferSize() + VEC3 + VEC3 + U16;
+        return super.getBufferSize() + BinaryBuffer.stringByteCount(this.uuid) + VEC3 + VEC3 + U16;
     }
 
     protected abstract getExpectedSize(): number;

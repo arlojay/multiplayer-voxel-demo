@@ -256,13 +256,13 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 next = iterator.next();
             }
 
-            // No benefit from bundling a singular packet
-            if(combinedPacket.packets.size == 1) {
-                for(const packet of combinedPacket.packets) this.connection.send(packet);
-                continue;
-            }
-
             if(this.connected) {
+                // No benefit from bundling a singular packet
+                if(combinedPacket.packets.size == 1) {
+                    for(const packet of combinedPacket.packets) this.connection.send(packet);
+                    continue;
+                }
+
                 this.sendPacket(combinedPacket, true);
             } else {
                 this.waitForConnection().then(() => {

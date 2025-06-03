@@ -27,6 +27,16 @@ export class DemoPlugin extends ServerPlugin {
     public async onServerLoad(event: ServerLoadedEvent) {
         this.db = await this.server.data.openPluginDatabase(this);
         this.clicksStore = await this.db.objectStore("clicks", "username");
+
+        const defaultWorld = this.server.getDefaultWorld();
+        for(let x = -100; x < 100; x += 30) {
+            for(let z = -100; z < 100; z += 30) {
+                const textEntity = defaultWorld.spawnEntity(TextEntity);
+                textEntity.position.set(x, 10, z);
+                textEntity.text = "oh... hello..!! (" + x + ", " + z + ")";
+                textEntity.size = 1;
+            }
+        }
     }
 
     @Subscribe(PluginEvents.PEER_JOIN)

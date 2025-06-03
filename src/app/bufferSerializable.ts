@@ -12,16 +12,16 @@ export abstract class BufferSerializableRegistry<
         this.types.set(this.nextId, factory);
         return this.nextId++;
     }
-    public createFromBinary(buffer: ArrayBuffer, ...args: FactoryParams) {
-        const bin = new BinaryBuffer(buffer);
+    public createFromBinary(buffer: ArrayBuffer | BinaryBuffer, ...args: FactoryParams) {
+        const bin = buffer instanceof BinaryBuffer ? buffer : new BinaryBuffer(buffer);
 
         const id = bin.read_u16();
 
         const Constructor = this.types.get(id);
         if(Constructor == null) throw new TypeError(
             "Invalid registered object " + id + (
-                buffer.byteLength < 128
-                    ? " (" + new Uint8Array(buffer).toString() + ")"
+                bin.buffer.byteLength < 128
+                    ? " (" + new Uint8Array(bin.buffer).toString() + ")"
                     : ""
             )
         );
@@ -56,7 +56,7 @@ export abstract class BufferSerializable {
     }
 
     protected getBufferSize() {
-        return this.getExpectedSize() + U16;
+        return U16 + this.getExpectedSize();
     }
 
     protected abstract getExpectedSize(): number;

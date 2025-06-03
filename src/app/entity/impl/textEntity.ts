@@ -1,5 +1,5 @@
 import { Color, Scene } from "three";
-import { BinaryBuffer, U8 } from "../../binary";
+import { BinaryBuffer, F32, U8 } from "../../binary";
 import { ColorRGBA, FloatingText } from "../../floatingText";
 import { BaseEntity, entityRegistry } from "../baseEntity";
 import { LocalEntity } from "../localEntity";
@@ -12,6 +12,7 @@ export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
     public text = "";
     public color: ColorRGBA = new ColorRGBA(new Color(0xffffff), 0xff);
     public background: ColorRGBA = new ColorRGBA(new Color(0x000000), 0x88);
+    public size = 0.25;
 
     protected instanceLogic(local: boolean) {
         return local ? new LocalTextEntity(this) : new RemoteTextEntity(this);
@@ -20,17 +21,20 @@ export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
         bin.write_string(this.text);
         bin.write_u8(this.color.r); bin.write_u8(this.color.g); bin.write_u8(this.color.b); bin.write_u8(this.color.a);
         bin.write_u8(this.background.r); bin.write_u8(this.background.g); bin.write_u8(this.background.b); bin.write_u8(this.background.a);
+        bin.write_f32(this.size);
     }
     protected deserialize(bin: BinaryBuffer): void {
         this.text = bin.read_string();
         this.color.set(bin.read_u8(), bin.read_u8(), bin.read_u8(), bin.read_u8());
         this.background.set(bin.read_u8(), bin.read_u8(), bin.read_u8(), bin.read_u8());
+        this.size = bin.read_f32();
     }
     protected getExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.text) +
             U8 * 4 +
-            U8 * 4
+            U8 * 4 +
+            F32
         );
     }
 }
@@ -55,9 +59,11 @@ export class RemoteTextEntity extends RemoteEntity<TextEntity> {
         this.model.color = this.base.color;
         this.model.background = this.base.background;
         this.model.text = this.base.text;
+        this.model.size = this.base.size;
     }
     public onAdd(scene: Scene): void {
         scene.add(this.model.mesh);
+        this.onUpdated();
     }
     public onRemove(): void {
         this.model.mesh.removeFromParent();

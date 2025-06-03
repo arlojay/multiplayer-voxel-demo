@@ -125,6 +125,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }
         }
         if(packet instanceof ChunkDataPacket) {
+            if(packet.entityData != null) console.log(packet);
             const key = packet.x + ";" + packet.y + ";" + packet.z;
             const promise = this.waitingChunks.get(key);
             if(promise != null) promise.resolve(packet);
@@ -179,7 +180,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof AddEntityPacket) {
             const remoteEntity = entityRegistry.createFromBinary(packet.entityData, EntityLogicType.REMOTE_LOGIC);
-            remoteEntity.uuid = packet.uuid;
             this.localWorld.addEntity(remoteEntity);
             
             remoteEntity.remoteLogic.onAdd(this.client.gameRenderer.scene);
@@ -422,7 +422,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         return promise;
     }
     public addChunkData(chunkDataPacket: ChunkDataPacket) {
-        const { x, y, z } = chunkDataPacket;
+        const { x, y, z, entityData } = chunkDataPacket;
 
         const localChunk = this.localWorld.getChunk(x, y, z, true);
         localChunk.data.set(chunkDataPacket.data);
@@ -439,6 +439,15 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                     chunk.markSurrounded(-dx, -dy, -dz);
                     if(chunk.isFullySurrounded()) this.player.world.markChunkDirty(chunk);
                 }
+            }
+        }
+
+        if(entityData != null) {
+            for(const buffer of entityData) {
+                const entity = entityRegistry.createFromBinary(buffer, EntityLogicType.REMOTE_LOGIC);
+                console.log(entity);
+                this.localWorld.addEntity(entity);
+                entity.remoteLogic.onAdd(this.client.gameRenderer.scene);
             }
         }
 

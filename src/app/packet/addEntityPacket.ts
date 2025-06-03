@@ -6,7 +6,6 @@ export class AddEntityPacket extends Packet {
     public static readonly id = packetRegistry.register(this);
     public readonly id = AddEntityPacket.id;
 
-    public uuid: string;
     public type: number;
     public entityData: ArrayBuffer;
 
@@ -14,7 +13,6 @@ export class AddEntityPacket extends Packet {
         super();
 
         if(entity != null) {
-            this.uuid = entity.uuid;
             this.type = entity.id;
 
             const bin = new BinaryBuffer(entity.allocateBuffer());
@@ -24,18 +22,15 @@ export class AddEntityPacket extends Packet {
     }
 
     protected serialize(bin: BinaryBuffer): void {
-        bin.write_string(this.uuid);
         bin.write_u32(this.type);
         bin.write_buffer(this.entityData);
     }
     protected deserialize(bin: BinaryBuffer): void {
-        this.uuid = bin.read_string();
         this.type = bin.read_u32();
         this.entityData = bin.read_buffer();
     }
     protected getExpectedSize(): number {
         return (
-            BinaryBuffer.stringByteCount(this.uuid) +
             U32 +
             BinaryBuffer.bufferByteCount(this.entityData)
         )
