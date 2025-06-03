@@ -52,6 +52,10 @@ export const MIN_I64 = -9223372036854775808n;
 export const MAX_I64 = 9223372036854775807n;
 export const SMALLEST_I64 = 1n;
 
+export const MIN_F16 = -65504.0;
+export const MAX_F16 = 65504.0;
+export const SMALLEST_F16 = 2 ** -24;
+
 export const MIN_F32 = -3.4028234663852886e+38;
 export const MAX_F32 = 3.4028234663852886e+38;
 export const SMALLEST_F32 = 1.401298464324817e-45;
@@ -59,6 +63,19 @@ export const SMALLEST_F32 = 1.401298464324817e-45;
 export const MIN_F64 = -1.7976931348623157e+308;
 export const MAX_F64 = 1.7976931348623157e+308;
 export const SMALLEST_F64 = 5e-324;
+
+
+// Polyfill for https://github.com/arlojay/multiplayer-voxel-demo/issues/9
+const f16arr = new Float16Array(1);
+const u16arr = new Uint16Array(f16arr.buffer);
+function F16toU16(float: number) {
+    f16arr[0] = float;
+    return u16arr[0];
+}
+function U16toF16(int: number) {
+    u16arr[0] = int;
+    return f16arr[0];
+}
 
 
 export class BinaryBuffer {
@@ -98,7 +115,7 @@ export class BinaryBuffer {
         this.view.setUint8((this.index += U8) - U8, value);
     }
     public read_u16() {
-        if(this.debug) console.log("read u16", this.view.getUint16(this.index));
+        if(this.debug) console.log("read u16", this.view.getUint16(this.index, this.littleEndian));
         return this.view.getUint16((this.index += U16) - U16, this.littleEndian);
     }
     public write_u16(value: number) {
@@ -106,7 +123,7 @@ export class BinaryBuffer {
         this.view.setUint16((this.index += U16) - U16, value, this.littleEndian);
     }
     public read_u32() {
-        if(this.debug) console.log("read u32", this.view.getUint32(this.index));
+        if(this.debug) console.log("read u32", this.view.getUint32(this.index, this.littleEndian));
         return this.view.getUint32((this.index += U32) - U32, this.littleEndian);
     }
     public write_u32(value: number) {
@@ -114,7 +131,7 @@ export class BinaryBuffer {
         this.view.setUint32((this.index += U32) - U32, value, this.littleEndian);
     }
     public read_u64() {
-        if(this.debug) console.log("read u64", this.view.getBigUint64(this.index));
+        if(this.debug) console.log("read u64", this.view.getBigUint64(this.index, this.littleEndian));
         return this.view.getBigUint64((this.index += U64) - U64, this.littleEndian);
     }
     public write_u64(value: bigint) {
@@ -131,7 +148,7 @@ export class BinaryBuffer {
         this.view.setInt8((this.index += I8) - I8, value);
     }
     public read_i16() {
-        if(this.debug) console.log("read i16", this.view.getInt16(this.index));
+        if(this.debug) console.log("read i16", this.view.getInt16(this.index, this.littleEndian));
         return this.view.getInt16((this.index += I16) - I16, this.littleEndian);
     }
     public write_i16(value: number) {
@@ -139,7 +156,7 @@ export class BinaryBuffer {
         this.view.setInt16((this.index += I16) - I16, value, this.littleEndian);
     }
     public read_i32() {
-        if(this.debug) console.log("read i32", this.view.getInt32(this.index));
+        if(this.debug) console.log("read i32", this.view.getInt32(this.index, this.littleEndian));
         return this.view.getInt32((this.index += I32) - I32, this.littleEndian);
     }
     public write_i32(value: number) {
@@ -147,7 +164,7 @@ export class BinaryBuffer {
         this.view.setInt32((this.index += I32) - I32, value, this.littleEndian);
     }
     public read_i64() {
-        if(this.debug) console.log("read i64", this.view.getBigInt64(this.index));
+        if(this.debug) console.log("read i64", this.view.getBigInt64(this.index, this.littleEndian));
         return this.view.getBigInt64((this.index += I64) - I64, this.littleEndian);
     }
     public write_i64(value: bigint) {
@@ -156,15 +173,15 @@ export class BinaryBuffer {
     }
 
     public read_f16() {
-        if(this.debug) console.log("read f16", this.view.getFloat16(this.index));
-        return this.view.getFloat16((this.index += F16) - F16, this.littleEndian);
+        if(this.debug) console.log("read f16", this._getFloat16(this.index, this.littleEndian));
+        return this._getFloat16((this.index += F16) - F16, this.littleEndian);
     }
     public write_f16(value: number) {
         if(this.debug) console.log("write f16", value);
-        this.view.setFloat16((this.index += F16) - F16, value, this.littleEndian);
+        this._setFloat16((this.index += F16) - F16, value, this.littleEndian);
     }
     public read_f32() {
-        if(this.debug) console.log("read f32", this.view.getFloat32(this.index));
+        if(this.debug) console.log("read f32", this.view.getFloat32(this.index, this.littleEndian));
         return this.view.getFloat32((this.index += F32) - F32, this.littleEndian);
     }
     public write_f32(value: number) {
@@ -172,7 +189,7 @@ export class BinaryBuffer {
         this.view.setFloat32((this.index += F32) - F32, value, this.littleEndian);
     }
     public read_f64() {
-        if(this.debug) console.log("read f64", this.view.getFloat64(this.index));
+        if(this.debug) console.log("read f64", this.view.getFloat64(this.index, this.littleEndian));
         return this.view.getFloat64((this.index += F64) - F64, this.littleEndian);
     }
     public write_f64(value: number) {
@@ -254,5 +271,17 @@ export class BinaryBuffer {
             this.read_f32(),
             this.read_f32()
         );
+    }
+
+    
+
+    // Polyfill for https://github.com/arlojay/multiplayer-voxel-demo/issues/9
+    private _getFloat16(index: number, littleEndian: boolean) {
+        // if("getFloat16" in (this.view as any)) return this.view.getFloat16(index, littleEndian);
+        return U16toF16(this.view.getUint16(index, littleEndian));
+    }
+    private _setFloat16(index: number, value: number, littleEndian: boolean) {
+        // if("setFloat16" in (this.view as any)) return this.view.setFloat16(index, value, littleEndian);
+        this.view.setUint16(index, F16toU16(value), littleEndian);
     }
 }
