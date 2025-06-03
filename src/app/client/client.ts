@@ -20,6 +20,13 @@ interface ClientEvents {
     "setblock": (x: number, y: number, z: number, block: number) => void;
 }
 
+interface ConnectionRequestController {
+    promise: Promise<ServerSession>;
+    prematureServerSession: ServerSession;
+    onerror?: (error: Error) => void;
+    failed: boolean;
+}
+
 export class Client extends TypedEmitter<ClientEvents> {
     public static instance: Client;
 
@@ -85,34 +92,70 @@ export class Client extends TypedEmitter<ClientEvents> {
         debugLog("Connected to the internet");
     }
 
-    public async connect(id: string, connectionOptions: ClientCustomizationOptions): Promise<ServerSession> {
+    public async initServerConnection(id: string, connectionOptions: ClientCustomizationOptions): Promise<ConnectionRequestController> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
 
         await this.waitForLogin();
         debugLog("Connecting to the server " + id);
 
         const serverSession = new ServerSession(this);
-        await serverSession.connect(id);
-        
-        this.serverSession = serverSession;
 
-        this.playerController.setPointerLocked(true);
-        serverSession.addListener("disconnected", () => {
-            this.playerController.setPointerLocked(false);
-            this.serverSession = null;
-        });
-        serverSession.addListener("changeworld", world => {
-            this.gameRenderer.setWorld(world);
-        })
+        const controller: ConnectionRequestController = {
+            failed: false,
+            prematureServerSession: serverSession,
+            promise: new Promise(async (res, rej) => {
+                await new Promise(r => setTimeout(r, 0));
 
-        this.gameRenderer.setWorld(serverSession.localWorld);
-    
-        const readyPacket = new ClientReadyPacket();
-        readyPacket.username = connectionOptions.username;
-        readyPacket.color = connectionOptions.color;
-        serverSession.sendPacket(readyPacket);
+                const disconnectedCallback = (reason: string) => {
+                    if(!controller.failed) {
+                        controller.failed = true;
+                        const error = new Error(reason);
+                        if(controller.onerror == null) {
+                            throw error;
+                        } else {
+                            controller.onerror(error);
+                        }
+                    }
+                }
+                serverSession.addListener("disconnected", disconnectedCallback);
 
-        return serverSession;
+                try {
+                    await serverSession.connect(id);
+                    
+                    this.serverSession = serverSession;
+            
+                    this.playerController.setPointerLocked(true);
+                    serverSession.addListener("disconnected", () => {
+                        this.playerController.setPointerLocked(false);
+                        this.serverSession = null;
+                    });
+                    serverSession.addListener("changeworld", world => {
+                        this.gameRenderer.setWorld(world);
+                    });
+            
+                    this.gameRenderer.setWorld(serverSession.localWorld);
+                
+                    const readyPacket = new ClientReadyPacket();
+                    readyPacket.username = connectionOptions.username;
+                    readyPacket.color = connectionOptions.color;
+                    serverSession.sendPacket(readyPacket);
+
+                    serverSession.removeListener("disconnected", disconnectedCallback);
+            
+                    res(serverSession);
+                } catch(e) {
+                    if(!controller.failed) {
+                        controller.failed = true;
+                        if(controller.onerror == null) {
+                            throw e;
+                        } else {
+                            controller.onerror(e);
+                        }
+                    }
+                }
+            })
+        }
+        return controller;
     }
 
     public update(time: number, dt: number) {
