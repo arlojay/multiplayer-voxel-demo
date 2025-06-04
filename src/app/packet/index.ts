@@ -32,3 +32,5 @@
 /*24*/ export * from "./entityMovePacket";
 /*25*/ export * from "./removeEntityPacket";
 /*26*/ export * from "./entityDataPacket";
+
+/*27*/ export * from "./splitPacket";

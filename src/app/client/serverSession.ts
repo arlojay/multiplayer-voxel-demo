@@ -7,7 +7,7 @@ import { NetworkUI } from "../client/networkUI";
 import { BaseEntity, EntityLogicType, entityRegistry, EntityRotation, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
-import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, UIInteractionPacket } from "../packet";
+import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
 import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { LoopingMusic } from "../sound/loopingMusic";
@@ -46,7 +46,6 @@ class EntityPacketBufferQueue {
         }
     }
     public getQueuedPackets(entity: BaseEntity | string) {
-        console.log(entity);
         if(typeof entity != "string") {
             entity = entity.uuid;
         }
@@ -82,6 +81,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private chunksToCheckForLoading: number[][] = new Array;
     private entityPacketQueue = new EntityPacketBufferQueue;
     public music: LoopingMusic;
+
+    private splitPacketAssembler = new SplitPacketAssembler;
 
     public constructor(client: Client) {
         super();
@@ -153,7 +154,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     
     // TODO: make this less cancerous
     public handlePacket(data: ArrayBuffer | Packet) {
-        const packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
+        let packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
+        if(packet instanceof SplitPacket) {
+            data = this.splitPacketAssembler.addPart(packet);
+            if(data == null) return;
+            packet = packetRegistry.createFromBinary(data);
+        }
         
         if(packet instanceof CombinedPacket) {
             for(const subPacket of packet.packets) {
@@ -166,7 +172,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }
         }
         if(packet instanceof ChunkDataPacket) {
-            if(packet.entityData != null) console.log(packet);
             const key = packet.x + ";" + packet.y + ";" + packet.z;
             const promise = this.waitingChunks.get(key);
             if(promise != null) promise.resolve(packet);
@@ -344,14 +349,16 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
     }
 
-    public sendPacket(packet: Packet) {
-        const buffer = packet.allocateBuffer();
-        try {
-            packet.write(new BinaryBuffer(buffer));
-        } catch(e) {
-            throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
+    public sendPacket(masterPacket: Packet) {
+        for(const packet of splitPacket(masterPacket)) {
+            const buffer = packet.allocateBuffer();
+            try {
+                packet.write(new BinaryBuffer(buffer));
+            } catch(e) {
+                throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
+            }
+            this.serverConnection.send(buffer);
         }
-        this.serverConnection.send(buffer);
     }
 
     public updateChunkFetchQueue(dt: number) {

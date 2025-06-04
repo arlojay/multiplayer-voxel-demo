@@ -1,7 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, SetBlockPacket } from "../packet";
+import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, SetBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
 import { UIContainer } from "../ui";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -36,6 +36,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     private onPingResponse: () => void = null;
     private lastPacketReceived: Map<number, number> = new Map;
     private visiblePeers: Set<ServerPeer> = new Set;
+    private splitPacketAssembler = new SplitPacketAssembler;
     public authenticated = false;
     public username = "anonymous";
     public color = "#ffffff";
@@ -119,10 +120,15 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         this.authenticated = true;
     }
 
-    public handlePacket(data: ArrayBuffer) {
+    public handlePacket(data: ArrayBuffer | Packet) {
         if(!this.connected) return;
 
-        const packet = packetRegistry.createFromBinary(data);
+        let packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
+        if(data instanceof SplitPacket) {
+            data = this.splitPacketAssembler.addPart(data);
+            if(data == null) return;
+            packet = packetRegistry.createFromBinary(data);
+        }
 
         if(packet instanceof ClientReadyPacket) {
             this.authenticate(packet);
@@ -203,24 +209,26 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     }
 
     // TODO: refactor for "add to queue" instead of "send instantly" flag
-    public sendPacket(packet: Packet, instant: boolean = false) {
-        const buffer = packet.allocateBuffer();
-        try {
-            packet.write(new BinaryBuffer(buffer));
-        } catch(e) {
-            throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
-        }
-
-        if(instant) {
-            if(this.connected) {
-                this.connection.send(buffer);
-            } else {
-                this.waitForConnection().then(() => {
-                    this.connection.send(buffer);
-                });
+    public sendPacket(masterPacket: Packet, instant: boolean = false) {
+        for(const packet of splitPacket(masterPacket)) {
+            const buffer = packet.allocateBuffer();
+            try {
+                packet.write(new BinaryBuffer(buffer));
+            } catch(e) {
+                throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
             }
-        } else {
-            this.packetQueue.add(buffer);
+
+            if(instant) {
+                if(this.connected) {
+                    this.connection.send(buffer);
+                } else {
+                    this.waitForConnection().then(() => {
+                        this.connection.send(buffer);
+                    });
+                }
+            } else {
+                this.packetQueue.add(buffer);
+            }
         }
     }
 

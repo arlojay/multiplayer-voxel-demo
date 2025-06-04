@@ -29,8 +29,9 @@ export class DemoPlugin extends ServerPlugin {
         this.clicksStore = await this.db.objectStore("clicks", "username");
 
         const defaultWorld = this.server.getDefaultWorld();
-        for(let x = -100; x < 100; x += 30) {
-            for(let z = -100; z < 100; z += 30) {
+        const int = 20;
+        for(let x = -100; x < 100; x += int) {
+            for(let z = -100; z < 100; z += int) {
                 const textEntity = defaultWorld.spawnEntity(TextEntity);
                 textEntity.position.set(x, 10, z);
                 textEntity.text = "oh... hello..!! (" + x + ", " + z + ")";
