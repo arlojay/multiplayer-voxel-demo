@@ -4,7 +4,7 @@ import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { NetworkUI } from "../client/networkUI";
-import { EntityLogicType, entityRegistry, EntityRotation, instanceof_RotatingEntity } from "../entity/baseEntity";
+import { BaseEntity, EntityLogicType, entityRegistry, EntityRotation, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
 import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, UIInteractionPacket } from "../packet";
@@ -16,6 +16,9 @@ import { CHUNK_INC_SCL } from "../voxelGrid";
 import { Chunk, World } from "../world";
 import { Client } from "./client";
 import { EntityLookPacket } from "../packet/entityLookPacket";
+import { EntityPacket } from "../packet/entityPacket";
+import { LocalEntity } from "../entity/localEntity";
+import { RemoteEntity } from "../entity/remoteEntity";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -28,6 +31,34 @@ interface QueuedChunkPacket {
     key: string;
 }
 
+class EntityPacketBufferQueue {
+    private queues: Map<string, FastPriorityQueue<EntityPacket>> = new Map;
+    
+    public queuePacket(packet: EntityPacket) {
+        let queue = this.queues.get(packet.uuid);
+
+        if(queue == null) {
+            queue = new FastPriorityQueue((a, b) => a.timestamp < b.timestamp);
+            queue.add(packet);
+            this.queues.set(packet.uuid, queue);
+        } else {
+            queue.add(packet);
+        }
+    }
+    public getQueuedPackets(entity: BaseEntity | string) {
+        console.log(entity);
+        if(typeof entity != "string") {
+            entity = entity.uuid;
+        }
+
+        const queue = this.queues.get(entity);
+        if(queue != null) {
+            this.queues.delete(entity);
+        }
+        return queue;
+    }
+}
+
 export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public client: Client;
     public serverConnection: DataConnection;
@@ -37,6 +68,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public interfaces: Map<string, NetworkUI> = new Map;
     
     private lastPacketReceived: Map<number, number> = new Map;
+    private lastEntityPacketReceived: Map<string, number>[] = new Array;
     private waitingChunks: Map<string, { reject: () => void, resolve: (packet: ChunkDataPacket) => void }> = new Map;
     private fetchingChunks: Map<string, Promise<ChunkDataPacket>> = new Map;
     private chunkFetchingQueueMap: Map<string, QueuedChunkPacket> = new Map;
@@ -48,6 +80,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private loadedChunksB: Chunk[] = new Array;
     private usingChunkBufferB = false;
     private chunksToCheckForLoading: number[][] = new Array;
+    private entityPacketQueue = new EntityPacketBufferQueue;
     public music: LoopingMusic;
 
     public constructor(client: Client) {
@@ -58,6 +91,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
         this.music.volume = 0.1;
         this.music.resume();
+
+        // TODO: do this programmatically, somehow
+        this.lastEntityPacketReceived[EntityMovePacket.id] = new Map;
+        this.lastEntityPacketReceived[EntityLookPacket.id] = new Map;
+        this.lastEntityPacketReceived[EntityDataPacket.id] = new Map;
     }
     
     public async connect(serverId: string) {
@@ -109,10 +147,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private isPacketOld(packet: Packet) {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
+    private isEntityPacketOld(packet: EntityPacket) {
+        return this.lastEntityPacketReceived[packet.id].get(packet.uuid) > packet.timestamp;
+    }
     
     // TODO: make this less cancerous
-    public handlePacket(data: ArrayBuffer) {
-        const packet = packetRegistry.createFromBinary(data);
+    public handlePacket(data: ArrayBuffer | Packet) {
+        const packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
         
         if(packet instanceof CombinedPacket) {
             for(const subPacket of packet.packets) {
@@ -144,10 +185,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         //         player.resetTimer();
         //     }
         // }
-        if(packet instanceof EntityMovePacket && !this.isPacketOld(packet)) {
+        if(packet instanceof EntityMovePacket && !this.isEntityPacketOld(packet)) {
             const entity = this.localWorld.getEntityByUUID(packet.uuid);
             if(entity == null) {
-                console.warn("Cannot find entity " + packet.uuid + "!");
+                this.entityPacketQueue.queuePacket(packet);
             } else {
                 entity.position.set(packet.x, packet.y, packet.z);
                 entity.velocity.set(packet.vx, packet.vy, packet.vz);
@@ -159,30 +200,31 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                     entity.remoteLogic?.renderPosition.copy(entity.remoteLogic.position);
                 }
             }
+            this.lastEntityPacketReceived[packet.id].set(packet.uuid, packet.timestamp);
         }
-        if(packet instanceof EntityLookPacket && !this.isPacketOld(packet)) {
+        if(packet instanceof EntityLookPacket && !this.isEntityPacketOld(packet)) {
             const entity = this.localWorld.getEntityByUUID(packet.uuid);
             if(entity == null) {
-                console.warn("Cannot find entity " + packet.uuid + "!");
+                this.entityPacketQueue.queuePacket(packet);
             } else if(instanceof_RotatingEntity(entity)) {
                 entity.rotation.pitch = packet.pitch;
                 entity.rotation.yaw = packet.yaw;
             }
+            this.lastEntityPacketReceived[packet.id].set(packet.uuid, packet.timestamp);
         }
-        if(packet instanceof EntityDataPacket && !this.isPacketOld(packet)) {
+        if(packet instanceof EntityDataPacket && !this.isEntityPacketOld(packet)) {
             const entity = this.localWorld.getEntityByUUID(packet.uuid);
             if(entity == null) {
-                console.warn("Cannot find entity " + packet.uuid + "!");
+                this.entityPacketQueue.queuePacket(packet);
             } else {
                 entity.readExtraData(new BinaryBuffer(packet.data));
                 entity.remoteLogic?.onUpdated();
             }
+            this.lastEntityPacketReceived[packet.id].set(packet.uuid, packet.timestamp);
         }
         if(packet instanceof AddEntityPacket) {
             const remoteEntity = entityRegistry.createFromBinary(packet.entityData, EntityLogicType.REMOTE_LOGIC);
-            this.localWorld.addEntity(remoteEntity);
-            
-            remoteEntity.remoteLogic.onAdd(this.client.gameRenderer.scene);
+            this.handleAddEntity(remoteEntity);
         }
         // if(packet instanceof PlayerJoinPacket) {
         //     const remotePlayer = new Player(EntityLogicType.REMOTE_LOGIC);
@@ -195,10 +237,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof RemoveEntityPacket) {
             const remoteEntity = this.localWorld.getEntityByUUID(packet.uuid);
             if(remoteEntity == null) {
-                console.warn("Cannot find entity " + packet.uuid + "!");
+                this.entityPacketQueue.queuePacket(packet);
             } else {
-                this.localWorld.removeEntity(remoteEntity);
-                remoteEntity.remoteLogic.onRemove();
+                this.handleRemoveEntity(remoteEntity);
             }
         }
         // if(packet instanceof PlayerLeavePacket) {
@@ -253,6 +294,21 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);
+    }
+    public handleAddEntity(entity: BaseEntity) {
+        this.localWorld.addEntity(entity);
+        
+        entity.remoteLogic.onAdd(this.client.gameRenderer.scene);
+        
+        const queuedPackets = this.entityPacketQueue.getQueuedPackets(entity);
+        if(queuedPackets != null) {
+            queuedPackets.forEach(packet => this.handlePacket(packet));
+        }
+    }
+    public handleRemoveEntity(entity: BaseEntity) {
+        this.localWorld.removeEntity(entity);
+        this.lastEntityPacketReceived
+        entity.remoteLogic.onRemove();
     }
     private onDisconnected() {
         this.chunkFetchingQueue.forEach(v => this.chunkFetchingQueue.remove(v));
@@ -445,9 +501,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(entityData != null) {
             for(const buffer of entityData) {
                 const entity = entityRegistry.createFromBinary(buffer, EntityLogicType.REMOTE_LOGIC);
-                console.log(entity);
-                this.localWorld.addEntity(entity);
-                entity.remoteLogic.onAdd(this.client.gameRenderer.scene);
+                this.handleAddEntity(entity);
             }
         }
 

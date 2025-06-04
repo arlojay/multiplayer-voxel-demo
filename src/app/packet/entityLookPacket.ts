@@ -1,13 +1,14 @@
 import { BinaryBuffer, F32 } from "../binary";
 import { BaseEntity, RotatingEntity } from "../entity/baseEntity";
+import { EntityPacket } from "./entityPacket";
 import { Packet, packetRegistry } from "./packet";
 
-export class EntityLookPacket extends Packet {
+export class EntityLookPacket extends Packet implements EntityPacket {
     public static readonly id = packetRegistry.register(this);
     public readonly id = EntityLookPacket.id;
 
     public uuid: string;
-
+    
     public pitch: number;
     public yaw: number;
 

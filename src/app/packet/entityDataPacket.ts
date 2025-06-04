@@ -1,11 +1,12 @@
 import { BinaryBuffer } from "../binary";
 import { BaseEntity } from "../entity/baseEntity";
+import { EntityPacket } from "./entityPacket";
 import { Packet, packetRegistry } from "./packet";
 
-export class EntityDataPacket extends Packet {
+export class EntityDataPacket extends Packet implements EntityPacket {
     public static readonly id = packetRegistry.register(this);
     public readonly id = EntityDataPacket.id;
-
+    
     public uuid: string;
     public data: ArrayBuffer;
 

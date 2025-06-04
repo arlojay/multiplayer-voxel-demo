@@ -119,6 +119,7 @@ export class EntityGrid {
     }
 
     public addEntity(entity: BaseEntity) {
+        if(this.allEntities.has(entity.uuid)) throw new ReferenceError("Entity with uuid " + entity.uuid + " already exists");
         this.allEntities.set(entity.uuid, entity);
         this.updateEntityLocation(entity);
     }

@@ -1,13 +1,14 @@
 import { BinaryBuffer, BOOL, F32 } from "../binary";
 import { BaseEntity } from "../entity/baseEntity";
+import { EntityPacket } from "./entityPacket";
 import { Packet, packetRegistry } from "./packet";
 
-export class EntityMovePacket extends Packet {
+export class EntityMovePacket extends Packet implements EntityPacket {
     public static readonly id = packetRegistry.register(this);
     public readonly id = EntityMovePacket.id;
 
     public uuid: string;
-
+    
     public x: number;
     public y: number;
     public z: number;

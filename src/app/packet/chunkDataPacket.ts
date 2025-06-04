@@ -1,4 +1,5 @@
 import { BinaryBuffer, I32, U16 } from "../binary";
+import { Player } from "../entity/impl";
 import { CHUNK_SIZE } from "../voxelGrid";
 import { Chunk } from "../world";
 import { Packet, packetRegistry } from "./packet";
@@ -21,11 +22,14 @@ export class ChunkDataPacket extends Packet {
             this.y = chunk.y;
             this.z = chunk.z;
             this.data = chunk.data;
-            this.entityData = chunk.entities.values().map(entity => {
-                const data = new BinaryBuffer(entity.allocateBuffer());
-                entity.write(data);
-                return data.buffer;
-            }).toArray();
+            this.entityData = chunk.entities.values()
+                .filter(entity => !(entity instanceof Player))
+                .map(entity => {
+                    const data = new BinaryBuffer(entity.allocateBuffer());
+                    entity.write(data);
+                    return data.buffer;
+                })
+                .toArray();
         }
     }
 
