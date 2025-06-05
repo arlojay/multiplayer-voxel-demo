@@ -9,6 +9,8 @@ export const capabilities = new class {
         return true;
     })()
     DATAVIEW_F16 = (() => {
+        if(!("Float16Array" in self)) return false;
+        
         const array = new Float16Array(1);
         const view = new DataView(array.buffer);
 

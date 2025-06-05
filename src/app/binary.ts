@@ -1,6 +1,7 @@
 import { BSON, Document as BSONDocument } from "bson";
 import { Vector3 } from "three";
 import { capabilities } from "./capability";
+import { Float16Array } from "@petamoriken/float16";
 
 const textEncoder = new TextEncoder;
 const textDecoder = new TextDecoder;

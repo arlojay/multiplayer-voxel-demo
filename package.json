@@ -34,6 +34,7 @@
     "webpack-dev-server": "^5.2.0"
   },
   "dependencies": {
+    "@petamoriken/float16": "^3.9.2",
     "alea": "^1.0.1",
     "bson": "^6.10.3",
     "buffer": "^6.0.3",
