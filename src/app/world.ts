@@ -237,6 +237,7 @@ export class World {
     }
     public removeEntity(entity: BaseEntity) {
         this.entities.removeEntity(entity);
+        entity.remoteLogic?.onRemove();
         entity.setWorld(null);
         
         if(this.server != null) {

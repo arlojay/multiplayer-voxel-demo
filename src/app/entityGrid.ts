@@ -146,4 +146,7 @@ export class EntityGrid {
         }
         chunk.entities.add(entity);
     }
+    public *[Symbol.iterator]() {
+        yield* this.allEntities.values();
+    }
 }

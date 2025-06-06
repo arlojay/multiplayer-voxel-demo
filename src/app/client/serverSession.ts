@@ -436,6 +436,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public resetLocalWorld() {
+        for(const entity of this.localWorld.entities) {
+            entity.remove();
+        }
         this.localWorld = new World(crypto.randomUUID());
         this.fetchingChunks.clear();
         this.chunkFetchingQueue.removeMany(() => true);
