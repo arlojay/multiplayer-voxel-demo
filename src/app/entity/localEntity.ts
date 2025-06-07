@@ -11,6 +11,8 @@ export const BLOCK_HITBOX = new Box3(
     new Vector3(1, 1, 1)
 );
 
+const C = new Float32Array(new Uint8Array([0, 0, 0, 40]).buffer)[0];
+
 export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, LocalEntity<any>>> {
     protected readonly base: Base;
     public airTime: number = 0;
@@ -57,9 +59,9 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
 
         this.base.velocity.x = 0;
         if(dx < 0) {
-            this.base.position.x += lastCollision.x + lastCollision.hitbox.max.x - (this.base.position.x + this.base.hitbox.min.x);
+            this.base.position.x += lastCollision.x + (lastCollision.hitbox.max.x + C) - (this.base.position.x + this.base.hitbox.min.x);
         } else if(dx > 0) {
-            this.base.position.x += lastCollision.x + lastCollision.hitbox.min.x - (this.base.position.x + this.base.hitbox.max.x);
+            this.base.position.x += lastCollision.x + (lastCollision.hitbox.min.x - C) - (this.base.position.x + this.base.hitbox.max.x);
         }
     }
     public moveY(dy: number) {
@@ -69,10 +71,10 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
 
         this.base.velocity.y = 0;
         if(dy < 0) {
-            this.base.position.y += lastCollision.y + lastCollision.hitbox.max.y - (this.base.position.y + this.base.hitbox.min.y);
+            this.base.position.y += lastCollision.y + (lastCollision.hitbox.max.y + C) - (this.base.position.y + this.base.hitbox.min.y);
             this.airTime = 0;
         } else if(dy > 0) {
-            this.base.position.y += lastCollision.y + lastCollision.hitbox.min.y - (this.base.position.y + this.base.hitbox.max.y);
+            this.base.position.y += lastCollision.y + (lastCollision.hitbox.min.y - C) - (this.base.position.y + this.base.hitbox.max.y);
         }
     }
     public moveZ(dz: number) {
@@ -82,9 +84,9 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
 
         this.base.velocity.z = 0;
         if(dz < 0) {
-            this.base.position.z += lastCollision.z + lastCollision.hitbox.max.z - (this.base.position.z + this.base.hitbox.min.z);
+            this.base.position.z += lastCollision.z + (lastCollision.hitbox.max.z + C) - (this.base.position.z + this.base.hitbox.min.z);
         } else if(dz > 0) {
-            this.base.position.z += lastCollision.z + lastCollision.hitbox.min.z - (this.base.position.z + this.base.hitbox.max.z);
+            this.base.position.z += lastCollision.z + (lastCollision.hitbox.min.z - C) - (this.base.position.z + this.base.hitbox.max.z);
         }
     }
 
