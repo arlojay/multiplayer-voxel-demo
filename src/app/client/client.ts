@@ -46,7 +46,7 @@ export class Client extends TypedEmitter<ClientEvents> {
         const canvas = gameRoot.querySelector("canvas") as HTMLCanvasElement;
         const UIRoot = gameRoot.querySelector("#game-ui") as HTMLDivElement;
         this.gameRenderer = new GameRenderer(canvas, UIRoot);
-        this.playerController = new PlayerController(canvas, gameRoot);
+        this.playerController = new PlayerController(canvas);
         
         this.gameRenderer.addListener("frame", (time, dt) => {
             this.update(time, dt);

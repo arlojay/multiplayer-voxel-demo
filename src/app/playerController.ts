@@ -17,9 +17,9 @@ export class PlayerController {
     public backPointer = false;
     public forwardPointer = false;
 
-    constructor(pointerRoot: HTMLElement, keyboardRoot: HTMLElement) {
-        this.pointerRoot = pointerRoot;
-        this.keyboardRoot = keyboardRoot;
+    constructor(controllerRoot: HTMLElement) {
+        this.pointerRoot = controllerRoot;
+        this.keyboardRoot = controllerRoot;
 
         this.initEvents();
     }
@@ -37,6 +37,10 @@ export class PlayerController {
 
             this.pointerMovement.x += event.movementX;
             this.pointerMovement.y += event.movementY;
+
+            if(this.pointerCurrentlyLocked) {
+                this.keyboardRoot.focus?.();
+            }
         }
 
         this.keyboardRoot.addEventListener("keydown", e => {
