@@ -145,6 +145,7 @@ export class EntityGrid {
             oldChunk.entities.delete(entity);
         }
         chunk.entities.add(entity);
+        this.entityChunks.set(entity, chunk);
     }
     public *[Symbol.iterator]() {
         yield* this.allEntities.values();
