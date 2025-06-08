@@ -1,6 +1,6 @@
 import { Box3, Vector3 } from "three";
 import { $enum } from "ts-enum-util";
-import { BinaryBuffer, F16, U16, VEC3 } from "../binary";
+import { BinaryBuffer, F16, F32, U16, VEC3 } from "../binary";
 import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
 import { Server } from "../server/server";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -36,15 +36,15 @@ export class EntityRotation implements EntityComponent {
     private lastMoveTime = 0;
     
     public serialize(bin: BinaryBuffer): void {
-        bin.write_f16(this.pitch);
-        bin.write_f16(this.yaw);
+        bin.write_f32(this.pitch);
+        bin.write_f32(this.yaw);
     }
     public deserialize(bin: BinaryBuffer): void {
-        this.pitch = bin.read_f16();
-        this.yaw = bin.read_f16();
+        this.pitch = bin.read_f32();
+        this.yaw = bin.read_f32();
     }
     public getExpectedSize(): number {
-        return F16 * 2;
+        return F32 * 2;
     }
     
     public hasMovedSince(time: number) {

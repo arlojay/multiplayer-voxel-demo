@@ -1,4 +1,4 @@
-import Peer from "peerjs";
+import Peer, { DataConnection } from "peerjs";
 import { debugLog } from "./logging";
 
 export const iceServers = [
@@ -54,7 +54,7 @@ export const iceServers = [
 
 export function createPeer(id: string) {
     debugLog("Creating peer with id " + id);
-    return new Peer(id, {
+    const peer = new Peer(id, {
         host: "peerjs.arlojay.cc",
         secure: document.location.hostname == "localhost" ? true : undefined,
         port: 443,
@@ -66,4 +66,22 @@ export function createPeer(id: string) {
             ]
         }
     });
+
+    return peer;
+}
+
+interface RTCDataChannelStats {
+    bytesSent?: number;
+    bytesReceived?: number;
+    dataChannelIdentifier?: string;
+    label?: string;
+    messagesReceived?: number;
+    messageSent?: number;
+    protocol?: string;
+    state: "connecting" | "open" | "closing" | "closed";
+}
+
+export async function getStats(connection: DataConnection): Promise<RTCDataChannelStats | null> {
+    const stats: Map<string, RTCDataChannelStats | any> = new Map(await connection.peerConnection.getStats().then(v => (v as any).entries()));
+    return stats.values().find(conn => conn?.label == connection.label);
 }

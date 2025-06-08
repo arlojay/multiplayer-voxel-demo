@@ -84,7 +84,7 @@ export class BinaryBuffer {
     public buffer: ArrayBuffer;
     public view: DataView<ArrayBuffer>;
     public index: number = 0;
-    public littleEndian: boolean = false;
+    public littleEndian: boolean = true;
     private array: Uint8Array<ArrayBuffer>;
     public debug = false;
 

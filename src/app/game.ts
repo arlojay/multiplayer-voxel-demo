@@ -7,6 +7,7 @@ import { PluginLoader } from "./server/pluginLoader";
 import { ServerLaunchOptions } from "./server/server";
 import { ServerData, ServerOptions } from "./server/serverData";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
+import { getStats } from "./turn";
 import { UIButton, UIFieldset, UIForm, UISection, UISliderInput, UIText, UITextInput } from "./ui";
 import { UIFormField, UIFormFieldInputSide } from "./ui/UIFormField";
 import { UISpacer } from "./ui/UISpacer";
@@ -57,6 +58,7 @@ async function main() {
     const memCounter = performanceMeter.querySelector(".mem");
     const fpsCounter = performanceMeter.querySelector(".fps");
     const frametimeCounter = performanceMeter.querySelector(".frametime");
+    const networkCounter = performanceMeter.querySelector(".network");
 
     function decimalToAccuracy(value: number, places: number) {
         const n = 10 ** places;
@@ -70,6 +72,10 @@ async function main() {
 
     let memused = 0;
     let displayMemused = 0;
+    let lastSentBytes = 0;
+    let lastSentByteInterval = 0;
+    let lastRecvBytes = 0;
+    let lastRecvByteInterval = 0;
     setInterval(() => {
         const memory = (performance as any).memory;
         if(memory != null) {
@@ -77,8 +83,32 @@ async function main() {
         }
     }, 10);
 
+    const cbs: ({ time: number, run: () => void })[] = new Array;
     let lastTime = 0;
+
     const cb = (time: number) => {
+        while(cbs[0]?.time + 1000 < lastTime) cbs.shift().run();
+
+        if(client.serverSession?.serverConnection != null) {
+            getStats(client.serverSession.serverConnection).then(stats => {
+                if(stats != null) {
+                    const sent = stats.bytesSent - lastSentBytes;
+                    lastSentBytes = stats.bytesSent;
+                    lastSentByteInterval += sent;
+
+                    const recv = stats.bytesReceived - lastRecvBytes;
+                    lastRecvBytes = stats.bytesReceived;
+                    lastRecvByteInterval += recv;
+
+                    if(sent > 0 || recv > 0) cbs.push({ time: lastTime, run() {
+                        lastSentByteInterval -= sent;
+                        lastRecvByteInterval -= recv;
+                    }})
+                }
+            });
+        }
+
+
         const dt = (time - lastTime) / 1000;
         lastTime = time;
 
@@ -88,6 +118,9 @@ async function main() {
         if(client.gameRenderer != null) {
             fpsCounter.textContent = Math.round(client.gameRenderer.framerate) + " FPS";
             frametimeCounter.textContent = decimalToAccuracy(client.gameRenderer.frametime * 1000, 3) + " ms/frame";
+        }
+        if(client.peer != null) {
+            networkCounter.textContent = decimalToAccuracy(lastSentByteInterval / 1024, 2).padStart(10, " ") + "kB/s up" + decimalToAccuracy(lastRecvByteInterval / 1024, 2).padStart(10, " ") + "kB/s down"
         }
         requestAnimationFrame(cb);
     };
@@ -215,7 +248,7 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
         };
 
         const cancelButtonCallback = () => {
-            connectionController.prematureServerSession.close(); // runs "disconnect" event
+            connectionController.prematureServerSession.close("Cancelled by user"); // runs "disconnect" event
             cancelConnectionButton.removeEventListener("click", cancelButtonCallback);
         };
 

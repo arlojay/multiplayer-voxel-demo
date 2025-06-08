@@ -40,6 +40,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public authenticated = false;
     public username = "anonymous";
     public color = "#ffffff";
+    public lastPacketTime = 0;
 
 
     constructor(connection: MessagePortConnection, server: Server) {
@@ -52,6 +53,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
         connection.addListener("open", () => {
             this.connected = true;
+            this.lastPacketTime = this.server.time;
             this.initPingLoop();
         });
         connection.addListener("close", () => {
@@ -68,16 +70,11 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         try {
             while(this.connected) {
                 await this.sendPing();
-                await new Promise(r => setTimeout(r, 30000));
+                await new Promise(r => setTimeout(r, 1000));
             }
         } catch(e) {
-            if(e instanceof TimedOutError) {
-                console.log(e);
-                this.kick("Timed out");
-            } else {
-                this.kick("Internal server error");
-                throw e;
-            }
+            this.kick("Internal server error");
+            throw e;
         }
     }
 
@@ -122,6 +119,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     public handlePacket(data: ArrayBuffer | Packet) {
         if(!this.connected) return;
+        this.lastPacketTime = this.server.time;
 
         let packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
         if(data instanceof SplitPacket) {
@@ -297,12 +295,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 this.pingPromise = null;
                 this.onPingResponse = null;
             };
-
-            setTimeout(() => {
-                this.pingPromise = null;
-                this.onPingResponse = null;
-                rej(new TimedOutError("Ping timed out"));
-            }, 5000);
             
             this.sendPacket(pingPacket, true);
         }));
@@ -329,6 +321,11 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     public update(dt: number) {
         this.serverPlayer.update(dt);
+
+        if(!this.connected) return;
+        if(this.lastPacketTime + 5000 < this.server.time) {
+            this.kick("Timed out");
+        }
     }
 
     public sendToWorld(world: World) {

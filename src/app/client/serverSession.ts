@@ -74,7 +74,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private chunkFetchingQueue: FastPriorityQueue<QueuedChunkPacket> = new FastPriorityQueue(
         (a, b) => a.distance < b.distance
     );
-    private kicked: boolean;
+    private disconnected: boolean;
     private loadedChunksA: Chunk[] = new Array;
     private loadedChunksB: Chunk[] = new Array;
     private usingChunkBufferB = false;
@@ -83,6 +83,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public music: LoopingMusic;
 
     private splitPacketAssembler = new SplitPacketAssembler;
+    public lastPacketTime = 0;
 
     public constructor(client: Client) {
         super();
@@ -125,10 +126,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.onConnected();
     }
 
-    public close() {
+    public close(reason: string = "Unknown reason") {
+        if(this.disconnected) return;
+
         this.serverConnection.close();
         this.onDisconnected();
-        this.emit("disconnected", "Cancelled by user");
+        this.emit("disconnected", reason);
     }
     
     private initConnectionEvents() {
@@ -138,11 +141,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }
         });
         this.serverConnection.addListener("close", () => {
-            if(this.kicked) return;
+            if(this.disconnected) return;
 
             this.onDisconnected();
             this.emit("disconnected", "Connection lost");
         })
+        this.lastPacketTime = this.client.time;
     }
 
     private isPacketOld(packet: Packet) {
@@ -154,6 +158,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     
     // TODO: make this less cancerous
     public handlePacket(data: ArrayBuffer | Packet) {
+        this.lastPacketTime = this.client.time;
+        
         let packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
         if(packet instanceof SplitPacket) {
             data = this.splitPacketAssembler.addPart(packet);
@@ -262,10 +268,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.sendPacket(responsePacket);
         }
         if(packet instanceof KickPacket) {
-            this.onDisconnected();
-            this.emit("disconnected", packet.reason);
-            this.kicked = true;
-            this.serverConnection.close();
+            if(!this.disconnected) {
+                this.onDisconnected();
+                this.emit("disconnected", packet.reason);
+                this.serverConnection.close();
+            }
         }
         if(packet instanceof SetLocalPlayerPositionPacket) {
             this.player.position.copy(packet.position);
@@ -316,11 +323,17 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         entity.remoteLogic.onRemove();
     }
     private onDisconnected() {
+        this.disconnected = true;
+        
         this.chunkFetchingQueue.forEach(v => this.chunkFetchingQueue.remove(v));
         this.chunkFetchingQueueMap.clear();
         this.fetchingChunks.clear();
         this.loadedChunksA.splice(0);
         this.loadedChunksB.splice(0);
+
+        for(const ui of this.interfaces.values()) {
+            this.hideUI(ui);
+        }
 
         for(const promise of this.waitingChunks.values()) {
             promise.reject();
@@ -540,6 +553,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.localWorld.update(dt);
 
         this.updateChunkFetchQueue(dt);
+
+        if(this.lastPacketTime + 5000 < time) {
+            this.close("Server not responding");
+        }
     }
 
     private onConnected() {

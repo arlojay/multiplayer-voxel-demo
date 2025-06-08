@@ -98,11 +98,10 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     }
 
     public async render(time: number) {
-        time /= 1000;
-        const dt = (time - this.lastRenderTime);
+        const dt = (time - this.lastRenderTime) / 1000;
 
         this.frameTimes.push(time);
-        while(time - this.frameTimes[0] > 1) this.frameTimes.shift();
+        while(time - this.frameTimes[0] > 1000) this.frameTimes.shift();
         this.framerate = dlerp(this.framerate, this.frameTimes.length, dt, 10);
 
         this.lastRenderTime = time;
@@ -183,7 +182,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     }
     public hideUI(container: UIContainer) {
         this.showingUIs.delete(container);
-        this.UIRoot.removeChild(container.element);
+        if(this.UIRoot.contains(container.element)) this.UIRoot.removeChild(container.element);
     }
     public destroyWorldRenderer() {
         this.worldRenderer.destroy();
