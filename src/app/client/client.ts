@@ -52,6 +52,26 @@ export class Client extends TypedEmitter<ClientEvents> {
         this.gameRenderer.addListener("frame", (time, dt) => {
             this.update(time, dt);
         });
+
+        let lastForcedUpdate = 0;
+        let lastRealUpdate = 0;
+        let firstForcedUpdate = 0;
+
+        setInterval(() => {
+            if(document.visibilityState == "visible") {
+                lastRealUpdate = this.time;
+                lastForcedUpdate = firstForcedUpdate = performance.now();
+                return;
+            }
+
+            const lastTime = this.time;
+            this.time = (lastForcedUpdate - firstForcedUpdate) + lastRealUpdate;
+            lastForcedUpdate = performance.now();
+
+            const dt = this.time - lastTime;
+
+            this.update(this.time, dt / 1000);
+        }, 200);
     }
 
     public login(id: string = "client-" + Math.random().toString().slice(2) + "-mvd") {

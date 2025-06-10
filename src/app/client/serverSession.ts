@@ -128,6 +128,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     public close(reason: string = "Unknown reason") {
         if(this.disconnected) return;
+        this.disconnected = true;
 
         this.serverConnection.close();
         this.onDisconnected();
@@ -142,6 +143,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         });
         this.serverConnection.addListener("close", () => {
             if(this.disconnected) return;
+            this.disconnected = true;
 
             this.onDisconnected();
             this.emit("disconnected", "Connection lost");
@@ -269,6 +271,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof KickPacket) {
             if(!this.disconnected) {
+                this.disconnected = true;
+
                 this.onDisconnected();
                 this.emit("disconnected", packet.reason);
                 this.serverConnection.close();
@@ -323,8 +327,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         entity.remoteLogic.onRemove();
     }
     private onDisconnected() {
-        this.disconnected = true;
-        
         this.chunkFetchingQueue.forEach(v => this.chunkFetchingQueue.remove(v));
         this.chunkFetchingQueueMap.clear();
         this.fetchingChunks.clear();
@@ -341,6 +343,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.waitingChunks.clear();
 
         this.music.destroy();
+        this.resetLocalWorld();
     }
 
     private showUI(ui: NetworkUI) {
@@ -455,7 +458,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.localWorld = new World(crypto.randomUUID());
         this.fetchingChunks.clear();
         this.chunkFetchingQueue.removeMany(() => true);
-        this.player.setWorld(this.localWorld);
+        if(this.player != null) {
+            this.player.setWorld(this.localWorld);
+        }
         this.emit("changeworld", this.localWorld);
     }
 

@@ -108,8 +108,8 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         
         const t0 = performance.now();
+        this.emit("frame", time, dt);
         if(this.worldRenderer != null) {
-            this.emit("frame", time, dt);
             this.worldRenderer.update(dt);
 
             const prevPos = this.camera.position.clone();
@@ -185,6 +185,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         if(this.UIRoot.contains(container.element)) this.UIRoot.removeChild(container.element);
     }
     public destroyWorldRenderer() {
+        console.trace("destroy world renderer");
         this.worldRenderer.destroy();
         this.worldRenderer = null;
     }
