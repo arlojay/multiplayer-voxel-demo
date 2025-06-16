@@ -1,9 +1,9 @@
 import { UIContainer } from "./UIContainer";
-import { UIElement } from "./UIElement";
+import { UIElementRegistry } from "./UIElement";
 
 
 export class UISection extends UIContainer {
-    public static readonly type = UIElement.register("sct", () => new this);
+    public static readonly type = UIElementRegistry.register("sct", this);
     public readonly type = UISection.type;
 
     async buildElement(): Promise<HTMLElement> {

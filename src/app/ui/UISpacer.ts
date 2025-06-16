@@ -1,7 +1,7 @@
-import { UIElement } from "./UIElement";
+import { UIElement, UIElementRegistry } from "./UIElement";
 
 export class UISpacer extends UIElement {
-    public static readonly type = UIElement.register("br", () => new this);
+    public static readonly type = UIElementRegistry.register("br", this);
     public readonly type = UISpacer.type;
 
     protected async buildElement(): Promise<HTMLElement> {

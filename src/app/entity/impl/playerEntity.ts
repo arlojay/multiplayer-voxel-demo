@@ -1,7 +1,7 @@
-import { Box3, Color, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
-import { BinaryBuffer, F32, VEC3 } from "../../binary";
+import { Box3, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
+import { BinaryBuffer, VEC3 } from "../../binary";
 import { BaseEntity, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
-import { BLOCK_HITBOX, LocalEntity } from "../localEntity";
+import { GRAVITY, LocalEntity } from "../localEntity";
 import { dlerp } from "../../math";
 import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
 import { PlayerController } from "../../playerController";
@@ -11,6 +11,7 @@ import { ClientSounds } from "../../client/clientSounds";
 import { PlayerModel } from "../../client/playerModel";
 import { RemoteEntity } from "../remoteEntity";
 import { capabilities } from "../../capability";
+import { isRaycastIgnored } from "../collisionChecker";
 
 export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements RotatingEntity {
     public static readonly id = entityRegistry.register(this);
@@ -81,6 +82,10 @@ export class LocalPlayer extends LocalEntity<Player> {
     public crouching: boolean;
     public sprinting: boolean;
 
+    public baseSpeedMultiplier = 1;
+    public baseJumpHeight = 1.28;
+    public stepSize = 0.55;
+
     private viewBobTime = 0.0;
     private viewBobIntensity = 0.0;
     private panRoll = 0;
@@ -94,6 +99,7 @@ export class LocalPlayer extends LocalEntity<Player> {
     private freecam = false;
     private yawFreecam: number = 0;
     private pitchFreecam: number = 0;
+
 
     public model: PlayerModel = new PlayerModel;
 
@@ -123,8 +129,8 @@ export class LocalPlayer extends LocalEntity<Player> {
 
         let dx = 0;
         let dz = 0;
-        let speed = 100;
-        let maxHorizontalSpeed = 4;
+        let speed = 100 * this.baseSpeedMultiplier;
+        let maxHorizontalSpeed = 4 * this.baseSpeedMultiplier;
         
         if(!onGround) {
             speed *= 0.2;
@@ -201,7 +207,7 @@ export class LocalPlayer extends LocalEntity<Player> {
 
         if(onGround && receivingControls && !this.freecam) {
             if(this.controller.keyDown(" ")) {
-                this.base.velocity.y = 8;
+                this.base.velocity.y = Math.sqrt(this.baseJumpHeight * 2 * -GRAVITY.y);
             }
         }
 
@@ -401,18 +407,19 @@ export class LocalPlayer extends LocalEntity<Player> {
     public placeBlock(x: number, y: number, z: number) {
         if(!this.base.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
-        const color = new Color(this.base.color);
+        // const block = this.base.world.getValueFromColor(new Color(this.base.color));
+        const block = 0b0000000000000001;
 
-        const hitbox = BLOCK_HITBOX;
-        if(this.collisionChecker.collidesWithHitbox(x, y, z, hitbox)) return;
+        if(this.collisionChecker.collidesWithBlock(x, y, z, block)) return;
+        if(!isRaycastIgnored(this.base.world.getRawValue(x, y, z))) return;
 
-        this.base.world.setColor(x, y, z, color);
+        this.base.world.setRawValue(x, y, z, block);
 
         const packet = new PlaceBlockPacket;
         packet.x = x;
         packet.y = y;
         packet.z = z;
-        packet.block = this.base.world.getValueFromColor(color);
+        packet.block = block;
 
         // TODO: Make specific to the session the player belongs to
         Client.instance.serverSession.sendPacket(packet);

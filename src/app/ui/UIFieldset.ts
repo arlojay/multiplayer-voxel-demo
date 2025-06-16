@@ -1,9 +1,9 @@
 import { UIContainer } from "./UIContainer";
-import { UIElement } from "./UIElement";
+import { UIElement, UIElementRegistry } from "./UIElement";
 import { UIForm } from "./UIForm";
 
 export class UIFieldset extends UIContainer {
-    public static readonly type = UIElement.register("fldt", () => new this);
+    public static readonly type = UIElementRegistry.register("fldt", this);
     public readonly type = UIForm.type;
 
     public legend: string;

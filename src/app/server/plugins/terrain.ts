@@ -43,11 +43,13 @@ export class SimplexTerrainGenerator extends WorldGenerator {
                 for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
                     let color = 0x000000;
 
-                    if(globalY < height - 5) color = 0x888888;
-                    else if(globalY < height - 1) color = 0xCC9966;
-                    else if(globalY < height) color = 0xBBFF99;
+                    // if(globalY < height - 5) color = 0x888888;
+                    // else if(globalY < height - 1) color = 0xCC9966;
+                    // else if(globalY < height) color = 0xBBFF99;
 
-                    if(color != 0x000000) chunk.set(x, y, z, world.getValueFromColor(color));
+                    // if(color != 0x000000) chunk.set(x, y, z, world.getValueFromColor(color));
+
+                    chunk.set(x, y, z, globalY < height ? 0b0000000000000001 : 0b0000000000000000);
                 }
                 globalY -= CHUNK_SIZE;
             }

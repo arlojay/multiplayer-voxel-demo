@@ -1,25 +1,51 @@
-import { abs, attribute, cameraPosition, color, dot, float, Fn, If, int, max, mix, positionView, positionWorld, select, smoothstep, uniform, vec2, vec3, vertexIndex, vertexStage } from "three/src/nodes/TSL";
+import { abs, attribute, cameraPosition, color, dot, float, floor, Fn, If, int, max, mix, nodeProxy, positionWorld, round, select, smoothstep, texture, textureSize, uint, vec2, vec3, vec4, vertexStage } from "three/src/nodes/TSL";
 import { FaceDirection } from "../voxelMesher";
 import { nightFactor, skyColorNode, sunPos } from "./sky";
+import { Texture } from "three";
+import { CodeNode, FunctionNode, Node, NodeBuilder } from "three/src/Three.WebGPU";
+
+// https://github.com/mrdoob/three.js/issues/30663
+
+
+const bitcast = nodeProxy(class BitcastNode extends Node {
+    public input: Node;
+    public outputType: string;
+
+    static get type(): string {
+        return "BitcastNode";
+    }
+    constructor(input: Node, outputType: string) {
+        super();
+        this.input = input;
+        this.outputType = outputType;
+    }
+    public generate(builder: NodeBuilder) {
+        const inputType = this.input.getNodeType(builder);
+        const code = "bitcast<u32>(" + this.input.build(builder, inputType) + ")";
+        return builder.format(code, inputType, this.outputType);
+    }
+})
+
+const unpackVec2 = Fn(([ number = uint(0) ]) => {
+    return vec2(
+        number.bitAnd(uint(0xffff0000)).shiftRight(16).toFloat(),
+        number.bitAnd(uint(0x0000ffff)).toFloat(),
+    )
+})
+
+export const terrainMap = texture(new Texture);
 
 export const terrainColor = Fn(([viewDistance = float(16)]) => {
-    const uv = vertexStage(Fn(() => {
-        const uv = vec2(0, 0).toVar();
-        const vi = vertexIndex.modInt(4);
-        If(vi.equal(0), () => {
-            uv.assign(vec2(-0.5, -0.5));
-        });
-        If(vi.equal(1), () => {
-            uv.assign(vec2(0.5, -0.5));
-        });
-        If(vi.equal(2), () => {
-            uv.assign(vec2(0.5, 0.5));
-        });
-        If(vi.equal(3), () => {
-            uv.assign(vec2(-0.5, 0.5));
-        });
-        return uv;
-    })());
+    const packedAo = attribute("ao").toVar();
+
+    const texSize = vec2(textureSize(terrainMap));
+    const uv = vertexStage(unpackVec2(attribute("uv")).div(texSize)).toVar();
+
+    const v_fpos = unpackVec2(attribute("fpos")).toVar();
+    const fpos = vertexStage(vec2(
+        v_fpos.x.remap(0x7fdf, 0x801f, -1, 1),
+        v_fpos.y.remap(0x7fdf, 0x801f, -1, 1)
+    )).toVar();
 
     // const incident = normalize(positionWorld.sub(cameraPosition)).toVar();
     
@@ -39,20 +65,24 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
     //     )
     // });
 
+    // const s = 32;
+    // return vec4(vec3(
+    //     floor(uv.x.mul(s)).add(floor(uv.y.mul(s))).bitAnd(1).toFloat()
+    // ), 1);
+
     const lum = Fn(({ c = color() }) => {
         return c.r.mul(0.2126).add(c.g.mul(0.7152)).add(c.b.mul(0.0722));
     })
 
-    const edgeFactor = max(abs(uv.x), abs(uv.y));
+    const edgeFactor = max(abs(uv.x.sub(0.5)), abs(uv.y.sub(0.5)));
     
-    const packedAo = int(attribute("ao", "f32").add(0.5)).toVar();
     const topRightAo = float(packedAo.bitAnd(0b11)).toVar();
     const topLeftAo = float(packedAo.bitAnd(0b11 << 2).shiftRight(2)).toVar();
     const bottomLeftAo = float(packedAo.bitAnd(0b11 << 4).shiftRight(4)).toVar();
     const bottomRightAo = float(packedAo.bitAnd(0b11 << 6).shiftRight(6)).toVar();
-    const adjustedUvX = smoothstep(0, 1, uv.x.add(0.5).toVar());
-    const adjustedUvY = smoothstep(0, 1, uv.y.add(0.5).toVar());
-    const ao = mix(mix(bottomLeftAo, bottomRightAo, adjustedUvX), mix(topLeftAo, topRightAo, adjustedUvX), adjustedUvY);
+    const adjustedFposX = smoothstep(0, 1, fpos.x.remapClamp(-1, 1, 0, 1));
+    const adjustedFposY = smoothstep(0, 1, fpos.y.remapClamp(-1, 1, 0, 1));
+    const ao = mix(mix(bottomLeftAo, bottomRightAo, adjustedFposX), mix(topLeftAo, topRightAo, adjustedFposX), adjustedFposY);
 
     const faceDirection = packedAo.bitAnd(0b111 << 8).shiftRight(8).toVar();
     const normal = vec3(0, 1, 0).toVar();
@@ -78,13 +108,15 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
         normal.assign(vec3(0, 1, 0));
     });
 
-    const vColor = int(attribute("blockColor", "f32").add(0.5).floor()).toVar();
+    const vColor = attribute("blockColor").toVar();
+    const isCustomMesh = vColor.bitAnd(0b1000000000000000).greaterThan(0);
     const vColorR = vColor.bitAnd(0b0111110000000000).shiftRight(10);
     const vColorG = vColor.bitAnd(0b0000001111100000).shiftRight(5);
     const vColorB = vColor.bitAnd(0b0000000000011111);
     const flatColor = vec3(float(vColorR).div(0b11111), float(vColorG).div(0b11111), float(vColorB).div(0b11111)).toVar();
 
-    const shadow = dot(normal, sunPos).clamp(0, 1).mul(float(1).div(ao.pow(2).add(1))).remap(0, 1, 0.25, 1);
+    const aoDarken = float(1).div(ao.pow(1.5).add(1));
+    const shadow = dot(normal, sunPos).clamp(0, 1).remap(0, 1, 0.25, 1).mul(aoDarken);
     const isLightColor = lum({ c: flatColor }).greaterThan(float(0.25));
     // const reflection = reflect(incident, normal);
 
@@ -94,14 +126,18 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
 
     // const skyReflection = skyColorNode({ pos: reflection });
 
-    const faceColor = mix(
-        flatColor,
-        vec3(select(isLightColor, float(0.0), float(1))),
+    const faceColor = select(isCustomMesh,
+        terrainMap.sample(uv),
         
-        select(
-            edgeFactor.greaterThan(0.45),
-            float(0.5),
-            float(0)
+        mix(
+            flatColor,
+            vec3(select(isLightColor, float(0.0), float(1))),
+            
+            select(
+                edgeFactor.greaterThan(0.45),
+                float(0.5),
+                float(0)
+            )
         )
     );
 

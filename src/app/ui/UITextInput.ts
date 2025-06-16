@@ -1,4 +1,4 @@
-import { SerializedUIElement, UIElement, UIEvent } from "./UIElement";
+import { SerializedUIElement, UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 import { UIFormContributor } from "./UIForm";
 
 export interface SerializedUITextInput extends SerializedUIElement {
@@ -8,7 +8,7 @@ export interface SerializedUITextInput extends SerializedUIElement {
     clearOnSubmit: boolean;
 }
 export class UITextInput extends UIElement<SerializedUITextInput> implements UIFormContributor {
-    public static readonly type = UIElement.register("itxt", () => new this);
+    public static readonly type = UIElementRegistry.register("itxt", this);;
     public readonly type = UITextInput.type;
 
     

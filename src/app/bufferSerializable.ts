@@ -1,17 +1,11 @@
 import { BinaryBuffer, U16 } from "./binary";
+import { IndexedFactoryRegistry } from "./registry";
 
 export abstract class BufferSerializableRegistry<
     SerializableType extends BufferSerializable,
     FactoryParams extends ConstructorParameters<any>,
     FactoryType = new (...params: FactoryParams) => SerializableType
-> {
-    private types: Map<number, FactoryType> = new Map;
-    private nextId: number = 0;
-
-    public register(factory: FactoryType): number {
-        this.types.set(this.nextId, factory);
-        return this.nextId++;
-    }
+> extends IndexedFactoryRegistry<SerializableType, FactoryParams, FactoryType> {
     public createFromBinary(buffer: ArrayBuffer | BinaryBuffer, ...args: FactoryParams) {
         const bin = buffer instanceof BinaryBuffer ? buffer : new BinaryBuffer(buffer);
 

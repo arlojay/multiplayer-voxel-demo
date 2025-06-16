@@ -1,4 +1,4 @@
-import { SerializedUIElement, UIElement, UIEvent } from "./UIElement";
+import { SerializedUIElement, UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 import { UIFormContributor } from "./UIForm";
 
 type FormFieldInputType = "text" | "password" | "checkbox" | "slider" | "number";
@@ -19,7 +19,7 @@ export enum UIFormFieldInputSide {
 }
 
 export class UIFormField extends UIElement<SerializedUIFormField> implements UIFormContributor {
-    public static readonly type = UIElement.register("ff", () => new this);
+    public static readonly type = UIElementRegistry.register("ff", this);
     public readonly type = UIFormField.type;
     
     public name: string = "";

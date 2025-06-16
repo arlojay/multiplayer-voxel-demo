@@ -1,21 +1,18 @@
 import { Box3, Scene, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
-import { CollisionChecker } from "./collisionChecker";
+import { CollisionChecker, CollisionDescription } from "./collisionChecker";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);
-export const BLOCK_HITBOX = new Box3(
-    new Vector3(0, 0, 0),
-    new Vector3(1, 1, 1)
-);
 
 const C = new Float32Array(new Uint8Array([0, 0, 0, 40]).buffer)[0];
 
 export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, LocalEntity<any>>> {
     protected readonly base: Base;
     public airTime: number = 0;
+    public stepSize = 0.6;
     public readonly collisionChecker: CollisionChecker;
 
     public readonly position: Vector3;
@@ -48,14 +45,30 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         this.airTime += dt;
 
         this.moveY(this.base.velocity.y * dt);
-        this.moveX(this.base.velocity.x * dt);
-        this.moveZ(this.base.velocity.z * dt);
+        this.moveX(this.base.velocity.x * dt, this.stepSize);
+        this.moveZ(this.base.velocity.z * dt, this.stepSize);
     }
 
-    public moveX(dx: number) {
+    private tryStep(lastCollision: CollisionDescription, height = 0.6) {
+        if(this.airTime > 0) return;
+
+        const stepY = (lastCollision.hitbox.max.y + lastCollision.y) - (this.hitbox.min.y + this.base.position.y);
+        if(stepY <= height) {
+            this.base.position.y += stepY;
+            if(!this.collisionChecker.isCollidingWithWorld()) return true;
+
+            this.base.position.y -= stepY;
+        }
+
+        return false;
+    }
+
+    public moveX(dx: number, step?: number) {
         this.base.position.x += dx;
         if(!this.collisionChecker.isCollidingWithWorld()) return;
         const lastCollision = this.collisionChecker.lastBlockCollision;
+
+        if(this.tryStep(lastCollision, step)) return;
 
         this.base.velocity.x = 0;
         if(dx < 0) {
@@ -77,10 +90,12 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
             this.base.position.y += lastCollision.y + (lastCollision.hitbox.min.y - C) - (this.base.position.y + this.base.hitbox.max.y);
         }
     }
-    public moveZ(dz: number) {
+    public moveZ(dz: number, step?: number) {
         this.base.position.z += dz;
         if(!this.collisionChecker.isCollidingWithWorld()) return;
         const lastCollision = this.collisionChecker.lastBlockCollision;
+        
+        if(this.tryStep(lastCollision, step)) return;
 
         this.base.velocity.z = 0;
         if(dz < 0) {

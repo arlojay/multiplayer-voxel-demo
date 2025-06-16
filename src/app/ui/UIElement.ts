@@ -1,14 +1,11 @@
 import { HAS_DOCUMENT_ACCESS, UIContainer } from ".";
+import { HashedFactoryRegistry, HashedRegistryKey } from "../registry";
 import { UIEventBinder } from "./UIEventBinder";
 
 export interface SerializedUIElement {
     type: string;
     visible: boolean;
     style: Partial<CSSStyleDeclaration>;
-}
-
-class UIElementRegistryKey {
-    readonly name: string;
 }
 
 export class UIEvent {
@@ -25,26 +22,20 @@ export class UIEvent {
     }
 }
 
+export const UIElementRegistry: HashedFactoryRegistry<UIElement, string> = new HashedFactoryRegistry;
+
 export abstract class UIElement<SerializedData extends SerializedUIElement = SerializedUIElement> {
-    private static registry: Map<string, () => UIElement> = new Map;
-    public static register(id: string, factory: () => UIElement): UIElementRegistryKey {
-        if(this.registry.has(id)) throw new ReferenceError("UI element " + id + " is already registered");
-        this.registry.set(id, factory);
-        const key = { name: id } as UIElementRegistryKey;
-        return key;
-    }
-
     public static deserialize(data: SerializedUIElement) {
-        const factory = this.registry.get(data.type);
-        if(factory == null) throw new ReferenceError("UI element " + data.type + " is not registered");
+        const ElementClass = UIElementRegistry.getFactory(data.type);
+        if(ElementClass == null) throw new ReferenceError("UI element " + data.type + " is not registered");
 
-        const element = factory();
+        const element = new ElementClass;
         element.deserialize(data);
         return element;
     }
 
 
-    public abstract readonly type: UIElementRegistryKey;
+    public abstract readonly type: HashedRegistryKey<string>;
     public element: HTMLElement;
     public visible = true;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
@@ -79,7 +70,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
 
     public serialize(): SerializedData {
         return {
-            type: this.type.name,
+            type: this.type.key,
             style: this.style,
             visible: this.visible
         } as any; // 🤫

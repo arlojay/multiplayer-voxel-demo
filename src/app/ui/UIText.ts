@@ -1,10 +1,10 @@
-import { SerializedUIElement, UIElement } from "./UIElement";
+import { SerializedUIElement, UIElement, UIElementRegistry } from "./UIElement";
 
 export interface SerializedUIText extends SerializedUIElement {
     text: string;
 }
 export class UIText extends UIElement<SerializedUIText> {
-    public static readonly type = UIElement.register("txt", () => new this);
+    public static readonly type = UIElementRegistry.register("txt", this);
     public readonly type = UIText.type;
 
     public text: string = "";

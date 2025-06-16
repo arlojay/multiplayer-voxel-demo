@@ -1,7 +1,7 @@
-import { CollisionChecker } from "../entity/collisionChecker";
+import { CollisionChecker, isColliderIgnored } from "../entity/collisionChecker";
 import { Player } from "../entity/impl";
 import { ClientMovePacket, SetLocalPlayerPositionPacket } from "../packet";
-import { CHUNK_INC_SCL, SOLID_BITMASK } from "../voxelGrid";
+import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
 import { ServerPeer } from "./serverPeer";
 import { EntityLogicType } from "../entity/baseEntity";
@@ -46,10 +46,10 @@ export class ServerPlayer {
             z = Math.round(Math.random() * 32 - 16);
 
             for(y = 100; y > minY; y--) {
-                if(~this.base.world.getRawValue(x, y - 1, z) & SOLID_BITMASK) continue;
+                if(isColliderIgnored(this.base.world.getRawValue(x, y - 1, z))) continue;
                 if(
-                    (~this.base.world.getRawValue(x, y, z) & SOLID_BITMASK) &&
-                    (~this.base.world.getRawValue(x, y + 1, z) & SOLID_BITMASK)
+                    (isColliderIgnored(this.base.world.getRawValue(x, y, z))) &&
+                    (isColliderIgnored(this.base.world.getRawValue(x, y + 1, z)))
                 ) break;
             }
 

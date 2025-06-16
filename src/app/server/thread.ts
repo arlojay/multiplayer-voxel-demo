@@ -2,6 +2,7 @@ import { PeerError } from "peerjs";
 import { serializeError } from "serialize-error";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { Server, ServerLaunchOptions } from "./server";
+import { loadBase } from "../base";
 
 let server: Server;
 let crashMessages: Error[] = new Array;
@@ -111,9 +112,9 @@ async function init() {
         
             postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
 
-            server.start().then(() => {
-                postMessage(["ready"]);
-            });
+            loadBase(true)
+            .then(() => server.start())
+            .then(() => postMessage(["ready"]));
         }
         if(name == "connection") {
             const options = params[0];

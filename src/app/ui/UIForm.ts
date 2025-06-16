@@ -1,5 +1,5 @@
 import { UIContainer } from "./UIContainer";
-import { UIElement, UIEvent } from "./UIElement";
+import { UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 
 export interface UIFormContributor {
     getFormContributionValue(): any;
@@ -10,7 +10,7 @@ function isUIFormContributor(element: any): element is UIFormContributor {
 }
 
 export class UIForm extends UIContainer {
-    public static readonly type = UIElement.register("frm", () => new this);
+    public static readonly type = UIElementRegistry.register("frm", this);
     public readonly type = UIForm.type;
 
     async buildElement(): Promise<HTMLElement> {

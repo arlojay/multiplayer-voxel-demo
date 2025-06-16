@@ -1,4 +1,4 @@
-import { SerializedUIElement, UIElement, UIEvent } from "./UIElement";
+import { SerializedUIElement, UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 import { UIFormContributor } from "./UIForm";
 
 export interface SerializedUISliderInput extends SerializedUIElement {
@@ -8,7 +8,7 @@ export interface SerializedUISliderInput extends SerializedUIElement {
     step: number;
 }
 export class UISliderInput extends UIElement<SerializedUISliderInput> implements UIFormContributor {
-    public static readonly type = UIElement.register("sldr", () => new this);
+    public static readonly type = UIElementRegistry.register("sldr", this);
     public readonly type = UISliderInput.type;
 
     public value: number = 0;

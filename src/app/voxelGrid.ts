@@ -1,6 +1,6 @@
 import { AugmentedUint16Array, Uint16ArrayPool } from "./arrayPool";
 
-export const SOLID_BITMASK = 0b1000000000000000;
+export const COLOR_BLOCK_BITMASK = 0b1000000000000000;
 export const AIR_VALUE = 0b0000000000000000;
 
 export const BLOCK_INC_SCL = 4;

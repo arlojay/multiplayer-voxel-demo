@@ -172,7 +172,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 this.updateBlock(packet.x, packet.y, packet.z);
             } else {
                 this.server.loadChunk(this.serverPlayer.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
-                    this.serverPlayer.world.setColor(packet.x, packet.y, packet.z, this.serverPlayer.world.getColorFromValue(packet.block));
+                    this.serverPlayer.world.setRawValue(packet.x, packet.y, packet.z, packet.block);
                     this.server.getSaver(this.serverPlayer.world)?.saveModified();
                 });
             }

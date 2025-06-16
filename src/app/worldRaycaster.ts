@@ -1,13 +1,14 @@
 import { Box3, Ray, Vector3 } from "three";
 import { World } from "./world";
-import { BLOCK_HITBOX } from "./entity/localEntity";
-import { SOLID_BITMASK } from "./voxelGrid";
+import { BASIC_COLLIDER, CompiledCustomVoxelCollider, getCollider, isRaycastIgnored } from "./entity/collisionChecker";
+import { debugArrow } from "./debug";
 
 interface IntersectionResult {
     intersected: boolean,
     x: number, y: number, z: number,
     block: number,
     hitbox: Box3,
+    collider: CompiledCustomVoxelCollider,
     hitboxX: number, hitboxY: number, hitboxZ: number,
     normalX: number, normalY: number, normalZ: number
 }
@@ -18,7 +19,8 @@ export class WorldRaycaster {
         intersected: false,
         x: 0, y: 0, z: 0,
         block: 0,
-        hitbox: BLOCK_HITBOX,
+        collider: BASIC_COLLIDER,
+        hitbox: BASIC_COLLIDER.raycastTargets[0],
         hitboxX: 0, hitboxY: 0, hitboxZ: 0,
         normalX: 0, normalY: 0, normalZ: 0
     };
@@ -33,21 +35,23 @@ export class WorldRaycaster {
     }
 
     public intersectingWorld(x: number, y: number, z: number) {
-        const hitbox = BLOCK_HITBOX;
-
         const block = this.world.getRawValue(x, y, z);
-        if(!(block & SOLID_BITMASK)) return false;
+        if(isRaycastIgnored(block)) return false;
+
+        const collider = getCollider(block);
 
         x -= Math.floor(x);
         y -= Math.floor(y);
         z -= Math.floor(z);
 
-        if(x < hitbox.min.x) return false;
-        if(x > hitbox.max.x) return false;
-        if(y < hitbox.min.y) return false;
-        if(y > hitbox.max.y) return false;
-        if(z < hitbox.min.z) return false;
-        if(z > hitbox.max.z) return false;
+        for(const hitbox of collider.raycastTargets) {
+            if(x < hitbox.min.x) return false;
+            if(x > hitbox.max.x) return false;
+            if(y < hitbox.min.y) return false;
+            if(y > hitbox.max.y) return false;
+            if(z < hitbox.min.z) return false;
+            if(z > hitbox.max.z) return false;
+        }
 
         return true;
     }
@@ -62,7 +66,8 @@ export class WorldRaycaster {
         let distance = 0;
         let x = 0, y = 0, z = 0;
         let block = 0;
-        let hitbox = BLOCK_HITBOX;
+        let collider = BASIC_COLLIDER;
+        let hitbox = collider.raycastTargets[0];
         let intersected = false;
         
         const point = this.point;
@@ -80,26 +85,32 @@ export class WorldRaycaster {
                 for(y = Math.floor(point.y - step); y <= Math.floor(point.y + step); y++) {
                     for(z = Math.floor(point.z - step); z <= Math.floor(point.z + step); z++) {
                         block = this.world.getRawValue(x, y, z);
-                        if(!(block & SOLID_BITMASK)) continue;
+                        if(isRaycastIgnored(block)) continue;
 
-                        hitbox = BLOCK_HITBOX;
-                        ray.origin.set(origin.x - x, origin.y - y, origin.z - z);
-                        if(ray.intersectBox(hitbox, intersectionPoint) == null) continue;
+                        collider = getCollider(block);
 
-                        intersected = true;
-                        intersectionDistance = ray.origin.distanceToSquared(intersectionPoint);
+                        for(let i = 0; i < collider.raycastTargets.length; i++) {
+                            hitbox = collider.raycastTargets[i];
 
-                        if(intersectionDistance >= minIntersectionDistance) continue;
-                        minIntersectionDistance = intersectionDistance;
+                            ray.origin.set(origin.x - x, origin.y - y, origin.z - z);
+                            if(ray.intersectBox(hitbox, intersectionPoint) == null) continue;
 
-                        this.lastIntersection.x = x;
-                        this.lastIntersection.y = y;
-                        this.lastIntersection.z = z;
-                        this.lastIntersection.block = block;
-                        this.lastIntersection.hitbox = hitbox;
-                        this.lastIntersection.hitboxX = intersectionPoint.x;
-                        this.lastIntersection.hitboxY = intersectionPoint.y;
-                        this.lastIntersection.hitboxZ = intersectionPoint.z;
+                            intersected = true;
+                            intersectionDistance = ray.origin.distanceToSquared(intersectionPoint);
+
+                            if(intersectionDistance >= minIntersectionDistance) continue;
+                            minIntersectionDistance = intersectionDistance;
+
+                            this.lastIntersection.x = x;
+                            this.lastIntersection.y = y;
+                            this.lastIntersection.z = z;
+                            this.lastIntersection.block = block;
+                            this.lastIntersection.hitbox = hitbox;
+                            this.lastIntersection.collider = collider;
+                            this.lastIntersection.hitboxX = intersectionPoint.x;
+                            this.lastIntersection.hitboxY = intersectionPoint.y;
+                            this.lastIntersection.hitboxZ = intersectionPoint.z;
+                        }
                     }
                 }
             }
