@@ -60,7 +60,7 @@ export class EventPublisher {
     private events: Map<EventKey, FastPriorityQueue<SubscriberMethodInstance>> = new Map;
 
     public addSubscriber(subscriber: EventSubscriber) {
-        const handlerMap = (subscriber.constructor as any)[EVENT_HANDLER_MAP] as EventHandlerMap;
+        const handlerMap = (subscriber.constructor as any)[EVENT_HANDLER_MAP] as EventHandlerMap ?? new Map;
         const eventMap: Map<string, EventHandlerSignature> = new Map;
 
         for(const [eventName, descriptor] of handlerMap.entries()) {

@@ -1,7 +1,6 @@
 import { waitForTransaction } from "../dbUtils";
 import { inflate } from "../flatPackedObject";
 import { RichSerializedJson } from "../objectSerializer";
-import { ServerData } from "./serverData";
 
 export class DatabaseObject<KeyPath extends string, Schema = any> {
     public db: IDBDatabase;
@@ -20,6 +19,7 @@ export class DatabaseObject<KeyPath extends string, Schema = any> {
         const transaction = this.db.transaction(this.objectStore.name, "readwrite");
         const obj = this.objectStore.dataType.serialize(this.data);
         obj[this.objectStore.keyPath] = this.key;
+        console.log(this.objectStore, obj);
         transaction.objectStore(this.objectStore.name).put(obj);
         await waitForTransaction(transaction);
     }
@@ -47,9 +47,11 @@ export class DatabaseObjectStore<KeyPath extends string, Schema = any> {
 
     public async open() {
         if(!this.db.objectStoreNames.contains(this.name)) {
+            console.log("create store", this.name);
             await this.view.createIDBObjectStore(this.name, this.keyPath);
         }
 
+        console.log("load store");
         const transaction = this.db.transaction(this.name, "readonly");
         const allKeys = transaction.objectStore(this.name).getAllKeys();
 
@@ -99,34 +101,37 @@ export class DatabaseObjectStore<KeyPath extends string, Schema = any> {
 }
 
 export class DatabaseView {
-    public name: string;
-    public serverData: ServerData;
     private db: IDBDatabase;
     private stores: Map<string, DatabaseObjectStore<any>> = new Map;
-    private dir: string;
+    private getFullName: () => string;
 
-    constructor(serverData: ServerData, name: string, dir: string) {
-        this.serverData = serverData;
-        this.name = name;
-        this.dir = dir;
+    constructor(fullName: string | (() => string)) {
+        this.getFullName = fullName instanceof Function ? fullName : () => fullName;
     }
 
     public async open() {
         this.setDb(await this.openDb());
     }
 
-    public getFullName() {
-        return "servers/" + this.serverData.id + "/" + this.dir + "/" + this.name;
+    public getObjectStoreNames(): string[] {
+        return Array.from(this.stores.keys());
+    }
+
+    public getObjectStores(): DatabaseObjectStore<any>[] {
+        return Array.from(this.stores.values());
     }
 
     private async openDb(upgradeHandler?: (db: IDBDatabase) => void) {
         const fullName = this.getFullName();
+        console.log("open db", fullName);
 
         const descriptor = await indexedDB.databases().then(dbs => dbs.find(db => db.name == fullName));
+        console.log("got descriptor", descriptor);
         let version = descriptor?.version ?? 1;
         if(upgradeHandler != null) version++;
 
         return await new Promise<IDBDatabase>((res, rej) => {
+            console.log("reopen with version ", version)
             const request = indexedDB.open(fullName, version);
             request.onsuccess = () => res(request.result);
 
@@ -134,7 +139,9 @@ export class DatabaseView {
                 rej(new Error("Failed to open database " + fullName, { cause: event.error ?? event.target }));
             }
             if(upgradeHandler != null) {
+                console.log("wait for upgrade");
                 request.onupgradeneeded = (event) => {
+                    console.log("doing upgrade");
                     upgradeHandler(request.result as IDBDatabase);
                 }
             }
@@ -142,12 +149,13 @@ export class DatabaseView {
     }
 
     public async createIDBObjectStore<KeyPath extends string>(name: string, keyPath: KeyPath) {
+        console.log("close db");
         this.db.close();
         this.setDb(null);
+        console.log("reopen db");
         const db = await this.openDb(db => {
-            db.createObjectStore(name, {
-                keyPath: keyPath
-            });
+            console.log("creating store");
+            db.createObjectStore(name, { keyPath });
         })
         this.setDb(db);
     }
@@ -160,14 +168,18 @@ export class DatabaseView {
     }
 
     public async objectStore<KeyPath extends string, Schema>(name: string, keyPath: KeyPath): Promise<DatabaseObjectStore<KeyPath, Schema>> {
+        console.log(this.db);
         if(this.db == null) await this.open();
+        console.log("opened db");
 
         if(this.stores.has(name)) {
             return this.stores.get(name);
         }
 
+        console.log("create store");
         const store = new DatabaseObjectStore<KeyPath, Schema>(this.db, this, name, keyPath);
         this.stores.set(name, store);
+        console.log("opening store");
         await store.open();
         return store;
     }

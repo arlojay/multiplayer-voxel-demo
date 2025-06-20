@@ -10,6 +10,11 @@ import { ConstantValueGenerator } from "../../noise/impl/generator/constantValue
 import { CHUNK_INC_SCL, CHUNK_SIZE, VoxelGridChunk } from "../../voxelGrid";
 import { Subscribe } from "../events";
 import { PluginEvents, ServerLoadedEvent } from "../pluginEvents";
+import { Block } from "../../block/block";
+import { BASIC_COLLIDER } from "../../entity/collisionChecker";
+import { DataLibrary } from "../../data/dataLibrary";
+import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
+import { BaseRegistries } from "../../baseRegistries";
 
 export class SimplexTerrainGenerator extends WorldGenerator {
     private noise: NoiseNode;
@@ -41,15 +46,13 @@ export class SimplexTerrainGenerator extends WorldGenerator {
             for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
                 const height = this.noise.sample2d(globalX, globalZ);
                 for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
-                    let color = 0x000000;
+                    let block = 0;
 
-                    // if(globalY < height - 5) color = 0x888888;
-                    // else if(globalY < height - 1) color = 0xCC9966;
-                    // else if(globalY < height) color = 0xBBFF99;
+                    if(globalY < height - 5) block = 3;
+                    else if(globalY < height - 1) block = 2;
+                    else if(globalY < height) block = 1;
 
-                    // if(color != 0x000000) chunk.set(x, y, z, world.getValueFromColor(color));
-
-                    chunk.set(x, y, z, globalY < height ? 0b0000000000000001 : 0b0000000000000000);
+                    if(block != 0) chunk.set(x, y, z, block);
                 }
                 globalY -= CHUNK_SIZE;
             }
@@ -60,6 +63,54 @@ export class SimplexTerrainGenerator extends WorldGenerator {
     }
 }
 
+export class GrassBlock extends Block {
+    public readonly collider = BASIC_COLLIDER.collider;
+    
+    public async createModel(dataLibrary: DataLibrary) {
+        const texture = await dataLibrary.getAsset("textures/grass2-texture.jpg").then(asset => asset.loadTexture());
+
+        const model = new BlockModel;
+        model.cuboids.push(new BlockModelCuboid()
+            .createAllFaces()
+            .setAllTextures(texture)
+        )
+
+        return model;
+    }
+}
+
+export class DirtBlock extends Block {
+    public readonly collider = BASIC_COLLIDER.collider;
+    
+    public async createModel(dataLibrary: DataLibrary) {
+        const texture = await dataLibrary.getAsset("textures/dirt-texture.png").then(asset => asset.loadTexture());
+
+        const model = new BlockModel;
+        model.cuboids.push(new BlockModelCuboid()
+            .createAllFaces()
+            .setAllTextures(texture)
+        )
+
+        return model;
+    }
+}
+
+export class StoneBlock extends Block {
+    public readonly collider = BASIC_COLLIDER.collider;
+    
+    public async createModel(dataLibrary: DataLibrary) {
+        const texture = await dataLibrary.getAsset("textures/stone1-texture.jpg").then(asset => asset.loadTexture());
+
+        const model = new BlockModel;
+        model.cuboids.push(new BlockModelCuboid()
+            .createAllFaces()
+            .setAllTextures(texture)
+        )
+
+        return model;
+    }
+}
+
 export class TerrainPlugin extends ServerPlugin {
     public readonly name = "terrain";
 
@@ -67,5 +118,11 @@ export class TerrainPlugin extends ServerPlugin {
     public async onLoad(event: ServerLoadedEvent) {
         const world = event.server.getDefaultWorld();
         world.setGenerator(new SimplexTerrainGenerator(world));
+    }
+
+    public async addContent(registries: BaseRegistries) {
+        registries.blocks.register("grass", GrassBlock);
+        registries.blocks.register("dirt", DirtBlock);
+        registries.blocks.register("stone", StoneBlock);
     }
 }

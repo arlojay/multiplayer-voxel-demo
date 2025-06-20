@@ -1,4 +1,5 @@
 import { BinaryBuffer, MAX_U32, U16, U32 } from "../binary";
+import { capabilities } from "../capability";
 import { Packet, packetRegistry } from "./packet";
 
 export class SplitPacket extends Packet {
@@ -39,7 +40,7 @@ export class SplitPacket extends Packet {
     }
 }
 
-export function splitPacket(packet: Packet, maxSize = 500): Packet[] {
+export function splitPacket(packet: Packet, maxSize = capabilities.MAX_WEBRTC_PACKET_SIZE): Packet[] {
     const buffer = packet.allocateBuffer();
     if(buffer.byteLength < maxSize) return [ packet ];
 

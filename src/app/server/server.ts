@@ -1,17 +1,25 @@
-import { BaseEntity, EntityLogicType, EntityRotation, instanceof_RotatingEntity, RotatingEntity } from "../entity/baseEntity";
+import { BaseRegistries } from "../baseRegistries";
+import { SerializedBlock } from "../block/block";
+import { BlockRegistry } from "../block/blockRegistry";
+import { DataLibrary, DataLibraryManager } from "../data/dataLibrary";
+import { LibraryDataFetchLocator } from "../data/libraryDataFetchLocator";
+import { createLibraryDataNegotiationLocatorServer } from "../data/libraryDataNegotiationLocator";
+import { BaseEntity, EntityLogicType, instanceof_RotatingEntity } from "../entity/baseEntity";
+import { addCustomVoxelCollider } from "../entity/collisionChecker";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
-import { AddEntityPacket, CombinedPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket } from "../packet";
-import { ClientReadyPacket } from "../packet/clientReadyPacket";
+import { GameContentPackage } from "../network/gameContentPackage";
+import { NegotiationChannel } from "../network/negotiationChannel";
+import { AddEntityPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket } from "../packet";
 import { EntityLookPacket } from "../packet/entityLookPacket";
-import { ServerReadyPacket } from "../packet/serverReadyPacket";
+import { ClientIdentity, ServerIdentity } from "../serverIdentity";
 import { World } from "../world";
 import { WorldGenerator } from "../worldGenerator";
 import { EventPublisher } from "./events";
 import { FlushPacketQueueEvent, PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, ServerTickEvent, WorldCreateEvent } from "./pluginEvents";
 import { PluginLoader } from "./pluginLoader";
 import { ServerData, ServerOptions } from "./serverData";
-import { ServerPeer, TimedOutError } from "./serverPeer";
+import { ServerPeer } from "./serverPeer";
 import { ServerPlugin } from "./serverPlugin";
 import { MessagePortConnection, serverCrash } from "./thread";
 import { WorldSaver } from "./worldSaver";
@@ -35,9 +43,14 @@ export class Server extends EventPublisher {
     public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
     public time: number;
-    private worldSavingInterval: number;
-    private packetFlushInterval: number;
-    private tickingInterval: number;
+
+    public dataLibraryManager: DataLibraryManager;
+    public dataLibrary: DataLibrary;
+
+    private worldSavingInterval: number | any;
+    private packetFlushInterval: number | any;
+    private tickingInterval: number | any;
+    public registries: BaseRegistries;
 
     public constructor(launchOptions: ServerLaunchOptions) {
         super();
@@ -84,21 +97,67 @@ export class Server extends EventPublisher {
             await this.data.saveOptions();
         }
 
+
+        this.loadPlugins();
+
+
+        this.emit(new ServerPreinitEvent(this));
+
+
+        this.dataLibraryManager = new DataLibraryManager("server");
+        await this.dataLibraryManager.open();
+        
+        this.dataLibrary = await this.dataLibraryManager.getLibrary(this.id);
+        await this.dataLibrary.open(new LibraryDataFetchLocator);
+
+        await this.loadPluginContent();
+
+
+        const defaultWorld = await this.createWorld(this.options.defaultWorldName);
+        defaultWorld.setGenerator(new WorldGenerator(defaultWorld));
+
+
+        this.startLoop();
+
+        this.emit(new ServerLoadedEvent(this));
+        debugLog("Server loaded!");
+    }
+
+    private loadPlugins() {
         try {
+            const pluginList = PluginLoader.getPluginList();
             for(const pluginName of new Set(this.options.plugins)) {
+                if(!pluginList.has(pluginName)) {
+                    console.warn("Plugin " + pluginName + " does not exist");
+                    continue;
+                }
                 this.addPlugin(PluginLoader.createPlugin(pluginName));
             }
         } catch(e) {
             throw new Error("Failed to load plugins", { cause: e });
         }
+    }
 
-        this.emit(new ServerPreinitEvent(this));
-        const defaultWorld = await this.createWorld(this.options.defaultWorldName);
-        defaultWorld.setGenerator(new WorldGenerator(defaultWorld));
-        this.startLoop();
+    private async loadPluginContent() {
+        const registries: BaseRegistries = {
+            blocks: new BlockRegistry
+        }
 
-        this.emit(new ServerLoadedEvent(this));
-        debugLog("Server loaded!");
+        await Promise.all(this.plugins.values().map(plugin => 
+            plugin.addContent(registries, this.dataLibrary)
+        ))
+
+        registries.blocks.freeze();
+
+        await Promise.all(registries.blocks.values().map(block => 
+            block.init(this.dataLibrary)
+        ));
+                            
+        for await(const block of registries.blocks.values()) {
+            addCustomVoxelCollider(block.collider);
+        }
+
+        this.registries = registries;
     }
 
     private startLoop() {
@@ -112,6 +171,7 @@ export class Server extends EventPublisher {
             const worldsWithPeers: Set<World> = new Set;
 
             for(const peer of this.peers.values()) {
+                if(!peer.authenticated) continue;
                 worldsWithPeers.add(peer.serverPlayer.world);
             }
 
@@ -124,6 +184,8 @@ export class Server extends EventPublisher {
             }
             
             for(const peer of this.peers.values()) {
+                if(!peer.authenticated) continue;
+
                 const event = new FlushPacketQueueEvent(this);
                 event.peer = peer;
                 
@@ -145,6 +207,7 @@ export class Server extends EventPublisher {
                 this.emit(tickEvent);
 
                 for(const peer of this.peers.values()) {
+                    if(!peer.authenticated) continue;
                     peer.update(dt);
                 }
             } catch(e) {
@@ -193,69 +256,101 @@ export class Server extends EventPublisher {
     }
 
     public async handleConnection(connection: MessagePortConnection) {
-        const peer = new ServerPeer(connection, this);
-        this.debugPort = connection.debugPort;
-        this.errorPort = connection.errorPort;
-        
-        const world = this.getDefaultWorld();
-        this.peers.set(peer.id, peer);
+        console.warn("handle connection", connection.label);
+        if(connection.label == "negotiation") {
+            const peer = new ServerPeer(connection.peer, this);
+            this.peers.set(peer.id, peer);
 
-        peer.serverPlayer.setWorld(world);
+            const channel = new NegotiationChannel(connection);
 
-        connection.addListener("data", data => {
-            try {
-                if(data instanceof ArrayBuffer) {
-                    peer.handlePacket(data);
+            await new Promise<void>((res, rej) => {
+                channel.onRequest<void, ServerIdentity>("identity", (req, res) => {
+                    res.send({
+                        uuid: this.id
+                    });
+                });
+                channel.onRequest<any, GameContentPackage>("content", (request, response) => {
+                    const blocks: SerializedBlock[] = new Array;
+                    for(const block of this.registries.blocks.values()) {
+                        blocks.push(block.serialize());
+                    }
+                    response.send({ blocks });
+                })
+                channel.onRequest<ClientIdentity, ClientIdentity>("login", (request, response) => {
+                    peer.setIdentity(request.data);
+                    
+                    for(const otherPeer of this.peers.values()) {
+                        if(otherPeer == peer || !otherPeer.authenticated) continue;
+            
+                        if(otherPeer.username == peer.username) {
+                            return response.error(0x01, "Username taken");
+                        }
+                    }
+            
+                    peer.serverPlayer.onAuthenticated();
+                    peer.authenticated = true;
+
+                    console.log("<server> your specimen has been processed and you are now ready to join the game proper. hello " + request.data.username + ".");
+                    response.send({
+                        username: request.data.username,
+                        color: request.data.color
+                    });
+                })
+                channel.on("close", () => {
+                    res();
+                })
+                
+                createLibraryDataNegotiationLocatorServer(channel, this.dataLibrary);
+                channel.open();
+            });
+        } else if(connection.label == "realtime") {
+            const peer = this.peers.get(connection.peer);
+            peer.onRealtimeCreated(connection);
+
+            const world = this.getDefaultWorld();
+
+            peer.serverPlayer.setWorld(world);
+
+            connection.addListener("data", data => {
+                try {
+                    if(data instanceof ArrayBuffer) {
+                        peer.handlePacket(data);
+                    }
+                } catch(e) {
+                    console.error(e);
+                    peer.kick(e.message);
                 }
-            } catch(e) {
-                console.error(e);
-                peer.kick(e.message);
-            }
-        });
+            });
 
-        const [_, clientReadyPacket] = await Promise.all([
-            new Promise<void>((res, rej) => {
+            if(!connection.open) await new Promise<void>((res, rej) => {
                 connection.once("open", () => res());
                 connection.once("error", e => {
                     this.handleDisconnection(peer, e);
                     rej(e);
                 });
-            }),
-            new Promise<ClientReadyPacket>((res, rej) => {
-                peer.once("clientready", packet => res(packet));
-    
-                setTimeout(() => {
-                    if(!peer.connected) return;
-                    rej(new TimedOutError("Connection timed out while handshaking"))
-                }, 5000);
-            })
-        ]);
+            });
 
-        const joinEvent = new PeerJoinEvent(this);
-        joinEvent.peer = peer;
-        joinEvent.serverPlayer = peer.serverPlayer;
-        joinEvent.player = peer.serverPlayer.base;
-        joinEvent.world = world;
-        this.emit(joinEvent);
+            const joinEvent = new PeerJoinEvent(this);
+            joinEvent.peer = peer;
+            joinEvent.serverPlayer = peer.serverPlayer;
+            joinEvent.player = peer.serverPlayer.base;
+            joinEvent.world = world;
+            this.emit(joinEvent);
 
-        if(joinEvent.isCancelled()) {
-            connection.close();
-            this.peers.delete(peer.id);
-            return;
+            if(joinEvent.isCancelled()) {
+                connection.close();
+                this.peers.delete(peer.id);
+                return;
+            }
+
+            // Send join messages
+            peer.sendToWorld(world);
+
+            peer.addListener("disconnected", (cause) => {
+                this.handleDisconnection(peer, cause);
+                this.peers.delete(peer.id);
+            });
         }
-
-        const serverReadyPacket = new ServerReadyPacket();
-        serverReadyPacket.username = clientReadyPacket.username;
-        serverReadyPacket.color = clientReadyPacket.color;
-        peer.sendPacket(serverReadyPacket);
-
-        // Send join messages
-        peer.sendToWorld(world);
-
-        peer.addListener("disconnected", (cause) => {
-            this.handleDisconnection(peer, cause);
-            this.peers.delete(peer.id);
-        });
     }
 
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
@@ -271,13 +366,14 @@ export class Server extends EventPublisher {
         this.peers.delete(peer.id);
 
         for(const otherPeer of this.peers.values()) {
+            if(!otherPeer.authenticated) continue;
             otherPeer.hidePeer(peer);
         }
     }
 
     public broadcastPacket(packet: Packet, world?: World, instant: boolean = false) {
-        for(const id of this.peers.keys()) {
-            const peer = this.peers.get(id);
+        for(const peer of this.peers.values()) {
+            if(!peer.authenticated) continue;
             if(world == null || peer.serverPlayer.world == world) {
                 peer.sendPacket(packet, instant);
             }
@@ -356,6 +452,7 @@ export class Server extends EventPublisher {
             this.plugins.delete(plugin);
         }
         for(const peer of this.peers.values()) {
+            if(!peer.authenticated) continue;
             peer.kick("Server closing");
         }
 

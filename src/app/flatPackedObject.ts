@@ -29,6 +29,7 @@ function _fixArrays(object: any) {
     for(const key in object) {
         if(typeof object[key] != "object") continue;
         if(object[key] instanceof Array) continue;
+        if(object[key] instanceof ArrayBuffer) continue;
 
         if(isObjectArray(object[key])) {
             _fixArrays(object[key]);

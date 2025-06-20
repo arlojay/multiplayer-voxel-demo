@@ -8,8 +8,18 @@ import { debugLog } from "../logging";
 import { GameData } from "../gameData";
 import { AudioManager } from "../sound/soundManager";
 import { ClientSounds } from "./clientSounds";
-import { ClientReadyPacket } from "../packet/clientReadyPacket";
 import { ClientCustomizationOptions } from "../controlOptions";
+import { DataLibrary, DataLibraryManager } from "../data/dataLibrary";
+import { GameContentPackage } from "../network/gameContentPackage";
+import { createDeserializedBlockClass } from "../block/block";
+import { TextureAtlas } from "../texture/textureAtlas";
+import { NearestFilter } from "three";
+import { terrainMap } from "../shaders/terrain";
+import { addCustomVoxelMesh, resetCustomVoxelMeshes } from "../voxelMesher";
+import { addCustomVoxelCollider, resetCustomVoxelColliders } from "../entity/collisionChecker";
+import { compileBlockModel } from "../block/blockModel";
+import { LibraryDataNegotiationLocator } from "../data/libraryDataNegotiationLocator";
+import { ClientIdentity, ServerIdentity } from "../serverIdentity";
 
 interface ClientEvents {
     "login": () => void;
@@ -38,6 +48,7 @@ export class Client extends TypedEmitter<ClientEvents> {
     public playerController: PlayerController;
     public gameData = new GameData;
     public audioManager = new AudioManager;
+    public dataLibraryManager = new DataLibraryManager("client");
     public time: number;
     
     constructor(gameRoot: HTMLElement) {
@@ -99,10 +110,14 @@ export class Client extends TypedEmitter<ClientEvents> {
         await this.audioManager.init();
         ClientSounds.init(this.audioManager);
 
+        await this.dataLibraryManager.open();
+
+        console.log("Opening game data");
         await this.gameData.open();
         await this.gameData.loadAll();
         await this.gameData.saveAll();
 
+        console.log("Initializing renderer");
         await this.gameRenderer.init();
     }
 
@@ -113,13 +128,14 @@ export class Client extends TypedEmitter<ClientEvents> {
         debugLog("Connected to the internet");
     }
 
-    public async initServerConnection(id: string, connectionOptions: ClientCustomizationOptions): Promise<ConnectionRequestController> {
+    public async initServerConnection(serverPeerId: string, connectionOptions: ClientCustomizationOptions): Promise<ConnectionRequestController> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
 
         await this.waitForLogin();
-        debugLog("Connecting to the server " + id);
+        debugLog("Connecting to the server " + serverPeerId);
 
-        const serverSession = new ServerSession(this);
+        const serverSession = new ServerSession(this, serverPeerId);
+        let dataLibrary: DataLibrary;
 
         const controller: ConnectionRequestController = {
             failed: false,
@@ -141,7 +157,63 @@ export class Client extends TypedEmitter<ClientEvents> {
                 serverSession.addListener("disconnected", disconnectedCallback);
 
                 try {
-                    await serverSession.connect(id);
+                    const negotiationChannel = await serverSession.connect();
+                    await negotiationChannel.open();
+
+                    const serverIdentity = await negotiationChannel.request<ServerIdentity>("identity");
+                    serverSession.setServerIdentity(serverIdentity.data);
+                    
+                    console.log("<client> hello " + serverIdentity.data.uuid + "!! gonna try and get blocks now...");
+
+                    dataLibrary = await this.dataLibraryManager.getLibrary(serverIdentity.data.uuid);
+                    console.log("opening data library", dataLibrary);
+                    await dataLibrary.open(new LibraryDataNegotiationLocator(negotiationChannel));
+
+                    const loginRequest = await negotiationChannel.request<ClientIdentity>("login", {
+                        username: connectionOptions.username,
+                        color: connectionOptions.color
+                    });
+
+                    console.log("<client> gonna try and get blocks now...");
+                    const content = await negotiationChannel.request<GameContentPackage>("content");
+
+                    resetCustomVoxelColliders();
+                    resetCustomVoxelMeshes();
+
+                    for(const block of content.data.blocks) {
+                        const BlockClass = createDeserializedBlockClass(block);
+                        serverSession.registries.blocks.register(block.id, BlockClass);
+                    }
+                    serverSession.registries.blocks.freeze();
+                    
+                    await Promise.all(serverSession.registries.blocks.values().map(block => block.init(dataLibrary)));
+
+                    const textureAtlas = new TextureAtlas;
+                    for(const block of serverSession.registries.blocks.values()) {
+                        console.log(block);
+                        for(const textureAsset of block.model.getUsedTextures()) {
+                            textureAtlas.addTexture(textureAsset.getTexture());
+                        }
+                    }
+                    textureAtlas.build();
+                    textureAtlas.builtTexture.magFilter = NearestFilter;
+                    textureAtlas.builtTexture.colorSpace = "srgb";
+                    terrainMap.value = textureAtlas.builtTexture;
+                    
+                    for await(const block of serverSession.registries.blocks.values()) {
+                        addCustomVoxelMesh(await compileBlockModel(block.model, textureAtlas));
+                        addCustomVoxelCollider(block.collider);
+                        console.log(block.collider);
+                    }
+
+                    console.log(content.data.blocks);
+                    console.log("<client> woohoo!!! joining now!!");
+
+                    negotiationChannel.close();
+                    await serverSession.openRealtime();
+                    
+                    serverSession.player.username = loginRequest.data.username;
+                    serverSession.player.color = loginRequest.data.color;
                     
                     this.serverSession = serverSession;
             
@@ -149,22 +221,19 @@ export class Client extends TypedEmitter<ClientEvents> {
                     serverSession.addListener("disconnected", () => {
                         this.playerController.setPointerLocked(false);
                         this.serverSession = null;
+                        dataLibrary?.close();
                     });
                     serverSession.addListener("changeworld", world => {
                         this.gameRenderer.setWorld(world);
                     });
             
                     this.gameRenderer.setWorld(serverSession.localWorld);
-                
-                    const readyPacket = new ClientReadyPacket();
-                    readyPacket.username = connectionOptions.username;
-                    readyPacket.color = connectionOptions.color;
-                    serverSession.sendPacket(readyPacket);
 
-                    serverSession.removeListener("disconnected", disconnectedCallback);
-            
                     res(serverSession);
+
                 } catch(e) {
+                    dataLibrary?.close();
+
                     if(!controller.failed) {
                         controller.failed = true;
                         if(controller.onerror == null) {
@@ -174,6 +243,8 @@ export class Client extends TypedEmitter<ClientEvents> {
                         }
                     }
                 }
+
+                serverSession.removeListener("disconnected", disconnectedCallback);
             })
         }
         return controller;

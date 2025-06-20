@@ -1,7 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, SetBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler } from "../packet";
+import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, LibraryDataRequestPacket, LibraryDataResponsePacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, SetBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler } from "../packet";
 import { ClientReadyPacket } from "../packet/clientReadyPacket";
 import { UIContainer } from "../ui";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -12,6 +12,7 @@ import { ServerPlayer } from "./serverPlayer";
 import { ServerUI } from "./serverUI";
 import { MessagePortConnection } from "./thread";
 import { EntityLookPacket } from "../packet/entityLookPacket";
+import { ClientIdentity } from "../serverIdentity";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -41,15 +42,18 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public username = "anonymous";
     public color = "#ffffff";
     public lastPacketTime = 0;
+    public identity: ClientIdentity;
 
 
-    constructor(connection: MessagePortConnection, server: Server) {
+    constructor(id: string, server: Server) {
         super();
-        this.connection = connection;
-        this.id = connection.peer;
+        this.id = id;
         this.server = server;
 
         this.serverPlayer = new ServerPlayer(this);
+    }
+    public onRealtimeCreated(connection: MessagePortConnection) {
+        this.connection = connection;
 
         connection.addListener("open", () => {
             this.connected = true;
@@ -99,24 +103,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         return this.lastPacketReceived.get(packet.id) > packet.timestamp;
     }
 
-    private authenticate(packet: ClientReadyPacket) {
-        this.username = packet.username;
-        this.color = packet.color;
-
-        for(const peer of this.server.peers.values()) {
-            if(peer == this) continue;
-
-            if(peer.username == this.username) {
-                this.kick("Username taken");
-                return;
-            }
-        }
-
-        this.serverPlayer.onAuthenticated();
-        this.emit("clientready", packet);
-        this.authenticated = true;
-    }
-
     public handlePacket(data: ArrayBuffer | Packet) {
         if(!this.connected) return;
         this.lastPacketTime = this.server.time;
@@ -126,12 +112,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             data = this.splitPacketAssembler.addPart(data);
             if(data == null) return;
             packet = packetRegistry.createFromBinary(data);
-        }
-
-        if(packet instanceof ClientReadyPacket) {
-            this.authenticate(packet);
-        } else if(!this.authenticated) {
-            throw new Error("Client not authenticated");
         }
 
         if(packet instanceof GetChunkPacket) {
@@ -199,6 +179,15 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         }
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
+        }
+        if(packet instanceof LibraryDataRequestPacket) {
+            this.server.dataLibrary.getAsset(packet.location).then(asset => {
+                const blob = asset.item.blob;
+
+                blob.arrayBuffer().then(buffer => {
+                    this.sendPacket(new LibraryDataResponsePacket(blob.type, buffer));
+                })
+            });
         }
 
         
@@ -360,5 +349,14 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         this.visiblePeers.delete(peer);
 
         this.sendPacket(leavePacket);
+    }
+    public setIdentity(identity: ClientIdentity) {
+        this.identity = identity;
+
+        this.username = identity.username;
+        this.color = identity.color;
+
+        this.serverPlayer.base.username = identity.username;
+        this.serverPlayer.base.color = identity.color;
     }
 }

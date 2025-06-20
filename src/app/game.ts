@@ -1,4 +1,3 @@
-import { loadBase } from "./base";
 import { Client, getClient } from "./client/client";
 import { ServerSession } from "./client/serverSession";
 import { ClientCustomizationOptions } from "./controlOptions";
@@ -28,8 +27,6 @@ function createRandomServerGameCode() {
 main();
 
 async function main() {
-    await loadBase(false);
-
     const client = new Client(gameRoot);
     await client.init();
     (window as any).client = client;

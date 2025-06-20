@@ -2,10 +2,28 @@ import { Box3, Vector3 } from "three";
 import { World } from "../world";
 import { COLOR_BLOCK_BITMASK } from "../voxelGrid";
 
+export type SerializedCustomVoxelColliderBox = [
+    number, number, number, // min coordinate
+    number, number, number, // max coordinate
+    boolean, // walkThrough
+    boolean // raycastTarget
+];
+
 export class CustomVoxelColliderBox {
+    public static deserialize(serialized: SerializedCustomVoxelColliderBox) {
+        const instance = new CustomVoxelColliderBox(
+            new Vector3(serialized[0], serialized[1], serialized[2]),
+            new Vector3(serialized[3], serialized[4], serialized[5])
+        )
+        instance.walkThrough = serialized[6];
+        instance.raycastTarget = serialized[7];
+
+        return instance;
+    }
+
     public readonly hitbox: Box3;
-    public readonly walkThrough = false;
-    public readonly raycastTarget = true;
+    public walkThrough = false;
+    public raycastTarget = true;
 
     
     public constructor(hitbox: Box3);
@@ -17,12 +35,34 @@ export class CustomVoxelColliderBox {
             this.hitbox = new Box3(arg0, arg1);
         }
     }
+
+    public serialize(): SerializedCustomVoxelColliderBox {
+        return [
+            this.hitbox.min.x, this.hitbox.min.y, this.hitbox.min.z,
+            this.hitbox.max.x, this.hitbox.max.y, this.hitbox.max.z,
+            this.walkThrough,
+            this.raycastTarget
+        ]
+    }
 }
+export type SerializedCustomVoxelCollider = [ SerializedCustomVoxelColliderBox[] ];
 export class CustomVoxelCollider {
+    public static deserialize(serialized: SerializedCustomVoxelCollider) {
+        return new CustomVoxelCollider(
+            ...serialized[0].map(serializedBox => CustomVoxelColliderBox.deserialize(serializedBox))
+        );
+    }
+
     public readonly boxes: CustomVoxelColliderBox[];
 
     public constructor(...boxes: CustomVoxelColliderBox[]) {
         this.boxes = boxes;
+    }
+
+    public serialize(): SerializedCustomVoxelCollider {
+        return [
+            this.boxes.map(box => box.serialize())
+        ];
     }
 }
 
@@ -73,6 +113,15 @@ export function addCustomVoxelCollider(collider: CustomVoxelCollider) {
     console.log(collider);
 }
 
+export function resetCustomVoxelColliders() {
+    colliders.splice(0);
+    ignoreColliders.splice(0);
+    ignoreRaycasters.splice(0);
+    addCustomVoxelCollider(null);
+}
+
+resetCustomVoxelColliders();
+
 export const BASIC_COLLIDER = compileCollider(new CustomVoxelCollider(
     new CustomVoxelColliderBox(new Box3(
         new Vector3(0, 0, 0),
@@ -83,8 +132,6 @@ export const BASIC_COLLIDER = compileCollider(new CustomVoxelCollider(
 export const getCollider = (block: number) => (block & COLOR_BLOCK_BITMASK) ? BASIC_COLLIDER : colliders[block];
 export const isColliderIgnored = (block: number) => (~block & COLOR_BLOCK_BITMASK) && ignoreColliders[block];
 export const isRaycastIgnored = (block: number) => (~block & COLOR_BLOCK_BITMASK) && ignoreRaycasters[block];
-
-addCustomVoxelCollider(null);
 
 export interface CollisionDescription {
     x: number, y: number, z: number,

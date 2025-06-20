@@ -1,4 +1,4 @@
-import { Box3, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
+import { Box3, Color, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
 import { BinaryBuffer, VEC3 } from "../../binary";
 import { BaseEntity, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
 import { GRAVITY, LocalEntity } from "../localEntity";
@@ -407,8 +407,7 @@ export class LocalPlayer extends LocalEntity<Player> {
     public placeBlock(x: number, y: number, z: number) {
         if(!this.base.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
-        // const block = this.base.world.getValueFromColor(new Color(this.base.color));
-        const block = 0b0000000000000001;
+        const block = this.base.world.getValueFromColor(new Color(this.base.color));
 
         if(this.collisionChecker.collidesWithBlock(x, y, z, block)) return;
         if(!isRaycastIgnored(this.base.world.getRawValue(x, y, z))) return;

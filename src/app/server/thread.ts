@@ -2,7 +2,7 @@ import { PeerError } from "peerjs";
 import { serializeError } from "serialize-error";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { Server, ServerLaunchOptions } from "./server";
-import { loadBase } from "../base";
+import { getTransferableObjects } from "./transferableUtils";
 
 let server: Server;
 let crashMessages: Error[] = new Array;
@@ -45,14 +45,16 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
     public debugPort: MessagePort;
     public errorPort: MessagePort;
     public open = false;
+    public label: string;
 
-    constructor(peer: string, dataPort: MessagePort, commandPort: MessagePort) {
+    constructor(peer: string, dataPort: MessagePort, commandPort: MessagePort, label: string) {
         super();
 
         this.peer = peer;
         
         this.dataPort = dataPort;
         this.commandPort = commandPort;
+        this.label = label;
 
         dataPort.addEventListener("message", (event) => {
             this.emit("data", event.data);
@@ -82,7 +84,7 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
 
     public send(data: any) {
         if(!this.open) throw new ReferenceError("Cannot send message to closed message port connection");
-        this.dataPort.postMessage(data, data instanceof ArrayBuffer ? [data] : []);
+        this.dataPort.postMessage(data, getTransferableObjects(data));
     }
     public close() {
         this.open = false;
@@ -112,13 +114,12 @@ async function init() {
         
             postMessage(["ports", debugChannel.port2, errorChannel.port2 ], { transfer: [ debugChannel.port2, errorChannel.port2 ] });
 
-            loadBase(true)
-            .then(() => server.start())
+            server.start()
             .then(() => postMessage(["ready"]));
         }
         if(name == "connection") {
             const options = params[0];
-            const connection = new MessagePortConnection(options.peer, options.data, options.command);
+            const connection = new MessagePortConnection(options.peer, options.data, options.command, options.label);
             options.data.start();
             options.command.start();
 

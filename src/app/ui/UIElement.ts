@@ -1,5 +1,5 @@
 import { HAS_DOCUMENT_ACCESS, UIContainer } from ".";
-import { HashedFactoryRegistry, HashedRegistryKey } from "../registry";
+import { HashedFactoryRegistry } from "../registry";
 import { UIEventBinder } from "./UIEventBinder";
 
 export interface SerializedUIElement {
@@ -35,7 +35,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     }
 
 
-    public abstract readonly type: HashedRegistryKey<string>;
+    public abstract readonly type: string;
     public element: HTMLElement;
     public visible = true;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
@@ -70,7 +70,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
 
     public serialize(): SerializedData {
         return {
-            type: this.type.key,
+            type: this.type,
             style: this.style,
             visible: this.visible
         } as any; // 🤫

@@ -1,6 +1,6 @@
 import { UIButton, UISection, UIText } from "../../ui";
 import { Subscribe } from "../events";
-import { DatabaseObjectStore, DatabaseView } from "../pluginConfig";
+import { DatabaseObjectStore, DatabaseView } from "../databaseView";
 import { PeerJoinEvent, PlaceBlockEvent, PluginEvents, ServerLoadedEvent, ServerTickEvent } from "../pluginEvents";
 import { ServerPlugin } from "../serverPlugin";
 import { ServerUI } from "../serverUI";

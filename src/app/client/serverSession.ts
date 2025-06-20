@@ -1,15 +1,13 @@
 import FastPriorityQueue from "fastpriorityqueue";
 import { DataConnection } from "peerjs";
-import { Vector3 } from "three";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { NetworkUI } from "../client/networkUI";
-import { BaseEntity, EntityLogicType, entityRegistry, EntityRotation, instanceof_RotatingEntity } from "../entity/baseEntity";
+import { BaseEntity, EntityLogicType, entityRegistry, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
 import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
-import { ServerReadyPacket } from "../packet/serverReadyPacket";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { UIElement } from "../ui";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -17,8 +15,11 @@ import { Chunk, World } from "../world";
 import { Client } from "./client";
 import { EntityLookPacket } from "../packet/entityLookPacket";
 import { EntityPacket } from "../packet/entityPacket";
-import { LocalEntity } from "../entity/localEntity";
-import { RemoteEntity } from "../entity/remoteEntity";
+import { TimedOutError } from "../server/serverPeer";
+import { NegotiationChannel } from "../network/negotiationChannel";
+import { BaseRegistries } from "../baseRegistries";
+import { BlockRegistry } from "../block/blockRegistry";
+import { ServerIdentity } from "../serverIdentity";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -58,9 +59,16 @@ class EntityPacketBufferQueue {
     }
 }
 
+interface WaitingPacket<PacketType extends Packet = Packet> {
+    resolve(packet: PacketType): void;
+    compare(packet: PacketType): boolean;
+}
+
 export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public client: Client;
     public serverConnection: DataConnection;
+    public serverNegotiation: NegotiationChannel;
+    public serverPeerId: string;
     public player: Player;
     public localWorld = new World(crypto.randomUUID());
     // public players: Map<string, RemotePlayer> = new Map;
@@ -82,12 +90,20 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private entityPacketQueue = new EntityPacketBufferQueue;
     public music: LoopingMusic;
 
+    private waitingPackets: Set<WaitingPacket<any>> = new Set;
+
     private splitPacketAssembler = new SplitPacketAssembler;
     public lastPacketTime = 0;
+    
+    public registries: BaseRegistries = {
+        blocks: new BlockRegistry
+    }
+    public serverIdentity: ServerIdentity;
 
-    public constructor(client: Client) {
+    public constructor(client: Client, serverPeerId: string) {
         super();
         this.client = client;
+        this.serverPeerId = serverPeerId;
 
         const clip = client.audioManager.loadSound("assets/sounds/foxslit.mp3");
         this.music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
@@ -100,27 +116,39 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.lastEntityPacketReceived[EntityDataPacket.id] = new Map;
     }
     
-    public async connect(serverId: string) {
+    public async connect() {
         if(this.client.peer.disconnected) await this.client.login();
-        
-        const connection = this.client.peer.connect(serverId, { serialization: "raw" });
+
+        const negotiationConnection = this.client.peer.connect(this.serverPeerId, { reliable: true, label: "negotiation" });
+        const channel = new NegotiationChannel(negotiationConnection);
+        this.serverNegotiation = channel;
+
+        return channel;
+    }
+
+    public setServerIdentity(identity: ServerIdentity) {
+        this.serverIdentity = identity;
+    }
+
+    public async openRealtime() {
+        const connection = this.client.peer.connect(this.serverPeerId, { serialization: "raw", label: "realtime" });
         this.serverConnection = connection;
         
         await new Promise<void>((res, rej) => {
             connection.once("open", () => res());
             connection.once("error", (error) => {
-                rej(new Error("Cannot connect to server " + serverId, { cause: error }));
+                rej(new Error("Cannot connect to server " + this.serverPeerId, { cause: error }));
             });
             connection.once("close", () => {
-                rej(new Error("Cannot connect to server " + serverId));
+                rej(new Error("Cannot connect to server " + this.serverPeerId));
             });
 
             setTimeout(() => {
-                rej(new Error("Cannot connect to server " + serverId, { cause: new Error("Connection timed out") }));
+                rej(new Error("Cannot connect to server " + this.serverPeerId, { cause: new Error("Connection timed out") }));
             }, 10000);
         });
 
-        debugLog("Connected to the server " + serverId + "!");
+        debugLog("Connected to the server " + this.serverPeerId + "!");
         this.initConnectionEvents();
 
         this.onConnected();
@@ -130,7 +158,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(this.disconnected) return;
         this.disconnected = true;
 
-        this.serverConnection.close();
+        this.serverNegotiation?.close();
+        this.serverConnection?.close();
         this.onDisconnected();
         this.emit("disconnected", reason);
     }
@@ -167,6 +196,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             data = this.splitPacketAssembler.addPart(packet);
             if(data == null) return;
             packet = packetRegistry.createFromBinary(data);
+        }
+
+        for(const waitingPacket of this.waitingPackets) {
+            if(waitingPacket.compare(packet)) {
+                waitingPacket.resolve(packet);
+                this.waitingPackets.delete(waitingPacket);
+            }
         }
         
         if(packet instanceof CombinedPacket) {
@@ -303,10 +339,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof ChangeWorldPacket) {
             this.resetLocalWorld();
-        }
-        if(packet instanceof ServerReadyPacket) {
-            this.player.username = packet.username;
-            this.player.color = packet.color;
         }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);
@@ -462,6 +494,26 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.player.setWorld(this.localWorld);
         }
         this.emit("changeworld", this.localWorld);
+    }
+
+    public waitForPacket<PacketType extends Packet>(comparator: (packet: PacketType) => boolean, timeout = Infinity) {
+        const { promise, resolve, reject } = Promise.withResolvers<PacketType>();
+
+        const timeoutId = timeout == Infinity
+            ? -1
+            : setTimeout(() => {
+                reject(new TimedOutError);
+            }, timeout);
+
+        this.waitingPackets.add({
+            compare: comparator,
+            resolve(packet) {
+                if(timeout != Infinity) clearTimeout(timeoutId);
+                resolve(packet);
+            }
+        });
+
+        return promise;
     }
 
     public fetchChunk(x: number, y: number, z: number) {

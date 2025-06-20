@@ -2,31 +2,95 @@ import { Box3, Texture, Vector2, Vector3 } from "three";
 import { CustomVoxelMesh, FaceDirection, packVec2, VoxelMesher } from "../voxelMesher";
 import { clamp, map } from "../math";
 import { TextureAtlas } from "../texture/textureAtlas";
+import { DataLibraryAsset, DataLibraryAssetReference } from "../data/dataLibraryAssetTypes";
+import { DataLibrary } from "../data/dataLibrary";
 
+export type SerializedBlockCuboidFace = [
+    DataLibraryAssetReference, // texture
+    boolean, // cull
+    number, number, // uv min
+    number, number, // uv max
+    number // uv rotation
+]
 export class BlockCuboidFace {
-    texture: Texture;
-    cull = true;
-    uvMin = new Vector2(0, 0);
-    uvMax = new Vector2(16, 16);
-    uvRotation = 0;
+    public static async deserialize(serialized: SerializedBlockCuboidFace, dataLibrary: DataLibrary) {
+        const face = new BlockCuboidFace;
 
-    public setTexture(texture: Texture) {
+        const texture = await DataLibraryAsset.fromReference(serialized[0], dataLibrary);
+        
+        face.texture = await texture.loadTexture();
+        face.cull = serialized[1];
+        face.uvMin.set(serialized[2], serialized[3]);
+        face.uvMax.set(serialized[4], serialized[5]);
+        face.uvRotation = serialized[6];
+
+        return face;
+    }
+
+    public texture: DataLibraryAsset<Texture>;
+    public cull = true;
+    public uvMin = new Vector2(0, 0);
+    public uvMax = new Vector2(16, 16);
+    public uvRotation = 0;
+
+    public setTexture(texture: DataLibraryAsset) {
+        if(texture == null) throw new TypeError("Cannot use a null texture (set face to null instead)");
+        const newImage = texture.getTexture().image;
+
         if(this.texture == null) {
             this.texture = texture;
             this.uvMin.set(0, 0);
-            this.uvMax.set(texture.image.width, texture.image.height);
+            this.uvMax.set(newImage.width, newImage.height);
             return;
         }
 
-        const sizeA = new Vector2(this.texture.image.width, this.texture.image.height);
-        const sizeB = new Vector2(texture.image.width, texture.image.height).divide(sizeA);
+        const oldImage = this.texture.getTexture().image;
+
+        const sizeA = new Vector2(oldImage.width, oldImage.height);
+        const sizeB = new Vector2(newImage.width, newImage.height).divide(sizeA);
         this.uvMin.multiply(sizeB).round();
         this.uvMax.multiply(sizeB).round();
-
+        
         this.texture = texture;
     }
+
+    public serialize(): SerializedBlockCuboidFace {
+        return [
+            this.texture.toReference(),
+            this.cull,
+            this.uvMin.x, this.uvMin.y,
+            this.uvMax.x, this.uvMax.y,
+            this.uvRotation
+        ];
+    }
 }
+export type SerializedBlockModelCuboid = [
+    number, number, number, // min size
+    number, number, number, // max size
+    SerializedBlockCuboidFace, // north
+    SerializedBlockCuboidFace, // east
+    SerializedBlockCuboidFace, // south
+    SerializedBlockCuboidFace, // west
+    SerializedBlockCuboidFace, // up
+    SerializedBlockCuboidFace, // down
+]
 export class BlockModelCuboid {
+    public static async deserialize(serialized: SerializedBlockModelCuboid, dataLibrary: DataLibrary) {
+        const instance = new BlockModelCuboid;
+        console.log(serialized);
+        instance.size.min.set(serialized[0], serialized[1], serialized[2]);
+        instance.size.max.set(serialized[3], serialized[4], serialized[5]);
+        if(serialized[6] != null) instance.north = await BlockCuboidFace.deserialize(serialized[6], dataLibrary);
+        if(serialized[7] != null) instance.east = await BlockCuboidFace.deserialize(serialized[7], dataLibrary);
+        if(serialized[8] != null) instance.south = await BlockCuboidFace.deserialize(serialized[8], dataLibrary);
+        if(serialized[9] != null) instance.west = await BlockCuboidFace.deserialize(serialized[9], dataLibrary);
+        if(serialized[10] != null) instance.up = await BlockCuboidFace.deserialize(serialized[10], dataLibrary);
+        if(serialized[11] != null) instance.down = await BlockCuboidFace.deserialize(serialized[11], dataLibrary);
+
+        console.log(instance);
+        return instance;
+    }
+
     public size = new Box3(new Vector3(0, 0, 0), new Vector3(1, 1, 1));
     public north: BlockCuboidFace;
     public east: BlockCuboidFace;
@@ -59,63 +123,106 @@ export class BlockModelCuboid {
         return faces;
     }
 
-    public setNorthTexture(texture: Texture) {
+    public setNorthTexture(texture: DataLibraryAsset) {
         this.north ??= new BlockCuboidFace;
         this.north.setTexture(texture);
         return this;
     }
-    public setEastTexture(texture: Texture) {
+    public setEastTexture(texture: DataLibraryAsset) {
         this.east ??= new BlockCuboidFace;
         this.east.setTexture(texture);
         return this;
     }
-    public setSouthTexture(texture: Texture) {
+    public setSouthTexture(texture: DataLibraryAsset) {
         this.south ??= new BlockCuboidFace;
         this.south.setTexture(texture);
         return this;
     }
-    public setWestTexture(texture: Texture) {
+    public setWestTexture(texture: DataLibraryAsset) {
         this.west ??= new BlockCuboidFace;
         this.west.setTexture(texture);
         return this;
     }
-    public setUpTexture(texture: Texture) {
+    public setUpTexture(texture: DataLibraryAsset) {
         this.up ??= new BlockCuboidFace;
         this.up.setTexture(texture);
         return this;
     }
-    public setDownTexture(texture: Texture) {
+    public setDownTexture(texture: DataLibraryAsset) {
         this.down ??= new BlockCuboidFace;
         this.down.setTexture(texture);
         return this;
     }
 
-    public setAllTextures(texture: Texture) {
+    public setAllTextures(texture: DataLibraryAsset) {
         this.getAllFaces().forEach(face => face.setTexture(texture));
         return this;
     }
-    public getUsedTextures(): Texture[] {
-        const textures: Set<Texture> = new Set;
+    public getUsedTextures(): DataLibraryAsset[] {
+        const textures: Set<DataLibraryAsset> = new Set;
         for(const face of this.getAllFaces()) textures.add(face.texture);
         return Array.from(textures);
     }
+
+    public serialize(): SerializedBlockModelCuboid {
+        return [
+            this.size.min.x, this.size.min.y, this.size.min.z,
+            this.size.max.x, this.size.max.y, this.size.max.z,
+            this.north == null ? null : this.north.serialize(),
+            this.east == null ? null : this.east.serialize(),
+            this.south == null ? null : this.south.serialize(),
+            this.west == null ? null : this.west.serialize(),
+            this.up == null ? null : this.up.serialize(),
+            this.down == null ? null : this.down.serialize(),
+        ]
+    }
 }
-export abstract class BlockModel {
+export type SerializedBlockModel = [
+    SerializedBlockModelCuboid[],
+    boolean, // aoCasting
+    boolean, // aoReceiving
+    boolean, // opaque
+    boolean, // cullable
+]
+export class BlockModel {
+    public static async deserialize(serialized: SerializedBlockModel, dataLibrary: DataLibrary) {
+        const model = new BlockModel;
+        for(let i = 0; i < serialized[0].length; i++) {
+            model.cuboids.push(await BlockModelCuboid.deserialize(serialized[0][i], dataLibrary));
+        }
+        model.aoCasting = serialized[1];
+        model.aoReceiving = serialized[2];
+        model.opaque = serialized[3];
+        model.cullable = serialized[4];
+
+        return model;
+    }
+    
     public cuboids: BlockModelCuboid[] = new Array;
 
-    public abstract aoCasting: boolean;
-    public abstract aoReceiving: boolean;
-    public abstract opaque: boolean;
-    public abstract cullable: boolean;
+    public aoCasting = true;
+    public aoReceiving = true;
+    public opaque = true;
+    public cullable = true;
 
-    public getUsedTextures(): Texture[] {
-        const textures: Set<Texture> = new Set;
+    public getUsedTextures(): DataLibraryAsset[] {
+        const textures: Set<DataLibraryAsset> = new Set;
         for(const cuboid of this.cuboids) {
             for(const face of cuboid.getAllFaces()) {
                 textures.add(face.texture);
             }
         }
         return Array.from(textures);
+    }
+
+    public serialize(): SerializedBlockModel {
+        return [
+            this.cuboids.map(cuboid => cuboid.serialize()),
+            this.aoCasting,
+            this.aoReceiving,
+            this.opaque,
+            this.cullable
+        ];
     }
 }
 
@@ -137,8 +244,9 @@ interface CompiledModelFace {
     fposPP: number;
 }
 
-function compileFaceUVs(face: BlockCuboidFace, textureAtlas: TextureAtlas) {
-    const entry = textureAtlas.getTexturePosition(face.texture);
+async function compileFaceUVs(face: BlockCuboidFace, textureAtlas: TextureAtlas) {
+    await face.texture.loadTexture();
+    const entry = textureAtlas.getTexturePosition(face.texture.getTexture());
 
     let top = textureAtlas.height - entry.top;
     let left = entry.left;
@@ -180,10 +288,10 @@ function compileFacePositions(left: number, bottom: number, right: number, top: 
     };
 }
 
-export function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas): CustomVoxelMesh {
+export async function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas): Promise<CustomVoxelMesh> {
     const faces: CompiledModelFace[] = new Array;
 
-    for(const cuboid of model.cuboids) {
+    for await(const cuboid of model.cuboids) {
         if(cuboid.north != null) faces.push({
             direction: FaceDirection.NORTH,
             cull: cuboid.north.cull,
@@ -192,7 +300,7 @@ export function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas)
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.min.z,
-            ...compileFaceUVs(cuboid.north, textureAtlas),
+            ...await compileFaceUVs(cuboid.north, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.y, cuboid.size.max.x, cuboid.size.max.y)
         });
         if(cuboid.south != null) faces.push({
@@ -203,7 +311,7 @@ export function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas)
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.max.z,
-            ...compileFaceUVs(cuboid.south, textureAtlas),
+            ...await compileFaceUVs(cuboid.south, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.y, cuboid.size.max.x, cuboid.size.max.y)
         });
         if(cuboid.east != null) faces.push({
@@ -214,7 +322,7 @@ export function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas)
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.max.x,
-            ...compileFaceUVs(cuboid.east, textureAtlas),
+            ...await compileFaceUVs(cuboid.east, textureAtlas),
             ...compileFacePositions(cuboid.size.min.z, cuboid.size.min.y, cuboid.size.max.z, cuboid.size.max.y)
         });
         if(cuboid.west != null) faces.push({
@@ -225,7 +333,7 @@ export function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas)
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.min.x,
-            ...compileFaceUVs(cuboid.west, textureAtlas),
+            ...await compileFaceUVs(cuboid.west, textureAtlas),
             ...compileFacePositions(cuboid.size.min.z, cuboid.size.min.y, cuboid.size.max.z, cuboid.size.max.y)
         });
         if(cuboid.up != null) faces.push({
@@ -236,7 +344,7 @@ export function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas)
             localHeightMin: cuboid.size.min.z,
             localHeightMax: cuboid.size.max.z,
             localDepthPos: cuboid.size.max.y,
-            ...compileFaceUVs(cuboid.up, textureAtlas),
+            ...await compileFaceUVs(cuboid.up, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.z, cuboid.size.max.x, cuboid.size.max.z)
         });
         if(cuboid.down != null) faces.push({
@@ -247,7 +355,7 @@ export function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas)
             localHeightMin: cuboid.size.min.z,
             localHeightMax: cuboid.size.max.z,
             localDepthPos: cuboid.size.min.y,
-            ...compileFaceUVs(cuboid.down, textureAtlas),
+            ...await compileFaceUVs(cuboid.down, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.z, cuboid.size.max.x, cuboid.size.max.z)
         });
     }

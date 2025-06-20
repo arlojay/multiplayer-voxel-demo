@@ -48,7 +48,16 @@ export function addCustomVoxelMesh(mesh: CustomVoxelMesh) {
         renderedBlocks.push(true);
     }
 }
-addCustomVoxelMesh(null);
+export function resetCustomVoxelMeshes() {
+    customMeshes.splice(0);
+    aoCastingBlocks.splice(0);
+    aoReceivingBlocks.splice(0);
+    opaqueBlocks.splice(0);
+    renderedBlocks.splice(0);
+    cullableBlocks.splice(0);
+    addCustomVoxelMesh(null);
+}
+resetCustomVoxelMeshes();
 
 export const isOpaque = (block: number) => (block & COLOR_BLOCK_BITMASK) || opaqueBlocks[block];
 export const getAoContribution = (block: number) => ((block & COLOR_BLOCK_BITMASK) || aoCastingBlocks[block]) ? 1 : 0;

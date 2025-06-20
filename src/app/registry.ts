@@ -8,6 +8,10 @@ export interface Registry<
     entries(): Iterator<[KeyType, ObjectType]>;
 }
 
+export abstract class RegistryObject<KeyType> {
+    public id: KeyType;
+}
+
 export interface FactoryRegistry<
     ObjectType,
     KeyType,
@@ -16,6 +20,7 @@ export interface FactoryRegistry<
 > extends Registry<FactoryType, KeyType> {
     getFactory(key: KeyType): FactoryType;
     getInstance(key: KeyType, ...params: FactoryParams): ObjectType;
+    getKeyOfFactory(factory: FactoryType): KeyType;
 }
 
 export class IndexedFactoryRegistry<
@@ -24,6 +29,7 @@ export class IndexedFactoryRegistry<
     FactoryType = new (...params: FactoryParams) => ObjectType
 > implements FactoryRegistry<ObjectType, number, FactoryParams, FactoryType> {
     protected types: Map<number, FactoryType> = new Map;
+    protected typeKeys: Map<FactoryType, number> = new Map;
     protected nextId: number = 0;
     private frozen: boolean;
 
@@ -31,13 +37,16 @@ export class IndexedFactoryRegistry<
         if(this.frozen) throw new ReferenceError("Registry is frozen");
 
         this.types.set(this.nextId, factory);
+        this.typeKeys.set(factory, this.nextId);
         return this.nextId++;
     }
     public getFactory(key: number): FactoryType {
         return this.types.get(key);
     }
     public getInstance(key: number, ...params: FactoryParams): ObjectType {
-        return Reflect.construct<FactoryParams, ObjectType>(this.types.get(key) as any, params);
+        const instance = Reflect.construct<FactoryParams, ObjectType>(this.types.get(key) as any, params);
+        if(instance instanceof RegistryObject) instance.id = key;
+        return instance;
     }
     public freeze(): void {
         this.frozen = true;
@@ -51,13 +60,8 @@ export class IndexedFactoryRegistry<
     public entries() {
         return this.types.entries();
     }
-}
-
-export class HashedRegistryKey<T> {
-    public readonly key: T;
-    
-    public constructor(key: T) {
-        this.key = key;
+    public getKeyOfFactory(factory: FactoryType): number {
+        return this.typeKeys.get(factory);
     }
 }
 
@@ -66,24 +70,25 @@ export class HashedFactoryRegistry<
     KeyType = string,
     FactoryParams extends ConstructorParameters<any> = [],
     FactoryType = new (...params: FactoryParams) => ObjectType,
-> implements FactoryRegistry<ObjectType, KeyType | HashedRegistryKey<KeyType>, FactoryParams, FactoryType> {
+> implements FactoryRegistry<ObjectType, KeyType, FactoryParams, FactoryType> {
     protected types: Map<KeyType, FactoryType> = new Map;
+    protected typeKeys: Map<FactoryType, KeyType> = new Map;
     private frozen: boolean;
 
-    public register(id: KeyType, factory: FactoryType): HashedRegistryKey<KeyType> {
+    public register(id: KeyType, factory: FactoryType): KeyType {
         if(this.frozen) throw new ReferenceError("Registry is frozen");
 
         this.types.set(id, factory);
-        return new HashedRegistryKey<KeyType>(id);
+        this.typeKeys.set(factory, id);
+        return id;
     }
-    public getFactory(key: KeyType | HashedRegistryKey<KeyType>): FactoryType {
-        if(key instanceof HashedRegistryKey)
-            return this.types.get(key.key);
-            
+    public getFactory(key: KeyType): FactoryType {
         return this.types.get(key);
     }
     public getInstance(key: KeyType, ...params: FactoryParams): ObjectType {
-        return Reflect.construct<FactoryParams, ObjectType>(this.types.get(key) as any, params);
+        const instance = Reflect.construct<FactoryParams, ObjectType>(this.types.get(key) as any, params);
+        if(instance instanceof RegistryObject) instance.id = key;
+        return instance;
     }
     public freeze(): void {
         this.frozen = true;
@@ -96,6 +101,9 @@ export class HashedFactoryRegistry<
     }
     public entries() {
         return this.types.entries();
+    }
+    public getKeyOfFactory(factory: FactoryType): KeyType {
+        return this.typeKeys.get(factory);
     }
 }
 
@@ -108,16 +116,21 @@ export interface InstanceRegistry<
     get(key: KeyType): ObjectType;
     factoryValues(): Iterator<FactoryType>;
     factoryEntries(): Iterator<[KeyType, FactoryType]>;
+    getKeyOf(instance: ObjectType): KeyType;
+    getKeyOfFactory(factory: FactoryType): KeyType;
 }
 
 
 
 export class IndexedInstancedRegistry<
     ObjectType,
-    FactoryType = new () => ObjectType
+    FactoryParams extends ConstructorParameters<any> = [],
+    FactoryType = new (...params: FactoryParams) => ObjectType,
 > implements InstanceRegistry<ObjectType, number, FactoryType> {
     protected factories: Map<number, FactoryType> = new Map;
+    protected factoryKeys: Map<FactoryType, number> = new Map;
     protected instances: Map<number, ObjectType> = new Map;
+    protected instanceKeys: Map<ObjectType, number> = new Map;
     protected nextId: number = 0;
     private frozen: boolean;
 
@@ -125,16 +138,21 @@ export class IndexedInstancedRegistry<
         if(this.frozen) throw new ReferenceError("Registry is frozen");
 
         this.factories.set(this.nextId, factory);
+        this.factoryKeys.set(factory, this.nextId);
         return this.nextId++;
     }
-    public makeInstances(): void {
+    public makeInstances(...params: FactoryParams): void {
         this.frozen = true;
         for(const [ key, Factory ] of this.factories) {
-            this.instances.set(key, Reflect.construct(Factory as any, []));
+            const instance = Reflect.construct(Factory as any, params) as ObjectType;
+            if(instance instanceof RegistryObject) instance.id = key;
+            
+            this.instances.set(key, instance);
+            this.instanceKeys.set(instance, key);
         }
     }
-    public freeze() {
-        this.makeInstances();
+    public freeze(...params: FactoryParams) {
+        this.makeInstances(...params);
     }
     public get(key: number): ObjectType {
         if(!this.frozen) throw new ReferenceError("Registry instances not created");
@@ -155,35 +173,50 @@ export class IndexedInstancedRegistry<
     public factoryEntries() {
         return this.factories.entries();
     }
+    public getKeyOf(instance: ObjectType): number {
+        return this.instanceKeys.get(instance);
+    }
+    public getKeyOfFactory(factory: FactoryType): number {
+        return this.factoryKeys.get(factory);
+    }
 }
 
 export class HashedInstanceRegistry<
     ObjectType,
     KeyType = string,
-    FactoryType = new () => ObjectType,
-> implements InstanceRegistry<ObjectType, KeyType | HashedRegistryKey<KeyType>, FactoryType> {
+    FactoryParams extends ConstructorParameters<any> = [],
+    FactoryType = new (...params: FactoryParams) => ObjectType,
+> implements InstanceRegistry<ObjectType, KeyType, FactoryType> {
     protected factories: Map<KeyType, FactoryType> = new Map;
+    protected factoryKeys: Map<FactoryType, KeyType> = new Map;
     protected instances: Map<KeyType, ObjectType> = new Map;
+    protected instanceKeys: Map<ObjectType, KeyType> = new Map;
     private frozen: boolean;
 
-    public register(id: KeyType, factory: FactoryType): HashedRegistryKey<KeyType> {
+    public register(id: KeyType, factory: FactoryType): KeyType {
         if(this.frozen) throw new ReferenceError("Registry is frozen");
 
         this.factories.set(id, factory);
-        return new HashedRegistryKey<KeyType>(id);
+        this.factoryKeys.set(factory, id);
+        
+        return id;
     }
-    public makeInstances(): void {
+    public makeInstances(...params: FactoryParams): void {
         this.frozen = true;
         for(const [ key, Factory ] of this.factories) {
-            this.instances.set(key, Reflect.construct(Factory as any, []));
+            const instance = Reflect.construct(Factory as any, params) as ObjectType;
+            if(instance instanceof RegistryObject) instance.id = key;
+
+            this.instances.set(key, instance);
+            this.instanceKeys.set(instance, key);
         }
     }
     public get(key: KeyType): ObjectType {
         if(!this.frozen) throw new ReferenceError("Registry instances not created");
         return this.instances.get(key);
     }
-    public freeze(): void {
-        this.makeInstances();
+    public freeze(...params: FactoryParams): void {
+        this.makeInstances(...params);
     }
     public keys() {
         return this.factories.keys();
@@ -199,5 +232,11 @@ export class HashedInstanceRegistry<
     }
     public factoryEntries() {
         return this.factories.entries();
+    }
+    public getKeyOf(instance: ObjectType): KeyType {
+        return this.instanceKeys.get(instance);
+    }
+    public getKeyOfFactory(factory: FactoryType): KeyType {
+        return this.factoryKeys.get(factory);
     }
 }

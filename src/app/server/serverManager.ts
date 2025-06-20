@@ -3,6 +3,7 @@ import { deserializeError } from "serialize-error";
 import { createPeer } from "../turn";
 import { debugLog } from "../logging";
 import { ServerLaunchOptions } from "./server";
+import { getTransferableObjects } from "./transferableUtils";
 
 export class ServerPeerError extends Error {
 
@@ -128,6 +129,7 @@ export class ServerManager {
             "connection",
             {
                 peer: connection.peer,
+                label: connection.label,
                 data: dataChannel.port2,
                 command: commandChannel.port2,
             }
@@ -152,8 +154,13 @@ export class ServerManager {
         });
         
         connection.addListener("data", (data) => {
-            dataPort.postMessage(data, { transfer: [ data ] });
+            dataPort.postMessage(data, { transfer: getTransferableObjects(data) });
         });
+
+        console.log(connection);
+        if(connection.open) {
+            commandPort.postMessage(["open"]);
+        }
         
         commandPort.addEventListener("message", event => {
             const name: string = event.data[0];

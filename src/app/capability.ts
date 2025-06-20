@@ -16,4 +16,6 @@ export const capabilities = new class {
 
         return ("getFloat16" in view) && ("setFloat16" in view);
     })()
+    MAX_WEBRTC_PACKET_SIZE = 500
+    DOCUMENT = "document" in self
 }
