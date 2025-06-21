@@ -108,12 +108,17 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
         normal.assign(vec3(0, 1, 0));
     });
 
-    const vColor = attribute("blockColor").toVar();
-    const isCustomMesh = vColor.bitAnd(0b1000000000000000).greaterThan(0);
-    const vColorR = vColor.bitAnd(0b0111110000000000).shiftRight(10);
-    const vColorG = vColor.bitAnd(0b0000001111100000).shiftRight(5);
-    const vColorB = vColor.bitAnd(0b0000000000011111);
-    const flatColor = vec3(float(vColorR).div(0b11111), float(vColorG).div(0b11111), float(vColorB).div(0b11111)).toVar();
+    const vColor = attribute("color").toVar();
+    const vColorR = vColor.bitAnd(0xff0000).shiftRight(16);
+    const vColorG = vColor.bitAnd(0x00ff00).shiftRight(8);
+    const vColorB = vColor.bitAnd(0x0000ff);
+    const flatColor = vertexStage(
+        vec3(
+            float(vColorR).div(0xff),
+            float(vColorG).div(0xff),
+            float(vColorB).div(0xff)
+        )
+    ).toVar();
 
     const aoDarken = float(1).div(ao.pow(1.5).add(1));
     const shadow = dot(normal, sunPos).clamp(0, 1).remap(0, 1, 0.25, 1).mul(aoDarken);
@@ -126,20 +131,7 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
 
     // const skyReflection = skyColorNode({ pos: reflection });
 
-    const faceColor = select(isCustomMesh,
-        terrainMap.sample(uv),
-        
-        mix(
-            flatColor,
-            vec3(select(isLightColor, float(0.0), float(1))),
-            
-            select(
-                edgeFactor.greaterThan(0.45),
-                float(0.5),
-                float(0)
-            )
-        )
-    );
+    const faceColor = terrainMap.sample(uv).mul(flatColor).toVar();
 
     const dayColor = faceColor.mul(shadow);
     const nightColor = mix(

@@ -298,7 +298,6 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
         const dataCallback = (data: MessageStructure) => {
             if(data[1] == MessageType.READY) {
                 if(data[2] == State.ASK_READY) {
-                    console.log("respond ready");
                     this.connection.send([
                         null,
                         MessageType.READY,
@@ -307,7 +306,6 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
                     this.state = "open";
                     onReady.resolve();
                 } else if(data[2] == State.RESPOND_READY) {
-                    console.log("got ready response");
                     this.connection.removeListener("data", dataCallback);
                     this.state = "open";
                     onReady.resolve();
@@ -317,8 +315,6 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
         this.connection.addListener("data", dataCallback);
 
         if(!this.connection.open) {
-            console.log(this.connection);
-            console.log("wait for open");
             await new Promise<void>((res, rej) => {
                 const timeoutId = setTimeout(() => {
                     rej(new TimedOutError);
@@ -330,7 +326,6 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
             });
         }
 
-        console.log("ask ready");
         this.connection.send([
             null,
             MessageType.READY,
@@ -391,7 +386,6 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
     private handleResponse(message: MessageStructure) {
         const [ id, type ] = message;
         const waitingResponse = this.waitingResponses.get(id);
-        console.warn("response", message);
 
         if(type == MessageType.RESPONSE) {
             const responseMessage: ResponseMessage = message[2];

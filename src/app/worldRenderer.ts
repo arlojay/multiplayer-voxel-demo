@@ -14,7 +14,7 @@ export class WorldRenderer {
         this.world = world;
         this.terrainShader = terrainShader;
         
-        this.mesher = new VoxelMesher(this.world.blocks);
+        this.mesher = new VoxelMesher(this.world);
     }
     
 

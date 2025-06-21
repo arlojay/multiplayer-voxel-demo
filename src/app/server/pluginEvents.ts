@@ -1,3 +1,4 @@
+import { BlockState } from "../block/blockState";
 import { Player } from "../entity/impl";
 import { World } from "../world";
 import { EmittedEvent } from "./events";
@@ -56,7 +57,7 @@ export class PlaceBlockEvent extends ServerPluginPeerEvent {
     public x: number;
     public y: number;
     public z: number;
-    public block: number;
+    public block: BlockState;
 }
 
 export class BreakBlockEvent extends ServerPluginPeerEvent {
@@ -89,7 +90,6 @@ export class WorldCreateEvent extends ServerPluginEvent {
     public readonly name = PluginEvents.WORLD_CREATE;
     public readonly cancellable = true;
 
-    public world: World;
     public worldName: string;
 }
 

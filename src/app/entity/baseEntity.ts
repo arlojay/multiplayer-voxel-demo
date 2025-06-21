@@ -3,7 +3,7 @@ import { $enum } from "ts-enum-util";
 import { BinaryBuffer, F16, F32, U16, VEC3 } from "../binary";
 import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
 import { Server } from "../server/server";
-import { CHUNK_INC_SCL } from "../voxelGrid";
+import { CHUNK_INC_SCL, CHUNK_SIZE } from "../voxelGrid";
 import { World } from "../world";
 import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
@@ -159,13 +159,13 @@ export abstract class BaseEntity<
     }
 
     public get chunkX() {
-        return this.position.x >> CHUNK_INC_SCL;
+        return Math.floor(this.position.x / CHUNK_SIZE);
     }
     public get chunkY() {
-        return this.position.y >> CHUNK_INC_SCL;
+        return Math.floor(this.position.y / CHUNK_SIZE);
     }
     public get chunkZ() {
-        return this.position.z >> CHUNK_INC_SCL;
+        return Math.floor(this.position.z / CHUNK_SIZE);
     }
 
     protected abstract serialize(bin: BinaryBuffer): void;

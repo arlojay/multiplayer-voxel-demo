@@ -1,4 +1,4 @@
-import { Box3, Texture, Vector2, Vector3 } from "three";
+import { Box3, Color, Texture, Vector2, Vector3 } from "three";
 import { CustomVoxelMesh, FaceDirection, packVec2, VoxelMesher } from "../voxelMesher";
 import { clamp, map } from "../math";
 import { TextureAtlas } from "../texture/textureAtlas";
@@ -6,23 +6,25 @@ import { DataLibraryAsset, DataLibraryAssetReference } from "../data/dataLibrary
 import { DataLibrary } from "../data/dataLibrary";
 
 export type SerializedBlockCuboidFace = [
-    DataLibraryAssetReference, // texture
+    number, // texture (index from serialized block)
     boolean, // cull
     number, number, // uv min
     number, number, // uv max
-    number // uv rotation
+    number, // uv rotation
+    number // color
 ]
 export class BlockCuboidFace {
-    public static async deserialize(serialized: SerializedBlockCuboidFace, dataLibrary: DataLibrary) {
+    public static async deserialize(serialized: SerializedBlockCuboidFace, usedTextures: DataLibraryAssetReference[], dataLibrary: DataLibrary) {
         const face = new BlockCuboidFace;
 
-        const texture = await DataLibraryAsset.fromReference(serialized[0], dataLibrary);
+        const texture = await DataLibraryAsset.fromReference(usedTextures[serialized[0]], dataLibrary);
         
         face.texture = await texture.loadTexture();
         face.cull = serialized[1];
         face.uvMin.set(serialized[2], serialized[3]);
         face.uvMax.set(serialized[4], serialized[5]);
         face.uvRotation = serialized[6];
+        face.color = new Color(serialized[7]);
 
         return face;
     }
@@ -32,6 +34,7 @@ export class BlockCuboidFace {
     public uvMin = new Vector2(0, 0);
     public uvMax = new Vector2(16, 16);
     public uvRotation = 0;
+    public color = new Color(0xffffff);
 
     public setTexture(texture: DataLibraryAsset) {
         if(texture == null) throw new TypeError("Cannot use a null texture (set face to null instead)");
@@ -54,13 +57,24 @@ export class BlockCuboidFace {
         this.texture = texture;
     }
 
-    public serialize(): SerializedBlockCuboidFace {
+    public setColor(color: Color) {
+        this.color.copy(color);
+    }
+
+    public serialize(usedTextures: DataLibraryAssetReference[]): SerializedBlockCuboidFace {
+        const textureReference = this.texture.toReference();
+        let textureIndex = usedTextures.indexOf(textureReference);
+        if(textureIndex == -1) {
+            textureIndex = usedTextures.length;
+            usedTextures.push(textureReference);
+        }
         return [
-            this.texture.toReference(),
+            textureIndex,
             this.cull,
             this.uvMin.x, this.uvMin.y,
             this.uvMax.x, this.uvMax.y,
-            this.uvRotation
+            this.uvRotation,
+            this.color.getHex()
         ];
     }
 }
@@ -75,19 +89,17 @@ export type SerializedBlockModelCuboid = [
     SerializedBlockCuboidFace, // down
 ]
 export class BlockModelCuboid {
-    public static async deserialize(serialized: SerializedBlockModelCuboid, dataLibrary: DataLibrary) {
+    public static async deserialize(serialized: SerializedBlockModelCuboid, usedTextures: DataLibraryAssetReference[], dataLibrary: DataLibrary) {
         const instance = new BlockModelCuboid;
-        console.log(serialized);
         instance.size.min.set(serialized[0], serialized[1], serialized[2]);
         instance.size.max.set(serialized[3], serialized[4], serialized[5]);
-        if(serialized[6] != null) instance.north = await BlockCuboidFace.deserialize(serialized[6], dataLibrary);
-        if(serialized[7] != null) instance.east = await BlockCuboidFace.deserialize(serialized[7], dataLibrary);
-        if(serialized[8] != null) instance.south = await BlockCuboidFace.deserialize(serialized[8], dataLibrary);
-        if(serialized[9] != null) instance.west = await BlockCuboidFace.deserialize(serialized[9], dataLibrary);
-        if(serialized[10] != null) instance.up = await BlockCuboidFace.deserialize(serialized[10], dataLibrary);
-        if(serialized[11] != null) instance.down = await BlockCuboidFace.deserialize(serialized[11], dataLibrary);
+        if(serialized[6] != null) instance.north = await BlockCuboidFace.deserialize(serialized[6], usedTextures, dataLibrary);
+        if(serialized[7] != null) instance.east = await BlockCuboidFace.deserialize(serialized[7], usedTextures, dataLibrary);
+        if(serialized[8] != null) instance.south = await BlockCuboidFace.deserialize(serialized[8], usedTextures, dataLibrary);
+        if(serialized[9] != null) instance.west = await BlockCuboidFace.deserialize(serialized[9], usedTextures, dataLibrary);
+        if(serialized[10] != null) instance.up = await BlockCuboidFace.deserialize(serialized[10], usedTextures, dataLibrary);
+        if(serialized[11] != null) instance.down = await BlockCuboidFace.deserialize(serialized[11], usedTextures, dataLibrary);
 
-        console.log(instance);
         return instance;
     }
 
@@ -158,22 +170,26 @@ export class BlockModelCuboid {
         this.getAllFaces().forEach(face => face.setTexture(texture));
         return this;
     }
+    public setAllColors(color: Color): BlockModelCuboid {
+        this.getAllFaces().forEach(face => face.setColor(color));
+        return this;
+    }
     public getUsedTextures(): DataLibraryAsset[] {
         const textures: Set<DataLibraryAsset> = new Set;
         for(const face of this.getAllFaces()) textures.add(face.texture);
         return Array.from(textures);
     }
 
-    public serialize(): SerializedBlockModelCuboid {
+    public serialize(usedTextures: DataLibraryAssetReference[]): SerializedBlockModelCuboid {
         return [
             this.size.min.x, this.size.min.y, this.size.min.z,
             this.size.max.x, this.size.max.y, this.size.max.z,
-            this.north == null ? null : this.north.serialize(),
-            this.east == null ? null : this.east.serialize(),
-            this.south == null ? null : this.south.serialize(),
-            this.west == null ? null : this.west.serialize(),
-            this.up == null ? null : this.up.serialize(),
-            this.down == null ? null : this.down.serialize(),
+            this.north == null ? null : this.north.serialize(usedTextures),
+            this.east == null ? null : this.east.serialize(usedTextures),
+            this.south == null ? null : this.south.serialize(usedTextures),
+            this.west == null ? null : this.west.serialize(usedTextures),
+            this.up == null ? null : this.up.serialize(usedTextures),
+            this.down == null ? null : this.down.serialize(usedTextures),
         ]
     }
 }
@@ -185,10 +201,10 @@ export type SerializedBlockModel = [
     boolean, // cullable
 ]
 export class BlockModel {
-    public static async deserialize(serialized: SerializedBlockModel, dataLibrary: DataLibrary) {
+    public static async deserialize(serialized: SerializedBlockModel, usedTextures: DataLibraryAssetReference[], dataLibrary: DataLibrary) {
         const model = new BlockModel;
         for(let i = 0; i < serialized[0].length; i++) {
-            model.cuboids.push(await BlockModelCuboid.deserialize(serialized[0][i], dataLibrary));
+            model.cuboids.push(await BlockModelCuboid.deserialize(serialized[0][i], usedTextures, dataLibrary));
         }
         model.aoCasting = serialized[1];
         model.aoReceiving = serialized[2];
@@ -205,6 +221,10 @@ export class BlockModel {
     public opaque = true;
     public cullable = true;
 
+    public constructor(...cuboids: BlockModelCuboid[]) {
+        this.cuboids.push(...cuboids);
+    }
+
     public getUsedTextures(): DataLibraryAsset[] {
         const textures: Set<DataLibraryAsset> = new Set;
         for(const cuboid of this.cuboids) {
@@ -215,9 +235,9 @@ export class BlockModel {
         return Array.from(textures);
     }
 
-    public serialize(): SerializedBlockModel {
+    public serialize(usedTextures: DataLibraryAssetReference[]): SerializedBlockModel {
         return [
-            this.cuboids.map(cuboid => cuboid.serialize()),
+            this.cuboids.map(cuboid => cuboid.serialize(usedTextures)),
             this.aoCasting,
             this.aoReceiving,
             this.opaque,
@@ -234,6 +254,7 @@ interface CompiledModelFace {
     localHeightMin: number;
     localHeightMax: number;
     localDepthPos: number;
+    color: number;
     uvNN: number;
     uvNP: number;
     uvPN: number;
@@ -287,6 +308,13 @@ function compileFacePositions(left: number, bottom: number, right: number, top: 
         fposPP: packVec2(right, top),
     };
 }
+function getColor(color: Color) {
+    return (
+        Math.floor(Math.min(255, color.r * 256)) << 16 |
+        Math.floor(Math.min(255, color.g * 256)) << 8 |
+        Math.floor(Math.min(255, color.b * 256))
+    )
+}
 
 export async function compileBlockModel(model: BlockModel, textureAtlas: TextureAtlas): Promise<CustomVoxelMesh> {
     const faces: CompiledModelFace[] = new Array;
@@ -300,6 +328,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.min.z,
+            color: getColor(cuboid.north.color),
             ...await compileFaceUVs(cuboid.north, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.y, cuboid.size.max.x, cuboid.size.max.y)
         });
@@ -311,6 +340,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.max.z,
+            color: getColor(cuboid.south.color),
             ...await compileFaceUVs(cuboid.south, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.y, cuboid.size.max.x, cuboid.size.max.y)
         });
@@ -322,6 +352,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.max.x,
+            color: getColor(cuboid.east.color),
             ...await compileFaceUVs(cuboid.east, textureAtlas),
             ...compileFacePositions(cuboid.size.min.z, cuboid.size.min.y, cuboid.size.max.z, cuboid.size.max.y)
         });
@@ -333,6 +364,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             localHeightMin: cuboid.size.min.y,
             localHeightMax: cuboid.size.max.y,
             localDepthPos: cuboid.size.min.x,
+            color: getColor(cuboid.west.color),
             ...await compileFaceUVs(cuboid.west, textureAtlas),
             ...compileFacePositions(cuboid.size.min.z, cuboid.size.min.y, cuboid.size.max.z, cuboid.size.max.y)
         });
@@ -344,6 +376,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             localHeightMin: cuboid.size.min.z,
             localHeightMax: cuboid.size.max.z,
             localDepthPos: cuboid.size.max.y,
+            color: getColor(cuboid.up.color),
             ...await compileFaceUVs(cuboid.up, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.z, cuboid.size.max.x, cuboid.size.max.z)
         });
@@ -355,6 +388,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             localHeightMin: cuboid.size.min.z,
             localHeightMax: cuboid.size.max.z,
             localDepthPos: cuboid.size.min.y,
+            color: getColor(cuboid.down.color),
             ...await compileFaceUVs(cuboid.down, textureAtlas),
             ...compileFacePositions(cuboid.size.min.x, cuboid.size.min.z, cuboid.size.max.x, cuboid.size.max.z)
         });
@@ -374,8 +408,6 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
     const facesUpAlways = facesUp.filter(face => !face.cull);
     const facesDownAlways = facesDown.filter(face => !face.cull);
 
-    console.log(facesNorth, facesSouth, facesEast, facesWest, facesUp, facesDown);
-
     return {
         aoCasting: model.aoCasting,
         aoReceiving: model.aoReceiving,
@@ -394,10 +426,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localDepthPos, y + face.localHeightMin, z + face.localWidthMin,
                 );
                 bindata.push(
-                    color, ao[FaceDirection.WEST], face.fposNP, face.uvNP,
-                    color, ao[FaceDirection.WEST], face.fposPP, face.uvPP,
-                    color, ao[FaceDirection.WEST], face.fposPN, face.uvPN,
-                    color, ao[FaceDirection.WEST], face.fposNN, face.uvNN
+                    face.color, ao[FaceDirection.WEST], face.fposNP, face.uvNP,
+                    face.color, ao[FaceDirection.WEST], face.fposPP, face.uvPP,
+                    face.color, ao[FaceDirection.WEST], face.fposPN, face.uvPN,
+                    face.color, ao[FaceDirection.WEST], face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -415,10 +447,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localDepthPos, y + face.localHeightMin, z + face.localWidthMax,
                 );
                 bindata.push(
-                    color, ao[FaceDirection.EAST], face.fposNP, face.uvNP,
-                    color, ao[FaceDirection.EAST], face.fposPP, face.uvPP,
-                    color, ao[FaceDirection.EAST], face.fposPN, face.uvPN,
-                    color, ao[FaceDirection.EAST], face.fposNN, face.uvNN
+                    face.color, ao[FaceDirection.EAST], face.fposNP, face.uvNP,
+                    face.color, ao[FaceDirection.EAST], face.fposPP, face.uvPP,
+                    face.color, ao[FaceDirection.EAST], face.fposPN, face.uvPN,
+                    face.color, ao[FaceDirection.EAST], face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -436,10 +468,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMin, y + face.localHeightMin, z + face.localDepthPos,
                 );
                 bindata.push(
-                    color, ao[FaceDirection.SOUTH], face.fposNP, face.uvNP,
-                    color, ao[FaceDirection.SOUTH], face.fposPP, face.uvPP,
-                    color, ao[FaceDirection.SOUTH], face.fposPN, face.uvPN,
-                    color, ao[FaceDirection.SOUTH], face.fposNN, face.uvNN
+                    face.color, ao[FaceDirection.SOUTH], face.fposNP, face.uvNP,
+                    face.color, ao[FaceDirection.SOUTH], face.fposPP, face.uvPP,
+                    face.color, ao[FaceDirection.SOUTH], face.fposPN, face.uvPN,
+                    face.color, ao[FaceDirection.SOUTH], face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -457,10 +489,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMax, y + face.localHeightMin, z + face.localDepthPos,
                 );
                 bindata.push(
-                    color, ao[FaceDirection.NORTH], face.fposNP, face.uvNP,
-                    color, ao[FaceDirection.NORTH], face.fposPP, face.uvPP,
-                    color, ao[FaceDirection.NORTH], face.fposPN, face.uvPN,
-                    color, ao[FaceDirection.NORTH], face.fposNN, face.uvNN
+                    face.color, ao[FaceDirection.NORTH], face.fposNP, face.uvNP,
+                    face.color, ao[FaceDirection.NORTH], face.fposPP, face.uvPP,
+                    face.color, ao[FaceDirection.NORTH], face.fposPN, face.uvPN,
+                    face.color, ao[FaceDirection.NORTH], face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -478,10 +510,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMin, y + face.localDepthPos, z + face.localHeightMax,
                 );
                 bindata.push(
-                    color, ao[FaceDirection.UP], face.fposNP, face.uvNP,
-                    color, ao[FaceDirection.UP], face.fposPP, face.uvPP,
-                    color, ao[FaceDirection.UP], face.fposPN, face.uvPN,
-                    color, ao[FaceDirection.UP], face.fposNN, face.uvNN
+                    face.color, ao[FaceDirection.UP], face.fposNP, face.uvNP,
+                    face.color, ao[FaceDirection.UP], face.fposPP, face.uvPP,
+                    face.color, ao[FaceDirection.UP], face.fposPN, face.uvPN,
+                    face.color, ao[FaceDirection.UP], face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -499,10 +531,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMin, y + face.localDepthPos, z + face.localHeightMin,
                 );
                 bindata.push(
-                    color, ao[FaceDirection.DOWN], face.fposNP, face.uvNP,
-                    color, ao[FaceDirection.DOWN], face.fposPP, face.uvPP,
-                    color, ao[FaceDirection.DOWN], face.fposPN, face.uvPN,
-                    color, ao[FaceDirection.DOWN], face.fposNN, face.uvNN
+                    face.color, ao[FaceDirection.DOWN], face.fposNP, face.uvNP,
+                    face.color, ao[FaceDirection.DOWN], face.fposPP, face.uvPP,
+                    face.color, ao[FaceDirection.DOWN], face.fposPN, face.uvPN,
+                    face.color, ao[FaceDirection.DOWN], face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,

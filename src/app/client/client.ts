@@ -15,11 +15,10 @@ import { createDeserializedBlockClass } from "../block/block";
 import { TextureAtlas } from "../texture/textureAtlas";
 import { NearestFilter } from "three";
 import { terrainMap } from "../shaders/terrain";
-import { addCustomVoxelMesh, resetCustomVoxelMeshes } from "../voxelMesher";
-import { addCustomVoxelCollider, resetCustomVoxelColliders } from "../entity/collisionChecker";
-import { compileBlockModel } from "../block/blockModel";
 import { LibraryDataNegotiationLocator } from "../data/libraryDataNegotiationLocator";
 import { ClientIdentity, ServerIdentity } from "../serverIdentity";
+import { BlockDataMemoizer } from "../block/blockDataMemoizer";
+import { BSON } from "bson";
 
 interface ClientEvents {
     "login": () => void;
@@ -163,10 +162,10 @@ export class Client extends TypedEmitter<ClientEvents> {
                     const serverIdentity = await negotiationChannel.request<ServerIdentity>("identity");
                     serverSession.setServerIdentity(serverIdentity.data);
                     
-                    console.log("<client> hello " + serverIdentity.data.uuid + "!! gonna try and get blocks now...");
+                    console.debug("<client> hello " + serverIdentity.data.uuid + "!! gonna try and get blocks now...");
 
                     dataLibrary = await this.dataLibraryManager.getLibrary(serverIdentity.data.uuid);
-                    console.log("opening data library", dataLibrary);
+                    
                     await dataLibrary.open(new LibraryDataNegotiationLocator(negotiationChannel));
 
                     const loginRequest = await negotiationChannel.request<ClientIdentity>("login", {
@@ -174,13 +173,12 @@ export class Client extends TypedEmitter<ClientEvents> {
                         color: connectionOptions.color
                     });
 
-                    console.log("<client> gonna try and get blocks now...");
-                    const content = await negotiationChannel.request<GameContentPackage>("content");
+                    console.debug("<client> gonna try and get blocks now...");
+                    const contentRequest = await negotiationChannel.request("content");
+                    const contentData = await contentRequest.getStream().waitForEnd();
+                    const content = JSON.parse(new TextDecoder().decode(contentData)) as GameContentPackage;
 
-                    resetCustomVoxelColliders();
-                    resetCustomVoxelMeshes();
-
-                    for(const block of content.data.blocks) {
+                    for(const block of content.blocks) {
                         const BlockClass = createDeserializedBlockClass(block);
                         serverSession.registries.blocks.register(block.id, BlockClass);
                     }
@@ -190,24 +188,20 @@ export class Client extends TypedEmitter<ClientEvents> {
 
                     const textureAtlas = new TextureAtlas;
                     for(const block of serverSession.registries.blocks.values()) {
-                        console.log(block);
-                        for(const textureAsset of block.model.getUsedTextures()) {
-                            textureAtlas.addTexture(textureAsset.getTexture());
+                        for(const state of block.states.values()) {
+                            for(const textureAsset of state.model.getUsedTextures()) {
+                                textureAtlas.addTexture(textureAsset.getTexture());
+                            }
                         }
                     }
                     textureAtlas.build();
                     textureAtlas.builtTexture.magFilter = NearestFilter;
                     textureAtlas.builtTexture.colorSpace = "srgb";
                     terrainMap.value = textureAtlas.builtTexture;
-                    
-                    for await(const block of serverSession.registries.blocks.values()) {
-                        addCustomVoxelMesh(await compileBlockModel(block.model, textureAtlas));
-                        addCustomVoxelCollider(block.collider);
-                        console.log(block.collider);
-                    }
 
-                    console.log(content.data.blocks);
-                    console.log("<client> woohoo!!! joining now!!");
+                    await serverSession.blockDataMemoizer.memoize(textureAtlas);
+
+                    console.debug("<client> woohoo!!! joining now!!");
 
                     negotiationChannel.close();
                     await serverSession.openRealtime();

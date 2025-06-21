@@ -88,9 +88,8 @@ export class TextureAtlas {
         this.height = height;
 
         this.builtTexture.image.convertToBlob().then((blob: Blob) => {
-            console.log(this);
-            console.log(URL.createObjectURL(blob));
+            console.debug("Built texture atlas; location: " + URL.createObjectURL(blob));
         })
-        console.log("Built " + this.textures.size + "-texture atlas in " + (performance.now() - t0) + "ms, " + tries + " tries");
+        console.debug("Built " + this.textures.size + "-texture atlas in " + (performance.now() - t0) + "ms, " + tries + " tries");
     }
 }

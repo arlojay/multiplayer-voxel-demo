@@ -6,6 +6,11 @@ import { ServerPlugin } from "../serverPlugin";
 import { ServerUI } from "../serverUI";
 import { TextEntity } from "../../entity/impl";
 import hsl from "color-space/hsl";
+import { BaseRegistries } from "../../baseRegistries";
+import { DataLibrary } from "../../data/dataLibrary";
+import { Block } from "../../block/block";
+import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
+import { BASIC_COLLIDER } from "../../entity/collisionChecker";
 
 interface PlayerClicksEntry {
     username: string;
@@ -72,6 +77,22 @@ export class DemoPlugin extends ServerPlugin {
         });
         
         updateClicks();
+    }
+
+    public async addContent(registries: BaseRegistries, dataLibrary: DataLibrary) {
+        registries.blocks.register("jerma", class extends Block {
+            public async init(dataLibrary: DataLibrary) {
+                this.addState(
+                    "default",
+                    new BlockModel(
+                        new BlockModelCuboid()
+                        .createAllFaces()
+                        .setAllTextures(await dataLibrary.getAsset("textures/player-face.png").then(t => t.loadTexture()))
+                    ),
+                    BASIC_COLLIDER.collider
+                )
+            }
+        })
     }
 
     @Subscribe(PluginEvents.SERVER_TICK)

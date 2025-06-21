@@ -1,48 +1,53 @@
-import { BlockModel, SerializedBlockModel } from "./blockModel";
-import { CustomVoxelCollider, SerializedCustomVoxelCollider } from "../entity/collisionChecker";
 import { DataLibrary } from "../data/dataLibrary";
+import { DataLibraryAssetReference } from "../data/dataLibraryAssetTypes";
+import { CustomVoxelCollider } from "../entity/collisionChecker";
 import { RegistryObject } from "../registry";
+import { World } from "../world";
+import { BlockModel } from "./blockModel";
+import { BlockState } from "./blockState";
+import { BlockStateOptions, BlockStateType, SerializedBlockStateType } from "./blockStateType";
 
 export interface SerializedBlock {
     id: string;
-    walkThrough: boolean;
-    raycastTarget: boolean;
-    collider: SerializedCustomVoxelCollider;
-    model: SerializedBlockModel;
+    states: Record<string, SerializedBlockStateType>;
+    usedTextures: DataLibraryAssetReference[];
 }
 
 export abstract class Block extends RegistryObject<string> {
-    public abstract readonly collider: CustomVoxelCollider;
+    public states: Map<string, BlockStateType> = new Map;
 
-    public model: BlockModel = null;
-    public readonly walkThrough: boolean = false;
-    public readonly raycastTarget: boolean = true;
-
-    public async init(dataLibrary: DataLibrary) {
-        this.model = await this.createModel(dataLibrary);
-    }
-
-    abstract createModel(dataLibrary: DataLibrary): Promise<BlockModel>;
+    public abstract init(dataLibrary: DataLibrary): Promise<void>;
 
     public serialize(): SerializedBlock {
+        const serializedStates: Record<string, SerializedBlockStateType> = {};
+        const usedTextures: DataLibraryAssetReference[] = new Array;
+
+        for(const [ state, type ] of this.states.entries()) {
+            serializedStates[state] = type.serialize(usedTextures);
+        }
         return {
             id: this.id,
-            walkThrough: this.walkThrough,
-            raycastTarget: this.raycastTarget,
-            collider: this.collider.serialize(),
-            model: this.model.serialize()
-        }
+            states: serializedStates,
+            usedTextures
+        };
+    }
+    protected addState(state: string, model: BlockModel, collider: CustomVoxelCollider, options?: BlockStateOptions) {
+        const type = new BlockStateType(this, state, model, collider, options);
+        this.states.set(type.state, type);
+        return type;
+    }
+    public createState(state: string, world: World, x: number, y: number, z: number) {
+        return new BlockState(this, world, state, x, y, z);
     }
 }
 
 export function createDeserializedBlockClass(serializedBlock: SerializedBlock) {
     return class extends Block {
-        public collider: CustomVoxelCollider = CustomVoxelCollider.deserialize(serializedBlock.collider);
-        public readonly walkThrough = serializedBlock.walkThrough;
-        public readonly raycastTarget = serializedBlock.raycastTarget;
-
-        public async createModel(dataLibrary: DataLibrary) {
-            return await BlockModel.deserialize(serializedBlock.model, dataLibrary);
+        public async init(dataLibrary: DataLibrary) {
+            for(const state in serializedBlock.states) {
+                const type = await BlockStateType.deserialize(this, serializedBlock.states[state], serializedBlock.usedTextures, dataLibrary);
+                this.states.set(state, type);
+            }
         }
     }
 }

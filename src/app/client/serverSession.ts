@@ -20,6 +20,8 @@ import { NegotiationChannel } from "../network/negotiationChannel";
 import { BaseRegistries } from "../baseRegistries";
 import { BlockRegistry } from "../block/blockRegistry";
 import { ServerIdentity } from "../serverIdentity";
+import { BlockState, blockStateSaveKeyPairToString } from "../block/blockState";
+import { BlockDataMemoizer } from "../block/blockDataMemoizer";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -70,7 +72,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public serverNegotiation: NegotiationChannel;
     public serverPeerId: string;
     public player: Player;
-    public localWorld = new World(crypto.randomUUID());
+    public localWorld: World;
     // public players: Map<string, RemotePlayer> = new Map;
     public interfaces: Map<string, NetworkUI> = new Map;
     
@@ -98,6 +100,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public registries: BaseRegistries = {
         blocks: new BlockRegistry
     }
+    public blockDataMemoizer: BlockDataMemoizer;
     public serverIdentity: ServerIdentity;
 
     public constructor(client: Client, serverPeerId: string) {
@@ -114,6 +117,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.lastEntityPacketReceived[EntityMovePacket.id] = new Map;
         this.lastEntityPacketReceived[EntityLookPacket.id] = new Map;
         this.lastEntityPacketReceived[EntityDataPacket.id] = new Map;
+        
+        this.blockDataMemoizer = new BlockDataMemoizer(this.registries.blocks, false);
     }
     
     public async connect() {
@@ -151,6 +156,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         debugLog("Connected to the server " + this.serverPeerId + "!");
         this.initConnectionEvents();
 
+        this.resetLocalWorld();
         this.onConnected();
     }
 
@@ -212,7 +218,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof SetBlockPacket) {
             if(this.localWorld.chunkExists(packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL)) {
-                this.localWorld.setRawValue(packet.x, packet.y, packet.z, packet.block);
+                this.localWorld.setBlockStateKey(packet.x, packet.y, packet.z, packet.block);
             }
         }
         if(packet instanceof ChunkDataPacket) {
@@ -484,10 +490,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     public resetLocalWorld() {
-        for(const entity of this.localWorld.entities) {
-            entity.remove();
+        if(this.localWorld != null) {
+            for(const entity of this.localWorld.entities) {
+                entity.remove();
+            }
         }
-        this.localWorld = new World(crypto.randomUUID());
+        this.localWorld = new World(crypto.randomUUID(), this.blockDataMemoizer);
         this.fetchingChunks.clear();
         this.chunkFetchingQueue.removeMany(() => true);
         if(this.player != null) {
@@ -562,6 +570,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         const localChunk = this.localWorld.getChunk(x, y, z, true);
         localChunk.data.set(chunkDataPacket.data);
+        localChunk.setPalette(chunkDataPacket.palette ?? []);
 
         for(let dx = -1; dx <= 1; dx++) {
             for(let dy = -1; dy <= 1; dy++) {

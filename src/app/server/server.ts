@@ -1,11 +1,14 @@
+import { BSON } from "bson";
 import { BaseRegistries } from "../baseRegistries";
+import { AirBlock } from "../block/airBlock";
 import { SerializedBlock } from "../block/block";
+import { BlockDataMemoizer } from "../block/blockDataMemoizer";
 import { BlockRegistry } from "../block/blockRegistry";
+import { ColorBlock } from "../block/colorBlock";
 import { DataLibrary, DataLibraryManager } from "../data/dataLibrary";
 import { LibraryDataFetchLocator } from "../data/libraryDataFetchLocator";
 import { createLibraryDataNegotiationLocatorServer } from "../data/libraryDataNegotiationLocator";
 import { BaseEntity, EntityLogicType, instanceof_RotatingEntity } from "../entity/baseEntity";
-import { addCustomVoxelCollider } from "../entity/collisionChecker";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
 import { GameContentPackage } from "../network/gameContentPackage";
@@ -13,16 +16,19 @@ import { NegotiationChannel } from "../network/negotiationChannel";
 import { AddEntityPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket } from "../packet";
 import { EntityLookPacket } from "../packet/entityLookPacket";
 import { ClientIdentity, ServerIdentity } from "../serverIdentity";
-import { World } from "../world";
+import { CHUNK_INC_SCL, CHUNK_X_INC_BYTE } from "../voxelGrid";
+import { Chunk, World } from "../world";
 import { WorldGenerator } from "../worldGenerator";
 import { EventPublisher } from "./events";
 import { FlushPacketQueueEvent, PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, ServerTickEvent, WorldCreateEvent } from "./pluginEvents";
 import { PluginLoader } from "./pluginLoader";
-import { ServerData, ServerOptions } from "./serverData";
+import { ServerData, ServerOptions, WorldDescriptor } from "./serverData";
 import { ServerPeer } from "./serverPeer";
 import { ServerPlugin } from "./serverPlugin";
 import { MessagePortConnection, serverCrash } from "./thread";
-import { WorldSaver } from "./worldSaver";
+import { DatabaseChunk, WorldSaver } from "./worldSaver";
+import { BlockStateSaveKey } from "../block/blockState";
+import { Color } from "three";
 
 export interface ServerLaunchOptions {
     id: string;
@@ -51,6 +57,7 @@ export class Server extends EventPublisher {
     private packetFlushInterval: number | any;
     private tickingInterval: number | any;
     public registries: BaseRegistries;
+    public blockDataMemoizer: BlockDataMemoizer;
 
     public constructor(launchOptions: ServerLaunchOptions) {
         super();
@@ -65,17 +72,18 @@ export class Server extends EventPublisher {
         this.errorPort = port;
     }
 
-    public async createWorld(name: string, saving = true) {
-        const descriptor = this.data.worlds.get(name) ?? await this.data.createWorld(name);
-        const world = new World(descriptor.id, this);
+    public async getWorld(name: string, saving = true) {
+        let descriptor = this.data.worlds.get(name);
+        if(descriptor == null) {
+            const event = new WorldCreateEvent(this);
+            event.worldName = name;
+            this.emit(event);
+
+            if(event.isCancelled()) throw new Error("World creation cancelled");
+            descriptor = await this.data.createWorld(name);
+        }
+        const world = new World(descriptor.id, this.blockDataMemoizer, this);
         const saver = new WorldSaver(this, descriptor.id, world);
-
-        const event = new WorldCreateEvent(this);
-        event.world = world;
-        event.worldName = name;
-        this.emit(event);
-
-        if(event.isCancelled()) throw new Error("World creation cancelled");
 
         this.worlds.set(name, world);
 
@@ -113,7 +121,7 @@ export class Server extends EventPublisher {
         await this.loadPluginContent();
 
 
-        const defaultWorld = await this.createWorld(this.options.defaultWorldName);
+        const defaultWorld = await this.getWorld(this.options.defaultWorldName);
         defaultWorld.setGenerator(new WorldGenerator(defaultWorld));
 
 
@@ -143,6 +151,9 @@ export class Server extends EventPublisher {
             blocks: new BlockRegistry
         }
 
+        registries.blocks.register("air", AirBlock);
+        registries.blocks.register("color", ColorBlock);
+
         await Promise.all(this.plugins.values().map(plugin => 
             plugin.addContent(registries, this.dataLibrary)
         ))
@@ -152,18 +163,16 @@ export class Server extends EventPublisher {
         await Promise.all(registries.blocks.values().map(block => 
             block.init(this.dataLibrary)
         ));
-                            
-        for await(const block of registries.blocks.values()) {
-            addCustomVoxelCollider(block.collider);
-        }
 
         this.registries = registries;
+        this.blockDataMemoizer = new BlockDataMemoizer(registries.blocks, true);
+        await this.blockDataMemoizer.memoize();
     }
 
     private startLoop() {
         this.worldSavingInterval = setInterval(() => {
             this.flushWorldUpdateQueue();
-        }, 1000 / 2);
+        }, 1000 * 5);
 
         this.packetFlushInterval = setInterval(() => {
             const time = this.time;
@@ -243,20 +252,22 @@ export class Server extends EventPublisher {
         if(packet != null) this.broadcastPacket(packet, entity.world, instant);
     }
 
-    private flushWorldUpdateQueue() {
-        for(const id of this.worlds.keys()) {
-            const world = this.worlds.get(id);
+    private async flushWorldUpdateQueue() {
+        for(const worldName of this.worlds.keys()) {
+            const world = this.worlds.get(worldName);
+
+            if(world.dirtyChunkQueue.size == 0) continue;
+
+            await this.savers.get(world.id)?.saveModified();
 
             for(const chunk of world.dirtyChunkQueue) {
-
-                
                 world.dirtyChunkQueue.delete(chunk);
             }
         }
     }
 
     public async handleConnection(connection: MessagePortConnection) {
-        console.warn("handle connection", connection.label);
+        console.debug("New connection from " + connection.peer + " (label " + connection.label + ")");
         if(connection.label == "negotiation") {
             const peer = new ServerPeer(connection.peer, this);
             this.peers.set(peer.id, peer);
@@ -269,12 +280,12 @@ export class Server extends EventPublisher {
                         uuid: this.id
                     });
                 });
-                channel.onRequest<any, GameContentPackage>("content", (request, response) => {
+                channel.onRequest("content", (request, response) => {
                     const blocks: SerializedBlock[] = new Array;
                     for(const block of this.registries.blocks.values()) {
                         blocks.push(block.serialize());
                     }
-                    response.send({ blocks });
+                    response.send("hi", new TextEncoder().encode(JSON.stringify({ blocks })).buffer as ArrayBuffer);
                 })
                 channel.onRequest<ClientIdentity, ClientIdentity>("login", (request, response) => {
                     peer.setIdentity(request.data);
@@ -290,7 +301,7 @@ export class Server extends EventPublisher {
                     peer.serverPlayer.onAuthenticated();
                     peer.authenticated = true;
 
-                    console.log("<server> your specimen has been processed and you are now ready to join the game proper. hello " + request.data.username + ".");
+                    console.debug("<server> your specimen has been processed and you are now ready to join the game proper. hello " + request.data.username + ".");
                     response.send({
                         username: request.data.username,
                         color: request.data.color
@@ -380,38 +391,118 @@ export class Server extends EventPublisher {
         }
     }
 
+    private chunkLoadingPromises: Map<Chunk, PromiseWithResolvers<void>> = new Map;
+
     public async loadChunk(world: World, chunkX: number, chunkY: number, chunkZ: number) {
         let chunk = world.getChunk(chunkX, chunkY, chunkZ, false);
 
         if(chunk == null) {
             chunk = world.getChunk(chunkX, chunkY, chunkZ, true);
-
+            
             const saver = this.savers.get(world.id);
             if(saver == null) {
-                world.generateChunk(chunkX, chunkY, chunkZ);
+                world.generateChunk(chunk);
             } else {
-                const data = await saver.getChunkData(chunkX, chunkY, chunkZ);
-                if(data == null) {
-                    world.generateChunk(chunkX, chunkY, chunkZ);
-                    saver.saveChunk(chunk);
+                const promise = Promise.withResolvers<void>();
+                this.chunkLoadingPromises.set(chunk, promise);
+                const chunkData = await saver.getChunkData(chunkX, chunkY, chunkZ);
+
+                if(chunkData == null) {
+                    world.generateChunk(chunk);
+                    await saver.saveChunk(chunk);
                 } else {
-                    chunk.data.set(new Uint16Array(data));
+                    const migrated = this.tryMigrateChunk(chunkData);
+                    chunk.data.set(new Uint16Array(chunkData.data));
+                    chunk.setPalette(chunkData.palette ?? []);
+                    if(migrated) await saver.saveChunk(chunk);
                 }
+                promise.resolve();
+                this.chunkLoadingPromises.delete(chunk);
             }
+        } else {
+            await this.chunkLoadingPromises.get(chunk)?.promise;
         }
 
         return chunk;
     }
 
+    private tryMigrateChunk(chunk: DatabaseChunk) {
+        let upgraded = false;
+        if(chunk.version == null) {
+            chunk.version = 1;
 
-    public updateBlock(world: World, x: number, y: number, z: number) {
+            chunk.palette = [ "air#default" ];
+            const remaps: Map<number, number> = new Map([ [0, 0] ]);
+
+            function nextPaletteId() {
+                let i = 0;
+                while(chunk.palette[i] != null) i++;
+                return i;
+            }
+
+            const blockData = new Uint16Array(chunk.data);
+            const allBlocks = Array.from(this.registries.blocks.values());
+            for(let i = 0; i < 4096; i++) {
+                const blockId = blockData[i];
+
+                if(!remaps.has(blockId)) {
+                    console.debug("generate remap for " + blockId.toString(2).padStart(16, "0"));
+                    if(blockId & 0b1000000000000000) { // colored block
+                        const r = (blockId & 0b0111110000000000) >> 10;
+                        const g = (blockId & 0b0000001111100000) >> 5;
+                        const b = (blockId & 0b0000000000011111) >> 0;
+
+                        const color = new Color;
+                        color.r = r / 31;
+                        color.g = g / 31;
+                        color.b = b / 31;
+
+                        // console.log(blockId, color);
+
+                        const colorString = ColorBlock.getClosestColor(color);
+
+                        const newId = nextPaletteId();
+                        chunk.palette[newId] = "color#" + colorString as BlockStateSaveKey;
+
+                        remaps.set(blockId, newId);
+                    } else { // custom block
+                        const block = allBlocks[blockId];
+                        const newId = nextPaletteId();
+
+                        if(block == null) {
+                            console.warn("Unknown block " + blockId + " at " + Math.floor(i / 256) + ", " + (i % 16) + ", " + (Math.floor(i / 16) % 16) + "; making air", allBlocks);
+                            remaps.set(blockId, 0);
+                        } else {
+                            const states = Array.from(block.states.keys());
+                            chunk.palette[newId] = block.id + "#" + states[0] as BlockStateSaveKey;
+
+                            remaps.set(blockId, newId);
+                        }
+                    }
+                }
+                blockData[i] = remaps.get(blockId);
+            }
+            console.debug("Migrated chunk " + chunk.position.join(", ") + " to version 1");
+            upgraded = true;
+        }
+
+        return upgraded;
+    }
+
+    public createBlockUpdatePacket(world: World, x: number, y: number, z: number) {
         const packet = new SetBlockPacket;
         packet.x = x;
         packet.y = y;
         packet.z = z;
-        packet.block = world.blocks.get(x, y, z);
-        
-        this.broadcastPacket(packet, world);
+
+        const chunk = world.getChunk(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL);
+        packet.block = chunk.getBlockStateKey(x - chunk.blockX, y - chunk.blockY, z - chunk.blockZ);
+
+        return packet;
+    }
+
+    public updateBlock(world: World, x: number, y: number, z: number) {        
+        this.broadcastPacket(this.createBlockUpdatePacket(world, x, y, z), world);
     }
 
     public spawnEntity(entity: BaseEntity) {

@@ -1,7 +1,7 @@
 import { Box3, Scene, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
 import { CollisionChecker, CollisionDescription } from "./collisionChecker";
-import { CHUNK_INC_SCL } from "../voxelGrid";
+import { CHUNK_INC_SCL, CHUNK_SIZE } from "../voxelGrid";
 import { World } from "../world";
 
 export const GRAVITY = new Vector3(0, -25, 0);
@@ -13,7 +13,7 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
     protected readonly base: Base;
     public airTime: number = 0;
     public stepSize = 0.6;
-    public readonly collisionChecker: CollisionChecker;
+    public collisionChecker: CollisionChecker;
 
     public readonly position: Vector3;
     public readonly velocity: Vector3;
@@ -29,11 +29,14 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         this.position = base.position;
         this.velocity = base.velocity;
         this.hitbox = base.hitbox;
-        this.collisionChecker = new CollisionChecker(this.hitbox, this.position, base.world);
     }
 
     public setWorld(world: World) {
-        this.collisionChecker.world = world;
+        if(world == null) {
+            this.collisionChecker = null;
+        } else {
+            this.collisionChecker = new CollisionChecker(this.hitbox, this.position, world);
+        }
     }
 
     public update(dt: number) {
@@ -143,14 +146,14 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
     public get vz() {
         return this.velocity.z;
     }
-
+    
     public get chunkX() {
-        return this.position.x >> CHUNK_INC_SCL;
+        return Math.floor(this.position.x / CHUNK_SIZE);
     }
     public get chunkY() {
-        return this.position.y >> CHUNK_INC_SCL;
+        return Math.floor(this.position.y / CHUNK_SIZE);
     }
     public get chunkZ() {
-        return this.position.z >> CHUNK_INC_SCL;
+        return Math.floor(this.position.z / CHUNK_SIZE);
     }
 }

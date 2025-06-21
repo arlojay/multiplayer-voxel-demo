@@ -145,15 +145,14 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             event.x = packet.x;
             event.y = packet.y;
             event.z = packet.z;
-            event.block = packet.block;
+            event.block = this.server.registries.blocks.createState(packet.block, packet.x, packet.y, packet.z, this.serverPlayer.world);
             this.server.emit(event);
 
             if(event.isCancelled()) {
                 this.updateBlock(packet.x, packet.y, packet.z);
             } else {
                 this.server.loadChunk(this.serverPlayer.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
-                    this.serverPlayer.world.setRawValue(packet.x, packet.y, packet.z, packet.block);
-                    this.server.getSaver(this.serverPlayer.world)?.saveModified();
+                    this.serverPlayer.world.setBlockStateKey(packet.x, packet.y, packet.z, packet.block);
                 });
             }
         }
@@ -172,8 +171,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 this.updateBlock(packet.x, packet.y, packet.z);
             } else {
                 this.server.loadChunk(this.serverPlayer.world, packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL).then(() => {
-                    this.serverPlayer.world.clearColor(packet.x, packet.y, packet.z);
-                    this.server.getSaver(this.serverPlayer.world)?.saveModified();
+                    this.serverPlayer.world.setBlockStateKey(packet.x, packet.y, packet.z, "air#default");
                 });
             }
         }
@@ -220,12 +218,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     }
 
     public updateBlock(x: number, y: number, z: number) {
-        const packet = new SetBlockPacket();
-        packet.x = x;
-        packet.y = y;
-        packet.z = z;
-        packet.block = this.serverPlayer.world.getRawValue(x, y, z, false);
-        this.sendPacket(packet);
+        this.sendPacket(this.server.createBlockUpdatePacket(this.serverPlayer.world, x, y, z));
     }
 
     public flushPacketQueue() {

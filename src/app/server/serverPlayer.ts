@@ -1,4 +1,4 @@
-import { CollisionChecker, isColliderIgnored } from "../entity/collisionChecker";
+import { CollisionChecker } from "../entity/collisionChecker";
 import { Player } from "../entity/impl";
 import { ClientMovePacket, SetLocalPlayerPositionPacket } from "../packet";
 import { CHUNK_INC_SCL } from "../voxelGrid";
@@ -46,10 +46,10 @@ export class ServerPlayer {
             z = Math.round(Math.random() * 32 - 16);
 
             for(y = 100; y > minY; y--) {
-                if(isColliderIgnored(this.base.world.getRawValue(x, y - 1, z))) continue;
+                if(this.base.world.memoizer.ignoreColliders[this.base.world.memoizer.getMemoizedId(this.base.world.getBlockStateKey(x, y - 1, z))]) continue;
                 if(
-                    (isColliderIgnored(this.base.world.getRawValue(x, y, z))) &&
-                    (isColliderIgnored(this.base.world.getRawValue(x, y + 1, z)))
+                    (this.base.world.memoizer.ignoreColliders[this.base.world.memoizer.getMemoizedId(this.base.world.getBlockStateKey(x, y, z))]) &&
+                    (this.base.world.memoizer.ignoreColliders[this.base.world.memoizer.getMemoizedId(this.base.world.getBlockStateKey(x, y + 1, z))])
                 ) break;
             }
 

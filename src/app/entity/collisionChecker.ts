@@ -1,6 +1,7 @@
 import { Box3, Vector3 } from "three";
 import { World } from "../world";
-import { COLOR_BLOCK_BITMASK } from "../voxelGrid";
+import { BlockDataMemoizer } from "../block/blockDataMemoizer";
+import { BlockStateSaveKey } from "../block/blockState";
 
 export type SerializedCustomVoxelColliderBox = [
     number, number, number, // min coordinate
@@ -72,10 +73,6 @@ export interface CompiledCustomVoxelCollider {
     raycastTargets: Box3[];
 }
 
-export const colliders: CompiledCustomVoxelCollider[] = new Array;
-export const ignoreColliders: boolean[] = new Array;
-export const ignoreRaycasters: boolean[] = new Array;
-
 export function compileCollider(collider: CustomVoxelCollider) {
     const entityColliders: Box3[] = new Array;
     const raycastTargets: Box3[] = new Array;
@@ -102,36 +99,12 @@ export function compileCollider(collider: CustomVoxelCollider) {
     };
 }
 
-export function addCustomVoxelCollider(collider: CustomVoxelCollider) {
-    const { colliderIgnored, raycastIgnored, compiledCollider } = compileCollider(collider);
-
-    console.log(collider, colliderIgnored);
-    ignoreColliders.push(colliderIgnored);
-    ignoreRaycasters.push(raycastIgnored);
-    colliders.push(compiledCollider);
-
-    console.log(collider);
-}
-
-export function resetCustomVoxelColliders() {
-    colliders.splice(0);
-    ignoreColliders.splice(0);
-    ignoreRaycasters.splice(0);
-    addCustomVoxelCollider(null);
-}
-
-resetCustomVoxelColliders();
-
 export const BASIC_COLLIDER = compileCollider(new CustomVoxelCollider(
     new CustomVoxelColliderBox(new Box3(
         new Vector3(0, 0, 0),
         new Vector3(1, 1, 1)
     ))
 )).compiledCollider;
-
-export const getCollider = (block: number) => (block & COLOR_BLOCK_BITMASK) ? BASIC_COLLIDER : colliders[block];
-export const isColliderIgnored = (block: number) => (~block & COLOR_BLOCK_BITMASK) && ignoreColliders[block];
-export const isRaycastIgnored = (block: number) => (~block & COLOR_BLOCK_BITMASK) && ignoreRaycasters[block];
 
 export interface CollisionDescription {
     x: number, y: number, z: number,
@@ -151,11 +124,13 @@ export class CollisionChecker {
         hitbox: BASIC_COLLIDER.collider.boxes[0].hitbox,
         collider: BASIC_COLLIDER
     };
+    public memoizer: BlockDataMemoizer;
 
     constructor(hitbox: Box3, position: Vector3, world: World) {
         this.hitbox = hitbox;
         this.position = position;
         this.world = world;
+        this.memoizer = world.memoizer;
     }
     public collidesWithHitbox(x: number, y: number, z: number, hitbox: Box3, expand: number = 0) {
         if(this.position.x + this.hitbox.min.x >= x + hitbox.max.x + expand) return false;
@@ -176,8 +151,8 @@ export class CollisionChecker {
 
         return false;
     }
-    public collidesWithBlock(x: number, y: number, z: number, block: number, expand?: number) {
-        return this.collidesWithCollider(x, y, z, getCollider(block), expand);
+    public collidesWithBlock(x: number, y: number, z: number, memoizerId: number, expand?: number) {
+        return this.collidesWithCollider(x, y, z, this.memoizer.colliders[memoizerId], expand);
     }
 
     public isCollidingWithWorld(expand = 0, offsetX = 0, offsetY = 0, offsetZ = 0) {
@@ -189,15 +164,20 @@ export class CollisionChecker {
         const maxZ = Math.floor(this.position.z + this.hitbox.max.z + 0.01 + offsetZ);
 
         let block = 0;
+        let stateKey: BlockStateSaveKey;
 
         for(let x = minX; x <= maxX; x++) {
             for(let y = minY; y <= maxY; y++) {
                 for(let z = minZ; z <= maxZ; z++) {
-                    block = this.world.getRawValue(x, y, z);
-                    if(isColliderIgnored(block)) continue;
+                    stateKey = this.world.getBlockStateKey(x, y, z);
+                    if(stateKey == null) continue;
+                    
+                    block = this.world.memoizer.getMemoizedId(stateKey);
+                    if(this.world.memoizer.ignoreColliders[block]) continue;
 
                     
-                    const collider = getCollider(block);
+                    const collider = this.world.memoizer.colliders[block];
+                    if(collider == null) continue;
                     
                     for(const hitbox of collider.entityColliders) {
                         if(!this.collidesWithHitbox(x - offsetX, y - offsetY, z - offsetZ, hitbox, expand)) continue;

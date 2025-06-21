@@ -1,6 +1,6 @@
 import { Box3, Scene, Vector3 } from "three";
 import { BaseEntity } from "./baseEntity";
-import { CHUNK_INC_SCL } from "../voxelGrid";
+import { CHUNK_INC_SCL, CHUNK_SIZE } from "../voxelGrid";
 import { World } from "../world";
 
 export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
@@ -77,12 +77,12 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
     }
 
     public get chunkX() {
-        return this.position.x >> CHUNK_INC_SCL;
+        return Math.floor(this.position.x / CHUNK_SIZE);
     }
     public get chunkY() {
-        return this.position.y >> CHUNK_INC_SCL;
+        return Math.floor(this.position.y / CHUNK_SIZE);
     }
     public get chunkZ() {
-        return this.position.z >> CHUNK_INC_SCL;
+        return Math.floor(this.position.z / CHUNK_SIZE);
     }
 }

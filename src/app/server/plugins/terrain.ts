@@ -1,7 +1,7 @@
 import { WorldGenerator } from "../../worldGenerator";
 import { ServerPlugin } from "../serverPlugin";
 import { NoiseNode } from "../../noise/noiseNode";
-import { World } from "../../world";
+import { Chunk, World } from "../../world";
 import { NoiseScaler } from "../../noise/impl/transformer/noiseScaler";
 import { NoiseOperation, OperationType } from "../../noise/impl/transformer/noiseOperation";
 import { OctaveNoise } from "../../noise/impl/transformer/octaveNoise";
@@ -15,6 +15,7 @@ import { BASIC_COLLIDER } from "../../entity/collisionChecker";
 import { DataLibrary } from "../../data/dataLibrary";
 import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
 import { BaseRegistries } from "../../baseRegistries";
+import { BlockStateType } from "src/app/block/blockStateType";
 
 export class SimplexTerrainGenerator extends WorldGenerator {
     private noise: NoiseNode;
@@ -34,25 +35,28 @@ export class SimplexTerrainGenerator extends WorldGenerator {
             100, 100, 100, 100
         );
     }
-    public generateChunk(x: number, y: number, z: number): VoxelGridChunk {
+    public generateChunk(chunk: Chunk) {
         const world = this.world;
 
-        const chunk = world.blocks.getChunk(x, y, z);
-        let globalX = x << CHUNK_INC_SCL;
-        let globalY = y << CHUNK_INC_SCL;
-        let globalZ = z << CHUNK_INC_SCL;
+        let globalX = chunk.blockX;
+        let globalY = chunk.blockY;
+        let globalZ = chunk.blockZ;
+
+        const grass = world.blockRegistry.getStateType("grass#default");
+        const dirt = world.blockRegistry.getStateType("dirt#default");
+        const stone = world.blockRegistry.getStateType("stone#default");
 
         for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
             for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
                 const height = this.noise.sample2d(globalX, globalZ);
                 for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
-                    let block = 0;
+                    let block: BlockStateType = null;
 
-                    if(globalY < height - 5) block = 3;
-                    else if(globalY < height - 1) block = 2;
-                    else if(globalY < height) block = 1;
+                    if(globalY < height - 5) block = stone;
+                    else if(globalY < height - 1) block = dirt;
+                    else if(globalY < height) block = grass;
 
-                    if(block != 0) chunk.set(x, y, z, block);
+                    if(block != null) chunk.setBlockState(x, y, z, block.saveKey);
                 }
                 globalY -= CHUNK_SIZE;
             }
@@ -66,48 +70,52 @@ export class SimplexTerrainGenerator extends WorldGenerator {
 export class GrassBlock extends Block {
     public readonly collider = BASIC_COLLIDER.collider;
     
-    public async createModel(dataLibrary: DataLibrary) {
+    public async init(dataLibrary: DataLibrary) {
         const texture = await dataLibrary.getAsset("textures/grass2-texture.jpg").then(asset => asset.loadTexture());
 
-        const model = new BlockModel;
-        model.cuboids.push(new BlockModelCuboid()
-            .createAllFaces()
-            .setAllTextures(texture)
-        )
-
-        return model;
+        this.addState(
+            "default",
+            new BlockModel(
+                new BlockModelCuboid()
+                .createAllFaces()
+                .setAllTextures(texture)
+            ),
+            BASIC_COLLIDER.collider
+        );
     }
 }
 
 export class DirtBlock extends Block {
     public readonly collider = BASIC_COLLIDER.collider;
     
-    public async createModel(dataLibrary: DataLibrary) {
+    public async init(dataLibrary: DataLibrary) {
         const texture = await dataLibrary.getAsset("textures/dirt-texture.png").then(asset => asset.loadTexture());
 
-        const model = new BlockModel;
-        model.cuboids.push(new BlockModelCuboid()
-            .createAllFaces()
-            .setAllTextures(texture)
-        )
-
-        return model;
+        this.addState(
+            "default",
+            new BlockModel(
+                new BlockModelCuboid()
+                .createAllFaces()
+                .setAllTextures(texture)
+            ),
+            BASIC_COLLIDER.collider
+        );
     }
 }
 
-export class StoneBlock extends Block {
-    public readonly collider = BASIC_COLLIDER.collider;
-    
-    public async createModel(dataLibrary: DataLibrary) {
+export class StoneBlock extends Block {    
+    public async init(dataLibrary: DataLibrary) {
         const texture = await dataLibrary.getAsset("textures/stone1-texture.jpg").then(asset => asset.loadTexture());
 
-        const model = new BlockModel;
-        model.cuboids.push(new BlockModelCuboid()
-            .createAllFaces()
-            .setAllTextures(texture)
-        )
-
-        return model;
+        this.addState(
+            "default",
+            new BlockModel(
+                new BlockModelCuboid()
+                .createAllFaces()
+                .setAllTextures(texture)
+            ),
+            BASIC_COLLIDER.collider
+        );
     }
 }
 

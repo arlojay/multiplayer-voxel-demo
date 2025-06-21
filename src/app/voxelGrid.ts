@@ -1,8 +1,5 @@
 import { AugmentedUint16Array, Uint16ArrayPool } from "./arrayPool";
 
-export const COLOR_BLOCK_BITMASK = 0b1000000000000000;
-export const AIR_VALUE = 0b0000000000000000;
-
 export const BLOCK_INC_SCL = 4;
 export const BLOCK_X_INC_BYTE = BLOCK_INC_SCL * 2;
 export const BLOCK_Y_INC_BYTE = BLOCK_INC_SCL * 0;
@@ -91,7 +88,7 @@ export class VoxelGridRegion {
             z >> CHUNK_INC_SCL,
             createChunk
         );
-        if(chunk == null) return AIR_VALUE;
+        if(chunk == null) return 0;
 
         return chunk.get(
             x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL),

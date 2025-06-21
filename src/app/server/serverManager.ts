@@ -157,7 +157,6 @@ export class ServerManager {
             dataPort.postMessage(data, { transfer: getTransferableObjects(data) });
         });
 
-        console.log(connection);
         if(connection.open) {
             commandPort.postMessage(["open"]);
         }

@@ -1,29 +1,37 @@
 import { Color, Mesh } from "three";
 import { BaseEntity, EntityLogicType } from "./entity/baseEntity";
-import { clamp } from "./math";
 import { Server } from "./server/server";
-import { AIR_VALUE, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
+import { CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldGenerator } from "./worldGenerator";
 import { WorldRaycaster } from "./worldRaycaster";
 import { EntityGrid, EntityGridChunk } from "./entityGrid";
+import { BlockRegistry } from "./block/blockRegistry";
+import { BlockState, BlockStateSaveKey, BlockStateSaveKeyPair, blockStateSaveKeyPairToString, blockStateSaveKeyToPair } from "./block/blockState";
+import { BlockDataMemoizer } from "./block/blockDataMemoizer";
 
 export type ColorType = Color | number | null;
 
 export class Chunk {
-    public voxelChunk: VoxelGridChunk;
-    public entityChunk: EntityGridChunk;
-    public x: number;
-    public y: number;
-    public z: number;
-    public blockX: number;
-    public blockY: number;
-    public blockZ: number;
+    public readonly world: World;
+    public readonly voxelChunk: VoxelGridChunk;
+    public readonly entityChunk: EntityGridChunk;
+    public readonly x: number;
+    public readonly y: number;
+    public readonly z: number;
+    public readonly blockX: number;
+    public readonly blockY: number;
+    public readonly blockZ: number;
     public mesh: Mesh | null;
 
-    public surroundedChunks: boolean[] = new Array(27).fill(false);
+    public readonly surroundedChunks: boolean[] = new Array(27).fill(false);
     private surroundings = 0;
+    public palette: Map<BlockStateSaveKey, number> = new Map();
+    public flatPalette: BlockStateSaveKey[] = new Array;
+    public flatPalettePairs: BlockStateSaveKeyPair[] = new Array;
+    public memoizedIds: number[] = new Array;
 
-    constructor(voxelChunk: VoxelGridChunk, entityChunk: EntityGridChunk) {
+    constructor(world: World, voxelChunk: VoxelGridChunk, entityChunk: EntityGridChunk) {
+        this.world = world
         this.voxelChunk = voxelChunk;
         this.entityChunk = entityChunk;
         this.x = voxelChunk.x;
@@ -34,17 +42,104 @@ export class Chunk {
         this.blockZ = voxelChunk.z << CHUNK_INC_SCL;
     }
 
-    public get get() {
-        return this.voxelChunk.get;
+    public getBlockStateKey(x: number, y: number, z: number): BlockStateSaveKey {
+        const id = this.voxelChunk.get(x, y, z);
+        return this.flatPalette[id];
     }
-    public get set() {
-        return this.voxelChunk.set;
+    public getBlockStateKeyPair(x: number, y: number, z: number): BlockStateSaveKeyPair {
+        const id = this.voxelChunk.get(x, y, z);
+        return this.flatPalettePairs[id];
     }
+    public getBlockStateAsMemoizedId(x: number, y: number, z: number) {
+        return this.memoizedIds[this.voxelChunk.get(x, y, z)];
+    }
+    public getBlockState(x: number, y: number, z: number, blockRegistry: BlockRegistry, blockState?: BlockState): BlockState {
+        const id = this.voxelChunk.get(x, y, z);
+        const statePair = this.flatPalettePairs[id];
+
+        if(statePair == null) {
+            console.warn("Unknown block " + id + " at " + (x + this.blockX) + ", " + (y + this.blockY) + ", " + (z + this.blockZ), this.flatPalette);
+            return null;
+        }
+
+        x += this.blockX;
+        y += this.blockY;
+        z += this.blockZ;
+
+        const block = blockRegistry.get(statePair[0]);
+        if(blockState != null) {
+            blockState.block = block;
+            blockState.world = this.world;
+            blockState.state = statePair[1];
+            blockState.x = x;
+            blockState.y = y;
+            blockState.z = z;
+            return blockState;
+        }
+        return new BlockState(block, this.world, statePair[1], x, y, z);
+    }
+    public setBlockState(x: number, y: number, z: number, block: BlockStateSaveKey) {
+        const id = this.getPaletteId(block);
+        this.voxelChunk.set(x, y, z, id);
+    }
+
     public get data() {
         return this.voxelChunk.data;
     }
     public get entities() {
         return this.entityChunk.entities;
+    }
+
+    private getPaletteId(stateKey: BlockStateSaveKey) {
+        if(this.palette.has(stateKey)) return this.palette.get(stateKey);
+        const index = this.getNextFreePaletteIndex();
+        this.palette.set(stateKey, index);
+        this.flatPalette[index] = stateKey;
+        this.flatPalettePairs[index] = blockStateSaveKeyToPair(stateKey);
+        this.memoizedIds[index] = this.world.memoizer.getMemoizedId(stateKey);
+        
+        return index;
+    }
+    private getNextFreePaletteIndex() {
+        let i = 0;
+        while(this.flatPalette[i] != null) i++;
+        return i;
+    }
+
+    public cleanPalette() {
+        const usedStateIds: Set<BlockStateSaveKey> = new Set;
+        
+        for(let i = 0; i < this.data.length; i++) {
+            const pair = this.flatPalette[this.data[i]];
+            usedStateIds.add(pair);
+        }
+
+        for(const saveKey of this.palette.keys()) {
+            if(!usedStateIds.has(saveKey)) {
+                const paletteIndex = this.palette.get(saveKey);
+                this.palette.delete(saveKey);
+                this.flatPalette[paletteIndex] = null;
+                this.flatPalettePairs[paletteIndex] = null;
+                this.memoizedIds[paletteIndex] = null;
+            }
+        }
+    }
+
+    public setPalette(flatPalette: (BlockStateSaveKey | null)[]) {
+        if(flatPalette.length == 0) flatPalette.push("air#default");
+
+        this.palette.clear();
+        this.flatPalette = flatPalette ?? [];
+        this.flatPalettePairs.splice(0);
+        this.memoizedIds.splice(0);
+
+        for(const [ index, fullStateId ] of flatPalette.entries()) {
+            if(fullStateId == null) continue;
+
+            this.palette.set(fullStateId, index);
+            this.flatPalettePairs[index] = blockStateSaveKeyToPair(fullStateId);
+            this.memoizedIds[index] = this.world.memoizer.getMemoizedId(fullStateId);
+        }
     }
 
     public hasMesh() {
@@ -74,70 +169,86 @@ export class Chunk {
 export class World {
     public server: Server = null;
     public blocks: VoxelGrid = new VoxelGrid;
+    public raycaster: WorldRaycaster;
     public entities: EntityGrid = new EntityGrid;
     public dirtyChunkQueue: Set<Chunk> = new Set;
-    public raycaster = new WorldRaycaster(this);
     public id: string;
     public generator: WorldGenerator;
 
     public chunkMap: WeakMap<VoxelGridChunk, Chunk> = new Map;
+    public blockRegistry: BlockRegistry;
+    public memoizer: BlockDataMemoizer;
 
-    public constructor(id: string, server?: Server) {
+    public constructor(id: string, memoizer: BlockDataMemoizer, server?: Server) {
         this.id = id;
         this.server = server;
+
+        this.memoizer = memoizer;
+        this.blockRegistry = memoizer.blockRegistry;
+        this.raycaster = new WorldRaycaster(this);
     }
 
-    public getValueFromColor(color: ColorType): number {
-        if(color == null) return 0;
-
-        if(color instanceof Color) {
-            return (
-                1 << 15 |
-                clamp(Math.floor(color.r * 32), 0, 31) << 10 |
-                clamp(Math.floor(color.g * 32), 0, 31) << 5 |
-                clamp(Math.floor(color.b * 32), 0, 31) << 0
-            );
-        } else {
-            return (
-                1 << 15 |
-                (((color & 0xff0000) >> 3 >> 16) << 10) |
-                (((color & 0x00ff00) >> 3 >> 8) << 5) |
-                (((color & 0x0000ff) >> 3 >> 0) << 0)
-            )
-        }
-    }
-    public getColorFromValue(value: number) {
-        const r = (value & 0b111110000000000);
-        const g = (value & 0b000001111100000);
-        const b = (value & 0b000000000011111);
-
-        return (r << 9) | (g << 6) | (b << 3);
-    }
-
-    public getRawValue(x: number, y: number, z: number, createChunk = false) {
-        return this.blocks.get(x, y, z, createChunk);
-    }
-
-    public setColor(x: number, y: number, z: number, color: ColorType, update = true) {
-        this.setRawValue(x, y, z, this.getValueFromColor(color), update);
-    }
-
-    public clearColor(x: number, y: number, z: number, update = true) {
-        this.setRawValue(x, y, z, AIR_VALUE, update);
-    }
-
-    public setRawValue(x: number, y: number, z: number, value: number, update = true) {
+    public setBlockState(x: number, y: number, z: number, state: BlockState, update = true) {
         const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
         const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
         const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
         const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
 
-        if(update) update &&= chunk.get(blockX, blockY, blockZ) != value;
+        if(chunk == null) return;
         
-        chunk.set(blockX, blockY, blockZ, value);
+        chunk.setBlockState(blockX, blockY, blockZ, state.getSaveKey());
 
         if(update) this.updateBlock(x, y, z, chunk);
+    }
+    public setBlockStateKey(x: number, y: number, z: number, key: BlockStateSaveKey | BlockStateSaveKeyPair, update = true) {
+        const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
+
+        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+
+        if(chunk == null) return;
+        
+        chunk.setBlockState(blockX, blockY, blockZ, typeof key == "string" ? key : blockStateSaveKeyPairToString(key));
+
+        if(update) this.updateBlock(x, y, z, chunk);
+    }
+
+    public getBlockState(x: number, y: number, z: number, blockState?: BlockState) {
+        const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
+
+        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+
+        if(chunk == null) return null;
+        
+        return chunk.getBlockState(blockX, blockY, blockZ, this.blockRegistry, blockState);
+    }
+
+    public getBlockStateKey(x: number, y: number, z: number) {
+        const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
+
+        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+
+        if(chunk == null) return null;
+        
+        return chunk.getBlockStateKey(blockX, blockY, blockZ);
+    }
+
+    public getBlockStateAsMemoizedId(x: number, y: number, z: number) {
+        const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
+
+        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+
+        if(chunk == null) return 0;
+        
+        return chunk.getBlockStateAsMemoizedId(blockX, blockY, blockZ);
     }
 
     public updateBlock(x: number, y: number, z: number, chunk: Chunk) {
@@ -190,7 +301,7 @@ export class World {
 
         let chunk = this.chunkMap.get(voxelChunk);
         if(chunk == null && create) {
-            chunk = new Chunk(voxelChunk, this.entities.getChunk(x, y, z));
+            chunk = new Chunk(this, voxelChunk, this.entities.getChunk(x, y, z));
             this.chunkMap.set(voxelChunk, chunk);
         }
 
@@ -206,15 +317,16 @@ export class World {
         this.generator = generator;
     }
     private warnedAboutNullGenerator = false;
-    public generateChunk(x: number, y: number, z: number) {
+    public generateChunk(chunk: Chunk) {
+        chunk.setPalette(["air#default"]);
         if(this.generator == null) {
             if(!this.warnedAboutNullGenerator) {
                 console.warn("Generator is null for world " + this.id + "; generating empty chunks");
                 this.warnedAboutNullGenerator = true;
             }
-            return this.getChunk(x, y, z, true);
+            return chunk;
         }
-        return this.generator.generateChunk(x, y, z);
+        return this.generator.generateChunk(chunk);
     }
 
     public update(dt: number) {

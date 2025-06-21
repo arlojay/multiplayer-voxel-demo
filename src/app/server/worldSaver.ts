@@ -1,9 +1,18 @@
-import { openDb } from "../dbUtils";
+import { BlockStateSaveKey } from "../block/blockState";
+import { openDb, waitForTransaction } from "../dbUtils";
 import { debugLog } from "../logging";
 import { Chunk, World } from "../world";
 import { Server } from "./server";
 
 export const WORLD_VERSION = 1;
+export const CURRENT_CHUNK_VERSION = 1;
+
+export interface DatabaseChunk {
+    position: [ number, number, number ],
+    data: ArrayBuffer,
+    palette: BlockStateSaveKey[],
+    version: number
+}
 
 export class WorldSaver {
     public server: Server;
@@ -32,70 +41,49 @@ export class WorldSaver {
     private writeChunk(chunk: Chunk) {
         this.chunkObjectStore.put({
             position: [ chunk.x, chunk.y, chunk.z ],
-            data: chunk.data.buffer
-        });
+            data: chunk.data.buffer,
+            palette: chunk.flatPalette,
+            version: CURRENT_CHUNK_VERSION
+        } as DatabaseChunk);
     }
 
-    public getChunkData(x: number, y: number, z: number) {
-        return new Promise<ArrayBuffer>((res, rej) => {
-            const store = this.db.transaction("data", "readonly").objectStore("data");
-            const request = store.get([ x, y, z ]);
-
-            store.transaction.oncomplete = () => {
-                res(request.result?.data);
-            }
-            store.transaction.onerror = (e: ErrorEvent) => {
-                rej(new Error("Failed to get chunk " + x + ", " + y + ", " + z, { cause: e.error }));
-            }
-            store.transaction.onabort = () => {
-                rej(new Error("Aborted while getting chunk " + x + ", " + y + ", " + z));
-            }
-        });
+    public async getChunkData(x: number, y: number, z: number) {
+        const transaction = this.db.transaction("data", "readonly");
+        const request = transaction.objectStore("data").get([ x, y, z ]);
+        try {
+            await waitForTransaction(transaction);
+        } catch(e) {
+            throw new Error("Failed to get chunk " + x + ", " + y + ", " + z, { cause: e });
+        }
+        return request.result;
     }
 
-    public saveChunk(chunk: Chunk) {
-        return new Promise<void>((res, rej) => {
-            this.chunkObjectStore ??= this.db.transaction("data", "readwrite").objectStore("data");
-
-            this.writeChunk(chunk);
-
-            this.chunkObjectStore.transaction.oncomplete = () => {
-                res();
-            }
-            this.chunkObjectStore.transaction.onerror = (e: ErrorEvent) => {
-                rej(new Error("Failed to write chunk " + chunk.x + "," + chunk.y + "," + chunk.z + " to disk", { cause: e.error }));
-            }
-            this.chunkObjectStore.transaction.onabort = () => {
-                rej(new Error("Aborted while writing chunk " + chunk.x + "," + chunk.y + "," + chunk.z + " to disk"));
-            }
-            this.chunkObjectStore = null;
-        })
+    public async saveChunk(chunk: Chunk) {
+        this.chunkObjectStore = this.db.transaction("data", "readwrite").objectStore("data");
+        this.writeChunk(chunk);
+        try {
+            await waitForTransaction(this.chunkObjectStore.transaction);
+        } catch(e) {
+            throw new Error("Failed to write chunk " + chunk.x + "," + chunk.y + "," + chunk.z + " to disk", { cause: e })
+        }
     }
 
     public async saveModified() {
         debugLog("Saving world " + this.id);
-        await Promise.all([
-            new Promise<void>((res, rej) => {
-                this.chunkObjectStore ??= this.db.transaction("data", "readwrite").objectStore("data");
+        this.chunkObjectStore = this.db.transaction("data", "readwrite").objectStore("data");
 
-                for(const chunk of this.world.dirtyChunkQueue) {
-                    this.writeChunk(chunk);
-                }
-    
-                this.chunkObjectStore.transaction.oncomplete = () => {
-                    this.world.dirtyChunkQueue.clear();
-                    debugLog("Done saving chunks for " + this.id);
-                    res();
-                }
-                this.chunkObjectStore.transaction.onerror = (e: ErrorEvent) => {
-                    rej(new Error("Failed to write chunks to disk", { cause: (e.target as IDBRequest).error }));
-                }
-                this.chunkObjectStore.transaction.onabort = () => {
-                    rej(new Error("Aborted while writing chunks to disk"));
-                }
-                this.chunkObjectStore = null;
-            })
-        ]);
+        for(const chunk of this.world.dirtyChunkQueue) {
+            this.writeChunk(chunk);
+        }
+
+        try {
+            await waitForTransaction(this.chunkObjectStore.transaction);
+        } catch(e) {
+            throw new Error("Failed to write chunks to disk", { cause: e })
+        }
+
+        this.world.dirtyChunkQueue.clear();
+
         debugLog("Saving world " + this.id + " complete");
     }
 }

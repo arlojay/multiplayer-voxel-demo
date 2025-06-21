@@ -11,7 +11,7 @@ import { ClientSounds } from "../../client/clientSounds";
 import { PlayerModel } from "../../client/playerModel";
 import { RemoteEntity } from "../remoteEntity";
 import { capabilities } from "../../capability";
-import { isRaycastIgnored } from "../collisionChecker";
+import { BlockState, BlockStateSaveKey } from "../../block/blockState";
 
 export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements RotatingEntity {
     public static readonly id = entityRegistry.register(this);
@@ -102,6 +102,7 @@ export class LocalPlayer extends LocalEntity<Player> {
 
 
     public model: PlayerModel = new PlayerModel;
+    public lookingBlock: BlockState;
 
     public get camera() {
         return this.freecam ? this.freeCamera : this.playerCamera;
@@ -326,6 +327,12 @@ export class LocalPlayer extends LocalEntity<Player> {
             this.placeBlockCooldown = 0;
         }
 
+        if(raycastResult.intersected) {
+            this.lookingBlock = this.base.world.getBlockState(raycastResult.x, raycastResult.y, raycastResult.z);
+        } else {
+            this.lookingBlock = null;
+        }
+
         if(this.controller.keyDown("u")) {
             if(!this.pressedFreecam) {
                 this.pressedFreecam = true;
@@ -389,7 +396,7 @@ export class LocalPlayer extends LocalEntity<Player> {
     public breakBlock(x: number, y: number, z: number) {
         if(!this.base.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
-        this.base.world.clearColor(x, y, z);
+        this.base.world.setBlockStateKey(x, y, z, "air#default");
 
         const packet = new BreakBlockPacket;
         packet.x = x;
@@ -407,18 +414,20 @@ export class LocalPlayer extends LocalEntity<Player> {
     public placeBlock(x: number, y: number, z: number) {
         if(!this.base.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
-        const block = this.base.world.getValueFromColor(new Color(this.base.color));
+        const stateKey = "color#" + new Color(this.base.color).getHexString() as BlockStateSaveKey;
+        const block = this.base.world.memoizer.getMemoizedId(stateKey);
 
         if(this.collisionChecker.collidesWithBlock(x, y, z, block)) return;
-        if(!isRaycastIgnored(this.base.world.getRawValue(x, y, z))) return;
+        
+        if(!this.base.world.memoizer.ignoreRaycasters[this.base.world.memoizer.getMemoizedId(this.base.world.getBlockStateKey(x, y, z))]) return;
 
-        this.base.world.setRawValue(x, y, z, block);
+        this.base.world.setBlockStateKey(x, y, z, stateKey);
 
         const packet = new PlaceBlockPacket;
         packet.x = x;
         packet.y = y;
         packet.z = z;
-        packet.block = block;
+        packet.block = stateKey;
 
         // TODO: Make specific to the session the player belongs to
         Client.instance.serverSession.sendPacket(packet);

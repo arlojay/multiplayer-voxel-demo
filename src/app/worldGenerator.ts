@@ -1,5 +1,9 @@
-import { CHUNK_INC_SCL, CHUNK_SIZE } from "./voxelGrid";
-import { World } from "./world";
+import { BlockStateSaveKey } from "./block/blockState";
+import { ColorBlock } from "./block/colorBlock";
+import { CHUNK_SIZE } from "./voxelGrid";
+import { Chunk, World } from "./world";
+
+let logged = false;
 
 export class WorldGenerator {
     public world: World;
@@ -8,24 +12,33 @@ export class WorldGenerator {
         this.world = world;
     }
 
-    public generateChunk(x: number, y: number, z: number) {
+    public generateChunk(chunk: Chunk) {
         const world = this.world;
 
-        const chunk = world.blocks.getChunk(x, y, z);
-        let globalX = x << CHUNK_INC_SCL;
-        let globalY = y << CHUNK_INC_SCL;
-        let globalZ = z << CHUNK_INC_SCL;
+        let globalX = chunk.blockX;
+        let globalY = chunk.blockY;
+        let globalZ = chunk.blockZ;
+
+        const air = world.blockRegistry.getStateType("air#default");
+        const stone = world.blockRegistry.getStateType("color#" + ColorBlock.getClosestColor(0x888888) as BlockStateSaveKey);
+        const dirt = world.blockRegistry.getStateType("color#" + ColorBlock.getClosestColor(0xCC9966) as BlockStateSaveKey);
+        const grass = world.blockRegistry.getStateType("color#" + ColorBlock.getClosestColor(0xBBFF99) as BlockStateSaveKey);
+
+        if(!logged) {
+            console.log(air, stone, dirt, grass);
+            logged = true;
+        }
 
         for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
             for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
                 for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
-                    let color = 0x000000;
+                    let color = air;
 
-                    if(globalY < -5) color = 0x888888;
-                    else if(globalY < -1) color = 0xCC9966;
-                    else if(globalY < 0) color = 0xBBFF99;
+                    if(globalY < -5) color = stone;
+                    else if(globalY < -1) color = dirt;
+                    else if(globalY < 0) color = grass;
 
-                    if(color != 0x000000) chunk.set(x, y, z, world.getValueFromColor(color));
+                    if(color != air) chunk.setBlockState(x, y, z, color.saveKey);
                 }
                 globalZ -= CHUNK_SIZE;
             }

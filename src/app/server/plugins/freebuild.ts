@@ -32,7 +32,7 @@ export class FreebuildPlugin extends ServerPlugin {
         tempWorldButton.onClick(async () => {
             let world = this.privateWorlds.get(peer);
             if(world == null) {
-                world = await this.server.createWorld("temp-" + peer.id, false);
+                world = await this.server.getWorld("temp-" + peer.id, false);
                 world.setGenerator(new WorldGenerator(world));
                 this.privateWorlds.set(peer, world);
             }

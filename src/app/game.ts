@@ -1,6 +1,7 @@
 import { Client, getClient } from "./client/client";
 import { ServerSession } from "./client/serverSession";
 import { ClientCustomizationOptions } from "./controlOptions";
+import { cloneDb, dbExists } from "./dbUtils";
 import { debugLog } from "./logging";
 import { dlerp } from "./math";
 import { PluginLoader } from "./server/pluginLoader";
@@ -357,6 +358,13 @@ async function updateServerListScreen() {
             }, true);
         })
 
+        const cloneBtn = document.createElement("button");
+        cloneBtn.textContent = "Clone";
+        cloneBtn.classList.add("clone");
+        cloneBtn.addEventListener("click", () => {
+            cloneServer(serverDescriptor.id, prompt("New server name", "Clone of " + serverDescriptor.name));
+        })
+
         const deleteBtn = document.createElement("button");
         deleteBtn.textContent = "Delete";
         deleteBtn.classList.add("delete");
@@ -372,7 +380,7 @@ async function updateServerListScreen() {
 
 
 
-        listItem.append(itemName, time, playBtn, editBtn, deleteBtn);
+        listItem.append(itemName, time, playBtn, editBtn, cloneBtn, deleteBtn);
         children.push(listItem);
     }
     
@@ -463,6 +471,39 @@ function makeSettingsUI() {
     root.addChild(closeButton);
 
     return root;
+}
+
+async function cloneServer(serverId: string, newName: string) {
+    const newServer = await Client.instance.gameData.createServer(newName)
+    const newId = newServer.id;
+
+    await cloneDb("servers/" + serverId, "servers/" + newId);
+
+    const serverData = new ServerData(newId, new ServerOptions);
+    await serverData.open();
+    await serverData.loadAll();
+    serverData.options.name = newName;
+    await serverData.saveOptions();
+    serverData.close();
+
+    for(const pluginId of serverData.options.plugins) {
+        if(await dbExists("servers/" + serverId + "/data/" + pluginId)) {
+            await cloneDb(
+                "servers/" + serverId + "/data/" + pluginId,
+                "servers/" + newId + "/data/" + pluginId
+            );
+        }
+    }
+    for(const world of serverData.worlds.values()) {
+        if(await dbExists("servers/" + serverId + "/worlds/" + world.id)) {
+            await cloneDb(
+                "servers/" + serverId + "/worlds/" + world.id,
+                "servers/" + newId + "/worlds/" + world.id
+            );
+        }
+    }
+
+    await updateServerListScreen();
 }
 
 async function editServerConfig(launchOptions: ServerLaunchOptions, updating = false) {
@@ -563,6 +604,8 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
             createServerModal.classList.add("visible");
         });
     });
+
+    serverData.close();
 }
 
 function loadChunks(serverSession: ServerSession) {

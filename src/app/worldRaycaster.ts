@@ -1,12 +1,14 @@
 import { Box3, Ray, Vector3 } from "three";
 import { World } from "./world";
-import { BASIC_COLLIDER, CompiledCustomVoxelCollider, getCollider, isRaycastIgnored } from "./entity/collisionChecker";
+import { BASIC_COLLIDER, CompiledCustomVoxelCollider } from "./entity/collisionChecker";
 import { debugArrow } from "./debug";
+import { BlockState, BlockStateSaveKey } from "./block/blockState";
+import { BlockDataMemoizer } from "./block/blockDataMemoizer";
 
 interface IntersectionResult {
     intersected: boolean,
     x: number, y: number, z: number,
-    block: number,
+    block: BlockState,
     hitbox: Box3,
     collider: CompiledCustomVoxelCollider,
     hitboxX: number, hitboxY: number, hitboxZ: number,
@@ -18,9 +20,9 @@ export class WorldRaycaster {
     public lastIntersection: IntersectionResult = {
         intersected: false,
         x: 0, y: 0, z: 0,
-        block: 0,
-        collider: BASIC_COLLIDER,
-        hitbox: BASIC_COLLIDER.raycastTargets[0],
+        block: null,
+        collider: null,
+        hitbox: null,
         hitboxX: 0, hitboxY: 0, hitboxZ: 0,
         normalX: 0, normalY: 0, normalZ: 0
     };
@@ -29,16 +31,18 @@ export class WorldRaycaster {
     private direction = new Vector3;
     private point = new Vector3;
     private intersectionPoint = new Vector3;
+    private memoizer: BlockDataMemoizer;
 
     public constructor(world: World) {
-        this.world = world
+        this.world = world;
+        this.memoizer = world.memoizer;
     }
 
     public intersectingWorld(x: number, y: number, z: number) {
-        const block = this.world.getRawValue(x, y, z);
-        if(isRaycastIgnored(block)) return false;
+        const block = this.memoizer.getMemoizedId(this.world.getBlockStateKey(x, y, z));
+        if(this.memoizer.ignoreRaycasters[block]) return false;
 
-        const collider = getCollider(block);
+        const collider = this.memoizer.colliders[block];
 
         x -= Math.floor(x);
         y -= Math.floor(y);
@@ -66,6 +70,7 @@ export class WorldRaycaster {
         let distance = 0;
         let x = 0, y = 0, z = 0;
         let block = 0;
+        let saveKey: BlockStateSaveKey;
         let collider = BASIC_COLLIDER;
         let hitbox = collider.raycastTargets[0];
         let intersected = false;
@@ -84,10 +89,14 @@ export class WorldRaycaster {
             for(x = Math.floor(point.x - step); x <= Math.floor(point.x + step); x++) {
                 for(y = Math.floor(point.y - step); y <= Math.floor(point.y + step); y++) {
                     for(z = Math.floor(point.z - step); z <= Math.floor(point.z + step); z++) {
-                        block = this.world.getRawValue(x, y, z);
-                        if(isRaycastIgnored(block)) continue;
+                        saveKey = this.world.getBlockStateKey(x, y, z);
+                        if(saveKey == null) continue;
 
-                        collider = getCollider(block);
+                        block = this.memoizer.getMemoizedId(saveKey);
+                        if(this.memoizer.ignoreRaycasters[block]) continue;
+
+                        collider = this.memoizer.colliders[block];
+                        if(collider == null) continue;
 
                         for(let i = 0; i < collider.raycastTargets.length; i++) {
                             hitbox = collider.raycastTargets[i];
@@ -104,7 +113,7 @@ export class WorldRaycaster {
                             this.lastIntersection.x = x;
                             this.lastIntersection.y = y;
                             this.lastIntersection.z = z;
-                            this.lastIntersection.block = block;
+                            this.lastIntersection.block = this.memoizer.blockRegistry.createState(saveKey, x, y, z, this.world);
                             this.lastIntersection.hitbox = hitbox;
                             this.lastIntersection.collider = collider;
                             this.lastIntersection.hitboxX = intersectionPoint.x;
@@ -120,27 +129,29 @@ export class WorldRaycaster {
         
         this.lastIntersection.intersected = intersected;
 
-        const axes = [
-            { x: -1, y:  0, z:  0, distance: Math.abs(this.lastIntersection.hitbox.min.x - this.lastIntersection.hitboxX) },
-            { x:  1, y:  0, z:  0, distance: Math.abs(this.lastIntersection.hitbox.max.x - this.lastIntersection.hitboxX) },
-            { x:  0, y: -1, z:  0, distance: Math.abs(this.lastIntersection.hitbox.min.y - this.lastIntersection.hitboxY) },
-            { x:  0, y:  1, z:  0, distance: Math.abs(this.lastIntersection.hitbox.max.y - this.lastIntersection.hitboxY) },
-            { x:  0, y:  0, z: -1, distance: Math.abs(this.lastIntersection.hitbox.min.z - this.lastIntersection.hitboxZ) },
-            { x:  0, y:  0, z:  1, distance: Math.abs(this.lastIntersection.hitbox.max.z - this.lastIntersection.hitboxZ) }
-        ];
-        let smallestAxis: typeof axes[0] = null;
-        let smallestAxisDistance = Infinity;
+        if(intersected) {
+            const axes = [
+                { x: -1, y:  0, z:  0, distance: Math.abs(this.lastIntersection.hitbox.min.x - this.lastIntersection.hitboxX) },
+                { x:  1, y:  0, z:  0, distance: Math.abs(this.lastIntersection.hitbox.max.x - this.lastIntersection.hitboxX) },
+                { x:  0, y: -1, z:  0, distance: Math.abs(this.lastIntersection.hitbox.min.y - this.lastIntersection.hitboxY) },
+                { x:  0, y:  1, z:  0, distance: Math.abs(this.lastIntersection.hitbox.max.y - this.lastIntersection.hitboxY) },
+                { x:  0, y:  0, z: -1, distance: Math.abs(this.lastIntersection.hitbox.min.z - this.lastIntersection.hitboxZ) },
+                { x:  0, y:  0, z:  1, distance: Math.abs(this.lastIntersection.hitbox.max.z - this.lastIntersection.hitboxZ) }
+            ];
+            let smallestAxis: typeof axes[0] = null;
+            let smallestAxisDistance = Infinity;
 
-        for(const axis of axes) {
-            if(axis.distance >= smallestAxisDistance) continue;
+            for(const axis of axes) {
+                if(axis.distance >= smallestAxisDistance) continue;
 
-            smallestAxis = axis;
-            smallestAxisDistance = axis.distance;
+                smallestAxis = axis;
+                smallestAxisDistance = axis.distance;
+            }
+
+            this.lastIntersection.normalX = smallestAxis.x;
+            this.lastIntersection.normalY = smallestAxis.y;
+            this.lastIntersection.normalZ = smallestAxis.z;
         }
-
-        this.lastIntersection.normalX = smallestAxis.x;
-        this.lastIntersection.normalY = smallestAxis.y;
-        this.lastIntersection.normalZ = smallestAxis.z;
 
         return this.lastIntersection;
     }

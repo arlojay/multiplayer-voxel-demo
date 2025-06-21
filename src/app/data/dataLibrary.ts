@@ -1,5 +1,5 @@
 import { bufferToHex } from "../bitUtils";
-import { DatabaseObjectStore, DatabaseView } from "../server/databaseView";
+import { DatabaseObject, DatabaseObjectStore, DatabaseView } from "../server/databaseView";
 import { DataLibraryAsset, DataLibraryAssetReference } from "./dataLibraryAssetTypes";
 import { LibraryDataLocator } from "./libraryDataLocator";
 
@@ -32,6 +32,8 @@ export class DataLibrary {
     private locator: LibraryDataLocator;
 
     private readonly data: Map<string, Map<string, DataLibraryAsset>> = new Map;
+    private readonly itemsToUpdate: Set<string> = new Set;
+    private updateLoop: number | any;
 
     constructor(id: string, store: DatabaseObjectStore<"reference", SerializedDataLibraryItem>) {
         this.id = id;
@@ -53,7 +55,6 @@ export class DataLibrary {
                 map = new Map;
                 this.data.set(item.data.location, map);
             }
-            console.log(item.data);
             map.set(item.data.hash, new DataLibraryAsset({
                 fetchDate: new Date(item.data.fetchDate),
                 lastUsedDate: new Date(item.data.lastUsedDate),
@@ -61,9 +62,20 @@ export class DataLibrary {
                 hash: item.data.hash
             }));
         }
+
+        this.updateLoop = setInterval(async () => {
+            for(const reference of this.itemsToUpdate) {
+                this.store.get(reference).then(dbitem => {
+                    dbitem.data.lastUsedDate = new Date().toISOString();
+                    dbitem.save();
+                })
+            }
+            this.itemsToUpdate.clear();
+        }, 1000);
     }
     public close() {
         this.locator = null;
+        clearInterval(this.updateLoop);
     }
 
     private async locateItem(location: string) {
@@ -105,15 +117,11 @@ export class DataLibrary {
     }
     
     public async getAsset(location: string, hash?: string): Promise<DataLibraryAsset> {
-        console.trace(location, hash);
-        console.log("get asset", location);
         if(this.data.has(location)) { // has in database
-            console.log("has in database");
             const assetMap = this.data.get(location);
             let asset: DataLibraryAsset = null;
             
             if(hash == null) { // typically used on server; load asset for syndication
-                console.log("no hash passed");
                 asset = assetMap.values().reduce((newest, current) => {
                     if(newest == null) return current;
 
@@ -124,47 +132,35 @@ export class DataLibrary {
                     }
                 }, null);
             } else { // get specific asset with location and hash
-                console.log("hash passed", hash);
                 asset = assetMap.get(hash);
             }
             if(asset != null) { // asset with specific hash found in memory (or most recently used asset)
-                console.log("asset is not null");
                 if(asset.loaded()) return this.useAsset(asset); // asset blob is already loaded
-                console.log("asset is not loaded");
 
                 // load blob from library database
                 const dbitem = await this.store.get(asset.toReference());
-                console.log(dbitem);
                 asset.item.blob = new Blob([dbitem.data.buffer], { type: dbitem.data.type });
 
                 if(hash == null) { // try locating item to see if there's a newer version
-                    console.log("2. no hash passed");
                     try {
                         const locatedItem = await this.locateItem(location);
                         const existingAsset = assetMap.get(locatedItem.hash);
 
                         if(existingAsset == null) { // new version found
-                            console.log("new located found");
                             const newAsset = await this.createNewAsset(locatedItem);
                             await this.writeAsset(newAsset);
                             return this.useAsset(newAsset);
                         } else { // newest version is already found in library
-                            console.log("existing found");
                             return this.useAsset(existingAsset);
                         }
                     } catch(e) { // item locating failed
-                        console.warn("Failed to locate item " + location + ". Using library cache.");
                         return this.useAsset(asset);
                     }
                 } else { // location and hash match one in library, and asset was just loaded
-                    console.log("2. hash passed");
                     return this.useAsset(asset);
                 }
-            } else {
-                console.log("asset is null");
             }
         }
-        console.log("cache miss");
         // library cache miss; locate item and create new asset
         const item = await this.locateItem(location);
         const asset = await this.createNewAsset(item);
@@ -173,10 +169,7 @@ export class DataLibrary {
         return this.useAsset(asset);
     }
     private useAsset(asset: DataLibraryAsset) {
-        this.store.get(asset.toReference()).then(dbitem => {
-            dbitem.data.lastUsedDate = new Date().toISOString();
-            return dbitem.save();
-        })
+        this.itemsToUpdate.add(asset.toReference());
         return asset;
     }
 }
@@ -202,11 +195,8 @@ export class DataLibraryManager {
     }
 
     public async getLibrary(libraryId: string) {
-        console.log("get library", libraryId);
         if(this.libraries.has(libraryId)) return this.libraries.get(libraryId);
-        console.log("create store");
         const store = await this.db.objectStore<"reference", SerializedDataLibraryItem>(libraryId, "reference");
-        console.log(store);
 
         const library = new DataLibrary(libraryId, store);
         this.libraries.set(libraryId, library);
