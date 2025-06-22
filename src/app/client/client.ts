@@ -19,6 +19,7 @@ import { LibraryDataNegotiationLocator } from "../data/libraryDataNegotiationLoc
 import { ClientIdentity, ServerIdentity } from "../serverIdentity";
 import { BlockDataMemoizer } from "../block/blockDataMemoizer";
 import { BSON } from "bson";
+import { UIGameBlock } from "../ui/UIGameBlock";
 
 interface ClientEvents {
     "login": () => void;
@@ -200,6 +201,8 @@ export class Client extends TypedEmitter<ClientEvents> {
                     terrainMap.value = textureAtlas.builtTexture;
 
                     await serverSession.blockDataMemoizer.memoize(textureAtlas);
+                    serverSession.displayBlockRenderer.build(serverSession.registries.blocks);
+                    UIGameBlock.setDisplayBlockRenderer(serverSession.displayBlockRenderer);
 
                     console.debug("<client> woohoo!!! joining now!!");
 

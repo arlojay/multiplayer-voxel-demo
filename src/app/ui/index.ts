@@ -9,3 +9,4 @@ export * from "./UIForm";
 export * from "./UIFieldset";
 export * from "./UIFormField";
 export * from "./UISpacer";
+export * from "./UIGameBlock";

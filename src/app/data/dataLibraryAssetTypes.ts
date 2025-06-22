@@ -39,6 +39,7 @@ export class DataLibraryAsset<AssetType = unknown> {
             const loader = new ImageBitmapLoader();
             this.loadedTexture = await loader.loadAsync(blobUrl).then(image => new Texture(image));
         }
+        this.loadedTexture.colorSpace = "srgb";
         return this;
     }
     public getTexture() {

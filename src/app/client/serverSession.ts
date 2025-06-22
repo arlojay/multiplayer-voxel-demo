@@ -23,6 +23,7 @@ import { ServerIdentity } from "../serverIdentity";
 import { BlockState, blockStateSaveKeyPairToString } from "../block/blockState";
 import { BlockDataMemoizer } from "../block/blockDataMemoizer";
 import { UpdateUIElementPacket } from "../packet/updateUIElementPacket";
+import { DisplayBlockRenderer } from "../ui/displayBlockRenderer";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -101,6 +102,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public registries: BaseRegistries = {
         blocks: new BlockRegistry
     }
+    public displayBlockRenderer: DisplayBlockRenderer;
     public blockDataMemoizer: BlockDataMemoizer;
     public serverIdentity: ServerIdentity;
 
@@ -120,6 +122,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.lastEntityPacketReceived[EntityDataPacket.id] = new Map;
         
         this.blockDataMemoizer = new BlockDataMemoizer(this.registries.blocks, false);
+        this.displayBlockRenderer = new DisplayBlockRenderer;
     }
     
     public async connect() {

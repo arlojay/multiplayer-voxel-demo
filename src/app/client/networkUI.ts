@@ -1,5 +1,5 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { SerializedUIElement, UIButton, UIContainer, UIElement, UIForm } from "../ui";
+import { SerializedUIElement, UIButton, UIContainer, UIElement, UIForm, UIGameBlock } from "../ui";
 
 export enum UIInteractions {
     CLICK,
@@ -28,6 +28,12 @@ export class NetworkUI extends TypedEmitter<{
         for(const button of this.root.getAllElementsOfType(UIButton)) {
             const path = this.root.getPathOfElement(button);
             button.onClick(() => {
+                this.emit("interaction", path, UIInteractions.CLICK);
+            });
+        }
+        for(const blockImage of this.root.getAllElementsOfType(UIGameBlock)) {
+            const path = this.root.getPathOfElement(blockImage);
+            blockImage.onClick(() => {
                 this.emit("interaction", path, UIInteractions.CLICK);
             });
         }
