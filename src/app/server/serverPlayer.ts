@@ -6,6 +6,7 @@ import { World } from "../world";
 import { ServerPeer } from "./serverPeer";
 import { EntityLogicType } from "../entity/baseEntity";
 import { PeerMoveEvent } from "./pluginEvents";
+import { SetLocalPlayerCapabilitiesPacket } from "../packet/setLocalPlayerCapabilitiesPacket";
 
 export class ServerPlayer {
     public peer: ServerPeer;
@@ -71,6 +72,10 @@ export class ServerPlayer {
     }
     public syncPosition() {
         const packet = new SetLocalPlayerPositionPacket(this.base);
+        this.peer.sendPacket(packet, true);
+    }
+    public syncCapabilities() {
+        const packet = new SetLocalPlayerCapabilitiesPacket(this.base);
         this.peer.sendPacket(packet, true);
     }
     public get world() {

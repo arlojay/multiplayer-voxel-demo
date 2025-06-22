@@ -21,19 +21,25 @@ export enum EntityLogicType {
     NO_LOGIC
 }
 
-export interface EntityComponent {
+export interface EntityComponent<Implementer extends EntityComponent<Implementer>> {
+    copy(other: Implementer): void;
     serialize(bin: BinaryBuffer): void;
     deserialize(bin: BinaryBuffer): void;
     getExpectedSize(): number;
 }
 
-export class EntityRotation implements EntityComponent {
+export class EntityRotation implements EntityComponent<EntityRotation> {
     public pitch = 0;
     public yaw = 0;
 
     private lastYaw = this.yaw;
     private lastPitch = this.pitch;
     private lastMoveTime = 0;
+
+    public copy(other: EntityRotation): void {
+        this.pitch = other.pitch;
+        this.yaw = other.yaw;
+    }
     
     public serialize(bin: BinaryBuffer): void {
         bin.write_f32(this.pitch);

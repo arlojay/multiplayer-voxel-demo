@@ -14,6 +14,7 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
     public airTime: number = 0;
     public stepSize = 0.6;
     public collisionChecker: CollisionChecker;
+    protected ignoreGravity = false;
 
     public readonly position: Vector3;
     public readonly velocity: Vector3;
@@ -42,7 +43,7 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
     public update(dt: number) {
         if(this.base.world == null) return;
         
-        this.base.velocity.add(GRAVITY.clone().multiplyScalar(dt));
+        if(!this.ignoreGravity) this.base.velocity.add(GRAVITY.clone().multiplyScalar(dt));
         this.base.velocity.lerp(ZERO, 1 - (0.5 ** (dt * 0.1)));
 
         this.airTime += dt;

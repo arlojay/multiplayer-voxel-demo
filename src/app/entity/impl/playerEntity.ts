@@ -1,6 +1,6 @@
 import { Box3, Color, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
-import { BinaryBuffer, VEC3 } from "../../binary";
-import { BaseEntity, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
+import { BinaryBuffer, BOOL, VEC3 } from "../../binary";
+import { BaseEntity, EntityComponent, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
 import { GRAVITY, LocalEntity } from "../localEntity";
 import { dlerp } from "../../math";
 import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
@@ -13,11 +13,32 @@ import { RemoteEntity } from "../remoteEntity";
 import { capabilities } from "../../capability";
 import { BlockState, BlockStateSaveKey } from "../../block/blockState";
 
+export class PlayerCapabilities implements EntityComponent<PlayerCapabilities> {
+    public canFly = false;
+
+    public copy(other: PlayerCapabilities): void {
+        this.canFly = other.canFly;
+    }
+
+    public serialize(bin: BinaryBuffer): void {
+        bin.write_boolean(this.canFly);
+    }
+    public deserialize(bin: BinaryBuffer): void {
+        this.canFly = bin.read_boolean();
+    }
+    public getExpectedSize(): number {
+        return (
+            BOOL
+        )
+    }
+}
+
 export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements RotatingEntity {
     public static readonly id = entityRegistry.register(this);
     public readonly id = Player.id;
 
     public rotation = new EntityRotation;
+    public capabilities = new PlayerCapabilities;
 
     public username = "anonymous";
     public color = "#ffffff";
@@ -40,12 +61,14 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements Rot
         bin.write_string(this.username);
         bin.write_string(this.color);
         this.rotation.serialize(bin);
+        this.capabilities.serialize(bin);
     }
     protected deserialize(bin: BinaryBuffer): void {
         this.uuid = bin.read_string();
         this.username = bin.read_string();
         this.color = bin.read_string();
         this.rotation.deserialize(bin);
+        this.capabilities.deserialize(bin);
     }
     protected getExpectedSize(): number {
         return (
@@ -54,7 +77,8 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements Rot
             BinaryBuffer.stringByteCount(this.color) +
             VEC3 +
             VEC3 +
-            this.rotation.getExpectedSize()
+            this.rotation.getExpectedSize() +
+            this.capabilities.getExpectedSize()
         )
     }
 }
@@ -100,6 +124,10 @@ export class LocalPlayer extends LocalEntity<Player> {
     private yawFreecam: number = 0;
     private pitchFreecam: number = 0;
 
+    public flying: boolean;
+    private lastJumpAttempt = 0;
+    private holdingJump = false;
+
 
     public model: PlayerModel = new PlayerModel;
     public lookingBlock: BlockState;
@@ -133,7 +161,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         let speed = 100 * this.baseSpeedMultiplier;
         let maxHorizontalSpeed = 4 * this.baseSpeedMultiplier;
         
-        if(!onGround) {
+        if(!onGround && !this.flying && !this.freecam) {
             speed *= 0.2;
         }
 
@@ -158,9 +186,7 @@ export class LocalPlayer extends LocalEntity<Player> {
                 this.sprinting = false;
             }
 
-            if(this.controller.keyDown("c")) {
-                speed *= 0.5;
-                maxHorizontalSpeed *= 0.5;
+            if(this.controller.keyDown("c") && !this.flying) {
                 this.crouching = true;
             } else {
                 this.base.hitbox.copy(LocalPlayer.hitboxStanding);
@@ -181,6 +207,17 @@ export class LocalPlayer extends LocalEntity<Player> {
             if(this.controller.keyDown("a")) dx--;
             if(this.controller.keyDown("d")) dx++;
         }
+        
+        if(this.crouching) {
+            this.base.hitbox.copy(LocalPlayer.hitboxCrouching);
+
+            if(!this.flying) {
+                speed *= 0.5;
+                maxHorizontalSpeed *= 0.5;
+            }
+        } else {
+            this.base.hitbox.copy(LocalPlayer.hitboxStanding);
+        }
 
         const length = Math.sqrt(dx * dx + dz * dz);
         if(length > 1) {
@@ -188,27 +225,73 @@ export class LocalPlayer extends LocalEntity<Player> {
             dz /= length;
         }
 
+        if(this.flying) {
+            speed *= 10;
+            maxHorizontalSpeed *= 2;
+            this.ignoreGravity = true;
+        } else {
+            this.ignoreGravity = false;
+        }
+
+        if(!this.base.capabilities.canFly) {
+            this.flying = false;
+        }
+
+
+        this.lastJumpAttempt += dt;
+        if(receivingControls && !this.freecam) {
+            let flyingYChange = 0;
+
+            if(this.controller.keyDown(" ")) {
+                if(!this.holdingJump) {
+                    if(this.lastJumpAttempt < 0.5 && this.base.capabilities.canFly) {
+                        this.flying = !this.flying;
+                        this.lastJumpAttempt = 0.5;
+                    } else {
+                        this.lastJumpAttempt = 0;
+                    }
+                }
+                this.holdingJump = true;
+
+                if(this.flying) {
+                    flyingYChange++;
+                } else if(onGround) {
+                    this.base.velocity.y = Math.sqrt(this.baseJumpHeight * 2 * -GRAVITY.y);
+                }
+            } else {
+                this.holdingJump = false;
+            }
+            if(this.controller.keyDown("c") && this.flying) {
+                flyingYChange--;
+            }
+
+            if(this.flying) {
+                let change = flyingYChange * speed * dt;
+                const dampFactor = Math.min(1, maxHorizontalSpeed / Math.abs(this.velocity.y + change));
+                this.base.velocity.y += change * dampFactor;
+            }
+        }
+
         const zMovement = (Math.cos(this.base.rotation.yaw) * dz + Math.sin(this.base.rotation.yaw) * dx) * dt * speed;
         const xMovement = -(Math.sin(this.base.rotation.yaw) * dz - Math.cos(this.base.rotation.yaw) * dx) * dt * speed;
 
         const newSpeed = Math.sqrt((this.base.velocity.x + xMovement) ** 2 + (this.base.velocity.z + zMovement) ** 2);        
-        const dampFactor = Math.min(1, maxHorizontalSpeed / Math.max(newSpeed));
+        const dampFactor = Math.min(1, maxHorizontalSpeed / newSpeed);
 
         this.base.velocity.x += xMovement * dampFactor;
         this.base.velocity.z += zMovement * dampFactor;
 
-        if(onGround) {
-            this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 25);
-            this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 25);
+        if(this.flying) {
+            this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 10);
+            this.base.velocity.y = dlerp(this.base.velocity.y, 0, dt, 10);
+            this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 10);
         } else {
-            this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 2);
-            this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 2);
-        }
-
-
-        if(onGround && receivingControls && !this.freecam) {
-            if(this.controller.keyDown(" ")) {
-                this.base.velocity.y = Math.sqrt(this.baseJumpHeight * 2 * -GRAVITY.y);
+            if(onGround) {
+                this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 25);
+                this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 25);
+            } else {
+                this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 2);
+                this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 2);
             }
         }
 
@@ -225,11 +308,6 @@ export class LocalPlayer extends LocalEntity<Player> {
         if(this.base.rotation.pitch > Math.PI * 0.5) this.base.rotation.pitch = Math.PI * 0.5;
         if(this.base.rotation.pitch < Math.PI * -0.5) this.base.rotation.pitch = Math.PI * -0.5;
 
-        if(this.crouching) {
-            this.base.hitbox.copy(LocalPlayer.hitboxCrouching);
-        } else {
-            this.base.hitbox.copy(LocalPlayer.hitboxStanding);
-        }
         this.eyeHeight = dlerp(this.eyeHeight, this.crouching ? LocalPlayer.eyeHeightCrouching : LocalPlayer.eyeHeightStanding, dt, 50);
 
         let fovm = 1;
