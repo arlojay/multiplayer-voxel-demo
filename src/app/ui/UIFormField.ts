@@ -113,7 +113,7 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
         if(this.inputType == "text" || this.inputType == "password" || this.inputType == "number") {
             input.addEventListener("keydown", e => {
                 if(e.key.toLowerCase() == "enter") {
-                    this.bubbleEvent(new UIEvent("trysubmit"));
+                    this.bubbleEvent(new UIEvent("trysubmit", this));
                     e.preventDefault();
                 }
             });

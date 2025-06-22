@@ -34,3 +34,5 @@
 
 /*26*/ export * from "./libraryDataRequestPacket";
 /*27*/ export * from "./libraryDataResponsePacket";
+
+/*28*/ export * from "./setLocalPlayerCapabilitiesPacket";

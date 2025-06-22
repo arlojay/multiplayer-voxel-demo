@@ -6,7 +6,7 @@ import { NetworkUI } from "../client/networkUI";
 import { BaseEntity, EntityLogicType, entityRegistry, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
-import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerPositionPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
+import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerCapabilitiesPacket, SetLocalPlayerPositionPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { UIElement } from "../ui";
@@ -22,6 +22,7 @@ import { BlockRegistry } from "../block/blockRegistry";
 import { ServerIdentity } from "../serverIdentity";
 import { BlockState, blockStateSaveKeyPairToString } from "../block/blockState";
 import { BlockDataMemoizer } from "../block/blockDataMemoizer";
+import { UpdateUIElementPacket } from "../packet/updateUIElementPacket";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -326,6 +327,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.player.rotation.pitch = packet.pitch;
             this.player.rotation.yaw = packet.yaw;
         }
+        if(packet instanceof SetLocalPlayerCapabilitiesPacket) {
+            this.player.capabilities.copy(packet.capabilities);
+        }
         if(packet instanceof OpenUIPacket) {
             const ui = new NetworkUI(packet.ui, packet.interfaceId);
             this.interfaces.set(packet.interfaceId, ui);
@@ -342,6 +346,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof InsertUIElementPacket) {
             const ui = this.interfaces.get(packet.interfaceId);
             ui?.insertElement(packet.path, UIElement.deserialize(packet.element));
+        }
+        if(packet instanceof UpdateUIElementPacket) {
+            const ui = this.interfaces.get(packet.interfaceId);
+            ui?.updateElement(packet.path, packet.serializedElementData);
         }
         if(packet instanceof ChangeWorldPacket) {
             this.resetLocalWorld();

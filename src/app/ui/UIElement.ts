@@ -1,4 +1,5 @@
-import { HAS_DOCUMENT_ACCESS, UIContainer } from ".";
+import { UIContainer } from ".";
+import { capabilities } from "../capability";
 import { HashedFactoryRegistry } from "../registry";
 import { UIEventBinder } from "./UIEventBinder";
 
@@ -12,9 +13,11 @@ export class UIEvent {
     public name: string;
     public cancelled = false;
     public data?: any;
+    public emitter: UIElement;
 
-    constructor(name: string, data?: any) {
+    constructor(name: string, emitter: UIElement, data?: any) {
         this.name = name;
+        this.emitter = emitter;
         this.data = data;
     }
     public preventDefault() {
@@ -51,7 +54,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
 
 
     public async update() {
-        if(HAS_DOCUMENT_ACCESS) {
+        if(capabilities.DOCUMENT) {
             const element = await this.buildElement();
             if(element == null) throw new ReferenceError("Built element must not be null");
             if(!this.visible) element.hidden = true;
@@ -64,6 +67,8 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
                 element.style[prop] = this.style[prop];
             }
         }
+
+        this.bubbleEvent(new UIEvent("updateElement", this));
 
         return this.element;
     }

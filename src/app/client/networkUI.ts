@@ -45,4 +45,9 @@ export class NetworkUI extends TypedEmitter<{
     public insertElement(path: number[], element: UIElement) {
         this.root.addElementAtPath(path, element);
     }
+    public updateElement(path: number[], serializedElementData: SerializedUIElement) {
+        const element = this.root.getElementByPath(path);
+        element.deserialize(serializedElementData);
+        element.update();
+    }
 }

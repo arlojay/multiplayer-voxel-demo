@@ -29,7 +29,7 @@ export class UIButton extends UIElement<SerializedUIButton> {
         this.eventBinder.on("click", (event?: Event) => {
             event?.preventDefault();
 
-            const trySubmit = new UIEvent("trysubmit");
+            const trySubmit = new UIEvent("trysubmit", this);
             this.bubbleEvent(trySubmit);
             
             callback();

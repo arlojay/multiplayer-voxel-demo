@@ -44,7 +44,7 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
         });
         element.addEventListener("keydown", e => {
             if(e.key.toLowerCase() == "enter") {
-                this.bubbleEvent(new UIEvent("trysubmit"));
+                this.bubbleEvent(new UIEvent("trysubmit", this));
                 e.preventDefault();
             }
         });

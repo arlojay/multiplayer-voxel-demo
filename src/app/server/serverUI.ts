@@ -3,6 +3,7 @@ import { UIInteractions } from "../client/networkUI";
 import { ServerPeer } from "./serverPeer";
 import { UIButton, UIContainer, UIElement, UIEvent, UIForm } from "../ui";
 import { $enum } from "ts-enum-util";
+import { UpdateUIElementPacket } from "../packet/updateUIElementPacket";
 
 export class ServerUI {
     public peer: ServerPeer;
@@ -57,6 +58,12 @@ export class ServerUI {
             const element: UIElement = event.data;
             const path = this.root.getPathOfElement(element);
             const packet = new InsertUIElementPacket(this.interfaceId, path, element);
+            this.peer.sendPacket(packet);
+        });
+        this.root.setEventHandler("updateElement", (event: UIEvent) => {
+            const element: UIElement = event.emitter;
+            const path = this.root.getPathOfElement(element);
+            const packet = new UpdateUIElementPacket(this.interfaceId, path, element);
             this.peer.sendPacket(packet);
         });
     }

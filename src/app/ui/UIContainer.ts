@@ -18,7 +18,7 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
         for(const removedElement of removedElements) this.elements.push(removedElement);
 
         element.parent = this;
-        this.bubbleEvent(new UIEvent("addElement", element));
+        this.bubbleEvent(new UIEvent("addElement", this, element));
 
         if(this.element != null) await this.update();
     }
@@ -38,7 +38,7 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
 
         this.elements.splice(index, 1);
 
-        this.bubbleEvent(new UIEvent("removeElement", element));
+        this.bubbleEvent(new UIEvent("removeElement", this, element));
         element.parent = null;
 
         if(this.element != null) await this.update();
