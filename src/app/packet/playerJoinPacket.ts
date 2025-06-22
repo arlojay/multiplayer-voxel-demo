@@ -24,14 +24,14 @@ export class PlayerJoinPacket extends PlayerInfo {
         super.serialize(bin);
         bin.write_string(this.player);
         bin.write_string(this.username);
-        bin.write_charseq(this.color.slice(1, 7));
+        bin.write_charseq(this.color.slice(0, 6).padStart(6, "0"));
     }
 
     protected deserialize(bin: BinaryBuffer): void {
         super.deserialize(bin);
         this.player = bin.read_string();
         this.username = bin.read_string();
-        this.color = "#" + bin.read_charseq(6);
+        this.color = bin.read_charseq(6);
     }
 
     protected getExpectedSize(): number {
@@ -39,7 +39,7 @@ export class PlayerJoinPacket extends PlayerInfo {
             super.getExpectedSize() +
             BinaryBuffer.stringByteCount(this.player) +
             BinaryBuffer.stringByteCount(this.username) +
-            CHAR * 7
+            CHAR * 6
         );
     }
 }

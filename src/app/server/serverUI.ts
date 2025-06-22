@@ -1,7 +1,7 @@
 import { CloseUIPacket, Packet, OpenUIPacket, UIInteractionPacket, RemoveUIElementPacket, InsertUIElementPacket } from "../packet";
 import { UIInteractions } from "../client/networkUI";
 import { ServerPeer } from "./serverPeer";
-import { UIButton, UIContainer, UIElement, UIEvent, UIForm } from "../ui";
+import { UIButton, UIContainer, UIElement, UIEvent, UIForm, UIGameBlock } from "../ui";
 import { $enum } from "ts-enum-util";
 import { UpdateUIElementPacket } from "../packet/updateUIElementPacket";
 
@@ -39,7 +39,7 @@ export class ServerUI {
             const element = this.root.getElementByPath(packet.path);
             if(element == null) throw new Error("Invalid UI interaction (" + packet.path.join(" ") + " does not exist)");
             
-            if(element instanceof UIButton) {
+            if(element instanceof UIButton || element instanceof UIGameBlock) {
                 if(packet.interaction == UIInteractions.CLICK) return element.click();
             }
             if(element instanceof UIForm) {

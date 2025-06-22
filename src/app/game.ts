@@ -194,7 +194,7 @@ async function saveConnectionOptions() {
     const gameData = getClient().gameData;
 
     gameData.clientOptions.customization.username = (document.querySelector("#player-username") as HTMLInputElement).value;
-    gameData.clientOptions.customization.color = (document.querySelector("#player-color") as HTMLInputElement).value;
+    gameData.clientOptions.customization.color = (document.querySelector("#player-color") as HTMLInputElement).value.replace("#", "");
 
     gameData.saveClientOptions();
 }
@@ -204,13 +204,13 @@ async function loadConnectionOptions() {
     await gameData.loadClientOptions();
 
     (document.querySelector("#player-username") as HTMLInputElement).value = gameData.clientOptions.customization.username;
-    (document.querySelector("#player-color") as HTMLInputElement).value = gameData.clientOptions.customization.color;
+    (document.querySelector("#player-color") as HTMLInputElement).value = "#" + gameData.clientOptions.customization.color.replace("#", "");
 }
 
 function getConnectionOptions(): ClientCustomizationOptions {
     return {
         username: (document.querySelector("#player-username") as HTMLInputElement).value,
-        color: (document.querySelector("#player-color") as HTMLInputElement).value
+        color: (document.querySelector("#player-color") as HTMLInputElement).value.replace("#", "")
     }
 }
 

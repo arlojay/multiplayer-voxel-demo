@@ -6,7 +6,7 @@ import { NetworkUI } from "../client/networkUI";
 import { BaseEntity, EntityLogicType, entityRegistry, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
-import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerCapabilitiesPacket, SetLocalPlayerPositionPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
+import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerCapabilitiesPacket, SetLocalPlayerPositionPacket, SetSelectedBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { UIElement } from "../ui";
@@ -86,7 +86,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     private chunkFetchingQueue: FastPriorityQueue<QueuedChunkPacket> = new FastPriorityQueue(
         (a, b) => a.distance < b.distance
     );
-    private disconnected: boolean;
+    public disconnected: boolean;
     private loadedChunksA: Chunk[] = new Array;
     private loadedChunksB: Chunk[] = new Array;
     private usingChunkBufferB = false;
@@ -356,6 +356,9 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof ChangeWorldPacket) {
             this.resetLocalWorld();
+        }
+        if(packet instanceof SetSelectedBlockPacket) {
+            this.player.selectedBlock = packet.state;
         }
         
         this.lastPacketReceived.set(packet.id, packet.timestamp);

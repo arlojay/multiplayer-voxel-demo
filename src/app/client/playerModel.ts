@@ -10,13 +10,13 @@ const loader = new GLTFLoader();
 
 export class PlayerModel {
     public username = "anonymous";
-    public color = "#ffffff";
+    public color = "ffffff";
 
     public readonly position = new Vector3;
     public yaw: number = Math.PI * 0.25;
     public pitch: number = 0;
 
-    private readonly colorNode = new Color(this.color);
+    private readonly colorNode = new Color("#" + this.color);
     private readonly nametag = new FloatingText(this.username);
     public readonly mesh: Object3D = new Object3D;
     public skin: SkinnedMesh;
@@ -54,7 +54,7 @@ export class PlayerModel {
     }
 
     public update(dt: number): void {
-        this.colorNode.copy(new Color(this.color));
+        this.colorNode.copy(new Color("#" + this.color));
         this.nametag.text = this.username;
 
         if(this.mesh != null) {

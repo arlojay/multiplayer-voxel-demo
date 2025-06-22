@@ -11,6 +11,7 @@ import { DataLibrary } from "../../data/dataLibrary";
 import { Block } from "../../block/block";
 import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
 import { BASIC_COLLIDER } from "../../entity/collisionChecker";
+import { UIGameBlock } from "../../ui/UIGameBlock";
 
 interface PlayerClicksEntry {
     username: string;

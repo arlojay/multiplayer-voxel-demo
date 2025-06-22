@@ -13,7 +13,7 @@ import { Player } from "../entity/impl";
 import { debugLog } from "../logging";
 import { GameContentPackage } from "../network/gameContentPackage";
 import { NegotiationChannel } from "../network/negotiationChannel";
-import { AddEntityPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket } from "../packet";
+import { AddEntityPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket, SetSelectedBlockPacket } from "../packet";
 import { EntityLookPacket } from "../packet/entityLookPacket";
 import { ClientIdentity, ServerIdentity } from "../serverIdentity";
 import { CHUNK_INC_SCL, CHUNK_X_INC_BYTE } from "../voxelGrid";
@@ -356,6 +356,8 @@ export class Server extends EventPublisher {
 
             // Send join messages
             peer.sendToWorld(world);
+
+            peer.sendPacket(new SetSelectedBlockPacket("color#" + ColorBlock.getClosestColor("#" + peer.color) as BlockStateSaveKey));
 
             peer.addListener("disconnected", (cause) => {
                 this.handleDisconnection(peer, cause);

@@ -41,7 +41,8 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements Rot
     public capabilities = new PlayerCapabilities;
 
     public username = "anonymous";
-    public color = "#ffffff";
+    public color = "ffffff";
+    public selectedBlock: BlockStateSaveKey = "color#ffffff";
 
     constructor(logicType: EntityLogicType) {
         super(logicType);
@@ -492,8 +493,9 @@ export class LocalPlayer extends LocalEntity<Player> {
     public placeBlock(x: number, y: number, z: number) {
         if(!this.base.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
-        const stateKey = "color#" + new Color(this.base.color).getHexString() as BlockStateSaveKey;
+        const stateKey = this.base.selectedBlock;
         const block = this.base.world.memoizer.getMemoizedId(stateKey);
+        console.log(stateKey, block);
 
         if(this.collisionChecker.collidesWithBlock(x, y, z, block)) return;
         

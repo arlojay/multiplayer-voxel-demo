@@ -36,3 +36,4 @@
 /*27*/ export * from "./libraryDataResponsePacket";
 
 /*28*/ export * from "./setLocalPlayerCapabilitiesPacket";
+/*29*/ export * from "./setSelectedBlockPacket";

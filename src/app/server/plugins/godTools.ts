@@ -1,6 +1,8 @@
-import { UIButton, UIFieldset, UISection, UISpacer, UIText } from "../../ui";
+import { SetSelectedBlockPacket } from "../../packet";
+import { UIButton, UIFieldset, UISection, UIGameBlock, UIText } from "../../ui";
 import { Subscribe } from "../events";
 import { PeerJoinEvent, PluginEvents } from "../pluginEvents";
+import { ServerPeer } from "../serverPeer";
 import { ServerPlugin } from "../serverPlugin";
 
 export class GodToolsPlugin extends ServerPlugin {
@@ -33,7 +35,57 @@ export class GodToolsPlugin extends ServerPlugin {
             event.serverPlayer.syncCapabilities();
             flyButton.setText(getFlyButtonText());
         })
+
+        const itemShelfButton = new UIButton("Item Shelf");
+        fieldset.addChild(itemShelfButton);
+
+        itemShelfButton.onClick(() => {
+            this.showItemShelf(event.peer);
+        })
         
         event.peer.showUI(ui);
+    }
+    private showItemShelf(peer: ServerPeer) {
+        const ui = new UISection;
+        ui.style.alignSelf = "center";
+        ui.style.justifySelf = "center";
+        ui.style.background = "#0008";
+        ui.style.padding = "1rem";
+        ui.style.display = "flex";
+        ui.style.flexDirection = "column";
+        ui.style.alignContent = "center";
+        
+        const title = new UIText("Item shelf");
+        title.style.fontSize = "2rem";
+        title.style.display = "block";
+        ui.addChild(title);
+        
+        const blockContainer = new UIFieldset("Blocks");
+        ui.addChild(blockContainer);
+
+        for(const block of this.server.registries.blocks.values()) {
+            if(block.id == "air") continue;
+            if(block.id == "color") continue;
+            
+            for(const state of block.states.values()) {
+                const element = new UIGameBlock(state.saveKey);
+                blockContainer.addChild(element);
+
+                element.onClick(() => {
+                    peer.sendPacket(new SetSelectedBlockPacket(state.saveKey));
+                    session.close();
+                })
+            }
+        }
+
+        const closeButton = new UIButton("Close");
+        closeButton.style.width = "50%";
+        ui.addChild(closeButton);
+
+        closeButton.onClick(() => {
+            session.close();
+        });
+        
+        const session = peer.showUI(ui);
     }
 }

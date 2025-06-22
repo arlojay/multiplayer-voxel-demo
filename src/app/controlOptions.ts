@@ -1,6 +1,6 @@
 export class ClientCustomizationOptions {
     username: string = "player-" + Math.random().toString().slice(2);
-    color: string = "#" + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0");
+    color: string = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0");
 }
 
 export class ClientControls {

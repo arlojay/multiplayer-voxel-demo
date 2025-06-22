@@ -1,4 +1,4 @@
-html, body, canvas {
+html, body, #game-canvas {
     width: 100%;
     height: 100%;
     margin: 0px;
@@ -11,7 +11,7 @@ html, body, canvas {
     * { display: none; }
 }
 
-canvas {
+#game-canvas {
     image-rendering: pixelated;
 }
 

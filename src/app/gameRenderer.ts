@@ -183,6 +183,10 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public hideUI(container: UIContainer) {
         this.showingUIs.delete(container);
         if(this.UIRoot.contains(container.element)) this.UIRoot.removeChild(container.element);
+        
+        if(document.activeElement == document.body) {
+            Client.instance.playerController.setPointerLocked(true);
+        }
     }
     public destroyWorldRenderer() {
         console.trace("destroy world renderer");
