@@ -1,3 +1,4 @@
+import { World } from "../../world";
 import { UIButton, UIForm, UISection, UIText, UITextInput } from "../../ui";
 import { Subscribe } from "../events";
 import { PeerJoinEvent, PeerLeaveEvent, PluginEvents } from "../pluginEvents";
@@ -65,7 +66,9 @@ export class ChatPlugin extends ServerPlugin {
             const validated = this.validateMessage(message);
             if(!validated) return;
 
-            this.sendMessage(message);
+            if(!this.tryCommand(message)) {
+                this.sendMessage(message);
+            }
         });
 
         this.chatUIs.set(event.peer, {
@@ -95,6 +98,41 @@ export class ChatPlugin extends ServerPlugin {
         return true;
     }
 
+    public sendMessageToPeer(peer: ServerPeer, message: string) {
+        const chatUI = this.chatUIs.get(peer);
+        chatUI.logs.addChild(this.createTextElement({ text: message }));
+    }
+
+    private doExplosion(world: World, centerX: number, centerY: number, centerZ: number, power: number) {
+        const powerSq = power ** 2;
+        for(let dx = -power; dx < power; dx++) for(let dy = -power; dy < power; dy++) for(let dz = -power; dz < power; dz++) {
+            if(dx * dx + dy * dy + dz * dz > powerSq) continue;
+
+            world.setBlockStateKey(Math.floor(centerX + dx), Math.floor(centerY + dy), Math.floor(centerZ + dz), "air#default");
+        }
+    }
+
+    private tryCommand(message: ChatMessage) {
+        const world = message.peer.serverPlayer.world;
+        const { x, y, z } = message.peer.serverPlayer.base.position;
+
+        if(message.text == "EXPLODE") {
+            this.doExplosion(world, x, y, z, 6);
+            this.sendMessageToPeer(message.peer, "Boom!!");
+            return true;
+        }
+        if(message.text.startsWith("EXPLODE ")) {
+            let severity = message.text.replace("EXPLODE ", "");
+            if(isNaN(+severity)) {
+                this.sendMessageToPeer(message.peer, " Invalid severity \"" + severity + "\"");
+            } else {
+                this.doExplosion(world, x, y, z, +severity);
+                this.sendMessageToPeer(message.peer, "Boom!!");
+            }
+            return true;
+        }
+        return false;
+    }
     public sendMessage(message: ChatMessage) {
         this.messages.push(message);
 
