@@ -40,12 +40,16 @@ export class WorldRenderer {
 
     public update(dt: number) {
         const dirtyChunkQueue = this.world.dirtyChunkQueue;
-        const count = Math.max(10, Math.round(dirtyChunkQueue.size * 0.1));
+
+        const t = performance.now();
         
-        for(const chunk of dirtyChunkQueue.keys().take(count)) {
+        for(const chunk of dirtyChunkQueue.keys()) {
             dirtyChunkQueue.delete(chunk);
 
             this.renderChunk(chunk);
+            if(performance.now() - t > 7) {
+                break;
+            }
         }
     }
 

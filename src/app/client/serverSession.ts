@@ -61,12 +61,17 @@ class EntityPacketBufferQueue {
         }
         return queue;
     }
+    public clear() {
+        this.queues.clear();
+    }
 }
 
 interface WaitingPacket<PacketType extends Packet = Packet> {
     resolve(packet: PacketType): void;
     compare(packet: PacketType): boolean;
 }
+
+type ChunkFetchingKey = `{number};{number};{number}`;
 
 export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public client: Client;
@@ -80,17 +85,20 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     
     private lastPacketReceived: Map<number, number> = new Map;
     private lastEntityPacketReceived: Map<string, number>[] = new Array;
-    private waitingChunks: Map<string, { reject: () => void, resolve: (packet: ChunkDataPacket) => void }> = new Map;
-    private fetchingChunks: Map<string, Promise<ChunkDataPacket>> = new Map;
+    private waitingChunks: Map<ChunkFetchingKey, { reject: () => void, resolve: (packet: ChunkDataPacket) => void }> = new Map;
+    private fetchingChunks: Map<ChunkFetchingKey, Promise<ChunkDataPacket>> = new Map;
     private chunkFetchingQueueMap: Map<string, QueuedChunkPacket> = new Map;
     private chunkFetchingQueue: FastPriorityQueue<QueuedChunkPacket> = new FastPriorityQueue(
         (a, b) => a.distance < b.distance
     );
+    private allLoadedChunksByKey: Set<ChunkFetchingKey> = new Set;
+    private allLoadedChunksKeyMap: Map<Chunk, ChunkFetchingKey> = new Map;
+
     public disconnected: boolean;
     private loadedChunksA: Chunk[] = new Array;
     private loadedChunksB: Chunk[] = new Array;
     private usingChunkBufferB = false;
-    private chunksToCheckForLoading: number[][] = new Array;
+    private chunksToCheckForLoading: Map<string, [ number, number, number ]> = new Map;
     private entityPacketQueue = new EntityPacketBufferQueue;
     public music: LoopingMusic;
 
@@ -114,7 +122,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const clip = client.audioManager.loadSound("assets/sounds/foxslit.mp3");
         this.music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
         this.music.volume = 0.1;
-        this.music.resume();
 
         // TODO: do this programmatically, somehow
         this.lastEntityPacketReceived[EntityMovePacket.id] = new Map;
@@ -187,7 +194,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             this.onDisconnected();
             this.emit("disconnected", "Connection lost");
         })
-        this.lastPacketTime = this.client.time;
     }
 
     private isPacketOld(packet: Packet) {
@@ -389,6 +395,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.fetchingChunks.clear();
         this.loadedChunksA.splice(0);
         this.loadedChunksB.splice(0);
+        this.allLoadedChunksByKey.clear();
+        this.allLoadedChunksKeyMap.clear();
+        this.chunksToCheckForLoading.clear();
+        this.entityPacketQueue.clear();
+
 
         for(const ui of this.interfaces.values()) {
             this.hideUI(ui);
@@ -399,7 +410,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         this.waitingChunks.clear();
 
-        this.music.destroy();
         this.resetLocalWorld();
     }
 
@@ -434,13 +444,50 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
     }
 
+    public updateViewDistance() {
+        const r = this.client.gameData.clientOptions.viewDistance + 1;
+        const rsq = r * r;
+
+        const centerX = this.player.chunkX;
+        const centerY = this.player.chunkY;
+        const centerZ = this.player.chunkZ;
+
+        if(this.chunksToCheckForLoading.size != 0) return;
+
+        let chunkX = 0, chunkY = 0, chunkZ = 0;
+
+        chunkX = Math.floor(centerX - r);
+        for(let x = Math.floor(-r); x <= Math.floor(r); x++, chunkX++) {
+            chunkY = Math.floor(centerY - r);
+            for(let y = Math.floor(-r); y <= Math.floor(r); y++, chunkY++) {
+                chunkZ = Math.floor(centerZ - r);
+                for(let z = Math.floor(-r); z <= Math.floor(r); z++, chunkZ++) {
+                    if(x * x + y * y + z * z > rsq) continue;
+                    const key = chunkX + ";" + chunkY + ";" + chunkZ as ChunkFetchingKey;
+                    if(this.allLoadedChunksByKey.has(key)) continue;
+                    if(this.chunksToCheckForLoading.has(key)) continue;
+
+                    this.chunksToCheckForLoading.set(key, [ chunkX, chunkY, chunkZ ]);
+                }
+            }
+        }
+    }
+
+    private updateViewDistanceCooldown = 0;
     public updateChunkFetchQueue(dt: number) {
+        this.updateViewDistanceCooldown -= dt;
+        if(this.updateViewDistanceCooldown <= 0) {
+            this.updateViewDistance();
+            this.updateViewDistanceCooldown = 0.1;
+        }
+        
         this.updateChunksToCheckForLoading(dt);
 
-        const loadSize = Math.sqrt((this.client.gameData.clientOptions.viewDistance * 2 + 1) ** 2);
-        const unloadSizeSquare = (this.client.gameData.clientOptions.viewDistance + 1) ** 2;
+        // Add 2 to allow all chunks within the radius to be meshed
+        const loadSize = Math.sqrt((this.client.gameData.clientOptions.viewDistance * 2 + 2) ** 2);
+        const unloadSizeSquare = (this.client.gameData.clientOptions.viewDistance + 2) ** 2;
 
-        for(let i = 0; i < 4; i++) {
+        for(let i = 0; i < 24; i++) {
             const queuedPacket = this.chunkFetchingQueue.poll();
             if(queuedPacket == null) break;
 
@@ -453,13 +500,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         this.chunkFetchingQueue.trim();
 
-        // Add two for (a) one-expanded pre-loading radius, and (b) to prevent potential flickering
         const chunkBufferPrimary = this.usingChunkBufferB ? this.loadedChunksB : this.loadedChunksA;
         const chunkBufferSecondary = this.usingChunkBufferB ? this.loadedChunksA : this.loadedChunksB;
         const count = Math.max(4, Math.min(32, chunkBufferPrimary.length / 4));
 
         for(let i = 0; i < count; i++) {
-            if(chunkBufferPrimary.length <= 0) {
+            if(chunkBufferPrimary.length === 0) {
                 this.usingChunkBufferB = !this.usingChunkBufferB;
                 break;
             }
@@ -468,18 +514,17 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     private updateChunksToCheckForLoading(dt: number) {
-        let pos = [ 0, 0, 0 ];
-        let i = 0;
-
-        const count = Math.min(500, this.client.gameRenderer.framerate ** (2/3));
+        let pos: [ number, number, number ];
+        const t = performance.now();
         
-        while(i < count && this.chunksToCheckForLoading.length > 0) {
-            pos = this.chunksToCheckForLoading.pop();
-            if(pos == null) continue;
-            if(this.localWorld.chunkExists(pos[0], pos[1], pos[2])) continue;
+        for(const key of this.chunksToCheckForLoading.entries()) {
+            pos = key[1];
+            this.chunksToCheckForLoading.delete(key[0]);
 
-            this.fetchChunk(pos[0], pos[1], pos[2]);
-            i++;
+            if(this.localWorld.chunkExists(pos[0], pos[1], pos[2])) continue;
+            this.fetchChunk(pos[0], pos[1], pos[2], key[0] as ChunkFetchingKey);
+
+            if(performance.now() - t > 5) break;
         }
     }
 
@@ -492,12 +537,12 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             (chunk.y - this.player.chunkY) ** 2 +
             (chunk.z - this.player.chunkZ) ** 2
         )
-        if(distance <= removeSizeSquare) {
+        if(distance > removeSizeSquare) {
+            this.unloadChunk(chunk);
+            this.allLoadedChunksByKey.delete(this.allLoadedChunksKeyMap.get(chunk));
+        } else {
             chunkBufferSecondary.push(chunk);
-            return;
         }
-
-        this.unloadChunk(chunk);
     }
 
     public unloadChunk(chunk: Chunk) {
@@ -506,6 +551,87 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             chunk.deleteMesh();
         }
         this.localWorld.deleteChunk(chunk.x, chunk.y, chunk.z);
+    }
+
+    public fetchChunk(x: number, y: number, z: number, key?: ChunkFetchingKey) {
+        key ??= x + ";" + y + ";" + z as ChunkFetchingKey;
+        const distance = Math.sqrt(
+            (x - this.player.chunkX) ** 2 +
+            (y - this.player.chunkY) ** 2 +
+            (z - this.player.chunkZ) ** 2
+        );
+
+        if(this.fetchingChunks.has(key)) {
+            const queuedPacket = this.chunkFetchingQueueMap.get(key);
+            this.chunkFetchingQueue.removeOne(v => v == queuedPacket);
+            this.chunkFetchingQueue.add({
+                distance, packet: queuedPacket.packet, key
+            });
+            return this.fetchingChunks.get(key);
+        }
+
+        const packet = new GetChunkPacket;
+        packet.x = x;
+        packet.y = y;
+        packet.z = z;
+
+        const queuedPacket = { packet, distance, key };
+        this.chunkFetchingQueue.add(queuedPacket);
+        this.chunkFetchingQueueMap.set(key, queuedPacket);
+
+        const promise = new Promise<ChunkDataPacket>((res, rej) => {
+            this.waitingChunks.set(key, {
+                resolve: packet => {
+                    const chunk = this.addChunkData(packet);
+                    this.fetchingChunks.delete(key);
+                    this.chunkFetchingQueueMap.delete(key);
+                    this.allLoadedChunksByKey.add(key);
+                    this.allLoadedChunksKeyMap.set(chunk, key);
+                },
+                reject: () => {
+                    // rej();
+                }
+            });
+        });
+        this.fetchingChunks.set(key, promise);
+        return promise;
+    }
+
+    public addChunkData(chunkDataPacket: ChunkDataPacket) {
+        const { x, y, z, entityData } = chunkDataPacket;
+
+        const localChunk = this.localWorld.getChunk(x, y, z, true);
+        localChunk.data.set(chunkDataPacket.data);
+        localChunk.setPalette(chunkDataPacket.palette ?? []);
+
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                for(let dz = -1; dz <= 1; dz++) {
+                    if(dx == 0 && dy == 0 && dz == 0) continue;
+
+                    const chunk = this.localWorld.getChunk(x + dx, y + dy, z + dz, false);
+                    if(chunk == null) continue;
+                    
+                    localChunk.markSurrounded(dx, dy, dz);
+                    chunk.markSurrounded(-dx, -dy, -dz);
+                    if(chunk.isFullySurrounded()) this.player.world.markChunkDirty(chunk);
+                }
+            }
+        }
+
+        if(entityData != null) {
+            for(const buffer of entityData) {
+                const entity = entityRegistry.createFromBinary(buffer, EntityLogicType.REMOTE_LOGIC);
+                this.handleAddEntity(entity);
+            }
+        }
+
+        if(localChunk.isFullySurrounded()) {
+            this.player.world.markChunkDirty(localChunk);
+        }
+
+        this.loadedChunksA.push(localChunk);
+        return localChunk;
     }
 
     public resetLocalWorld() {
@@ -542,83 +668,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         return promise;
     }
-
-    public fetchChunk(x: number, y: number, z: number) {
-        const key = x + ";" + y + ";" + z;
-        const distance = Math.sqrt(
-            (x - this.player.chunkX) ** 2 +
-            (y - this.player.chunkY) ** 2 +
-            (z - this.player.chunkZ) ** 2
-        );
-
-        if(this.fetchingChunks.has(key)) {
-            const queuedPacket = this.chunkFetchingQueueMap.get(key);
-            this.chunkFetchingQueue.removeOne(v => v == queuedPacket);
-            this.chunkFetchingQueue.add({
-                distance, packet: queuedPacket.packet, key
-            });
-            return this.fetchingChunks.get(key);
-        }
-
-        const packet = new GetChunkPacket;
-        packet.x = x;
-        packet.y = y;
-        packet.z = z;
-
-        const queuedPacket = { packet, distance, key };
-        this.chunkFetchingQueue.add(queuedPacket);
-        this.chunkFetchingQueueMap.set(key, queuedPacket);
-
-        const promise = new Promise<ChunkDataPacket>((res, rej) => {
-            this.waitingChunks.set(key, {
-                resolve: packet => {
-                    this.addChunkData(packet);
-                    this.fetchingChunks.delete(key);
-                    this.chunkFetchingQueueMap.delete(key);
-                },
-                reject: () => {
-                    // rej();
-                }
-            });
-        });
-        this.fetchingChunks.set(key, promise);
-        return promise;
-    }
-    public addChunkData(chunkDataPacket: ChunkDataPacket) {
-        const { x, y, z, entityData } = chunkDataPacket;
-
-        const localChunk = this.localWorld.getChunk(x, y, z, true);
-        localChunk.data.set(chunkDataPacket.data);
-        localChunk.setPalette(chunkDataPacket.palette ?? []);
-
-        for(let dx = -1; dx <= 1; dx++) {
-            for(let dy = -1; dy <= 1; dy++) {
-                for(let dz = -1; dz <= 1; dz++) {
-                    if(dx == 0 && dy == 0 && dz == 0) continue;
-
-                    const chunk = this.localWorld.getChunk(x + dx, y + dy, z + dz, false);
-                    if(chunk == null) continue;
-                    
-                    localChunk.markSurrounded(dx, dy, dz);
-                    chunk.markSurrounded(-dx, -dy, -dz);
-                    if(chunk.isFullySurrounded()) this.player.world.markChunkDirty(chunk);
-                }
-            }
-        }
-
-        if(entityData != null) {
-            for(const buffer of entityData) {
-                const entity = entityRegistry.createFromBinary(buffer, EntityLogicType.REMOTE_LOGIC);
-                this.handleAddEntity(entity);
-            }
-        }
-
-        if(localChunk.isFullySurrounded()) {
-            this.player.world.markChunkDirty(localChunk);
-        }
-
-        this.loadedChunksA.push(localChunk);
-    }
     public update(time: number, dt: number) {
         this.player.update(dt);
 
@@ -640,8 +689,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.updateChunkFetchQueue(dt);
 
         if(this.serverConnection?.open) {
-        if(this.lastPacketTime + 5000 < time) {
-            this.close("Server not responding");
+            if(this.lastPacketTime + 5000 < time) {
+                this.close("Server not responding");
             }
         } else {
             this.lastPacketTime = this.client.time;
@@ -656,25 +705,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.player.position.set(0, 10, 0);
         this.player.localLogic.setController(this.client.playerController);
         this.client.gameRenderer.scene.add(this.player.localLogic.model.mesh);
-    }
-
-    public updateViewDistance() {
-        const r = this.client.gameData.clientOptions.viewDistance + 1;
-        const rsq = r * r;
-
-        const centerX = this.player.chunkX;
-        const centerY = this.player.chunkY;
-        const centerZ = this.player.chunkZ;
-
-        if(this.chunksToCheckForLoading.length > 100) return;
-
-        for(let x = Math.floor(-r); x <= Math.floor(r); x++) {
-            for(let y = Math.floor(-r); y <= Math.floor(r); y++) {
-                for(let z = Math.floor(-r); z <= Math.floor(r); z++) {
-                    if(x * x + y * y + z * z > rsq) continue;
-                    this.chunksToCheckForLoading.push([ x + centerX, y + centerY, z + centerZ ]);
-                }
-            }
-        }
+        
+        this.music.resume();
     }
 }
