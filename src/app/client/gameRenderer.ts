@@ -132,6 +132,15 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         requestAnimationFrame(time => this.render(time));
     }
+    public async exportSnapshot() {
+        const canvas = new OffscreenCanvas(this.canvas.width, this.canvas.height);
+        const ctx = canvas.getContext("2d");
+
+        const image = await new ImageLoader().loadAsync(this.canvas.toDataURL());
+        ctx.drawImage(image, 0, 0);
+
+        return canvas.convertToBlob();
+    }
     public resize() {
         this.renderer.setPixelRatio(devicePixelRatio);
         this.renderer.setSize(innerWidth, innerHeight);

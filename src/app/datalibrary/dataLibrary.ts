@@ -78,7 +78,11 @@ export class DataLibrary {
         clearInterval(this.updateLoop);
     }
 
+    private async generateHash(buffer: ArrayBuffer) {
+        return await crypto.subtle.digest({ name: "SHA-1" }, buffer).then(bufferToHex);
+    }
     private async locateItem(location: string) {
+        if(this.locator == null) throw new ReferenceError("Asset " + location + " not found");
         const blob = await this.locator.get(location);
 
         const item: DataLibraryItem = {
@@ -89,7 +93,7 @@ export class DataLibrary {
 
         const buffer = await blob.arrayBuffer();
         item.blob = blob;
-        item.hash = await crypto.subtle.digest({ name: "SHA-1" }, buffer).then(bufferToHex);
+        item.hash = await this.generateHash(buffer);
 
         return item;
     }
@@ -114,6 +118,17 @@ export class DataLibrary {
             fetchDate: asset.item.fetchDate.toISOString(),
             lastUsedDate: asset.item.lastUsedDate.toISOString()
         });
+    }
+    public async createAsset<T = unknown>(location: string, blob: Blob) {
+        const asset = await this.createNewAsset({
+            fetchDate: new Date,
+            lastUsedDate: new Date,
+            location,
+            blob,
+            hash: await this.generateHash(await blob.arrayBuffer())
+        });
+        await this.writeAsset(asset);
+        return asset as DataLibraryAsset<T>;
     }
     
     public async getAsset(location: string, hash?: string): Promise<DataLibraryAsset> {

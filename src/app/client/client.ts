@@ -50,6 +50,7 @@ export class Client extends TypedEmitter<ClientEvents> {
     public time: number;
     public gameUIControl: GameUIControl;
     public debugInfo: DebugInfo;
+    public serverConnectionExists = false;
     
     constructor(gameUIControl: GameUIControl) {
         super();
@@ -87,6 +88,15 @@ export class Client extends TypedEmitter<ClientEvents> {
     
     public setDebugInfo(debugInfo: DebugInfo) {
         this.debugInfo = debugInfo;
+    }
+
+    public async screenshot(name = new Date().toISOString()) {
+        const snapshot = await this.gameRenderer.exportSnapshot();
+        const screenshotLibrary = await this.dataLibraryManager.getLibrary("screenshots");
+        await screenshotLibrary.open(null);
+        const asset = await screenshotLibrary.createAsset(name, snapshot);
+        screenshotLibrary.close();
+        return asset;
     }
 
     public login(id: string = "client-" + Math.random().toString().slice(2) + "-mvd") {
@@ -134,10 +144,10 @@ export class Client extends TypedEmitter<ClientEvents> {
 
     public async initServerConnection(serverPeerId: string, connectionOptions: ClientCustomizationOptions): Promise<ConnectionRequestController> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
-
+        
         await this.waitForLogin();
         console.log("Connecting to the server " + serverPeerId);
-
+        
         const serverSession = new ServerSession(this, serverPeerId);
         let dataLibrary: DataLibrary;
 
@@ -163,6 +173,7 @@ export class Client extends TypedEmitter<ClientEvents> {
                 try {
                     this.gameUIControl.loadingScreen.setHint("Connecting to server");
                     const negotiationChannel = await serverSession.connect();
+                    this.serverConnectionExists = true;
                     
                     this.gameUIControl.loadingScreen.setCancellable(false);
 
@@ -268,6 +279,7 @@ export class Client extends TypedEmitter<ClientEvents> {
                     serverSession.addListener("disconnected", () => {
                         this.playerController.setPointerLocked(false);
                         this.serverSession = null;
+                        this.serverConnectionExists = true;
                         dataLibrary?.close();
                     });
                     serverSession.addListener("changeworld", world => {

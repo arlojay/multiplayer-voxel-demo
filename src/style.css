@@ -80,6 +80,57 @@ body {
         calc(-1 * var(--outline))   calc(-1 * var(--outline))   var(--outline)  #000;
 }
 
+@keyframes fade-in {
+    0% {
+        opacity: 0;
+
+        filter: blur(100px) contrast(10) brightness(1);
+        backdrop-filter: brightness(1);
+    }
+    20% {
+        opacity: 1;
+        backdrop-filter: brightness(0);
+    }
+    100% {
+        opacity: 1;
+
+        filter: blur(4px) contrast(1) brightness(0.5);
+        backdrop-filter: brightness(0);
+    }
+}
+
+@keyframes zoom-out {
+    0% {
+        transform: scale(2);
+    }
+    100% {
+        transform: scale(1.01);
+    }
+}
+#title-background {
+    z-index: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        animation:
+            fade-in 5s cubic-bezier(0.1, 0.9, 0.1, 0.9) forwards,
+            zoom-out 120s ease-out forwards
+        ;
+    }
+}
+
 #ui, #game {
     z-index: 1;
     grid-area: 1 / 1 / 2 / 2;
@@ -227,7 +278,7 @@ body {
 
 #settings, .modal[data-name="create-server"] {
     z-index: 2;
-    
+
     position: fixed;
     top: 0;
     left: 0;

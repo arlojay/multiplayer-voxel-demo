@@ -62,9 +62,7 @@ export class DemoPlugin extends ServerPlugin {
         let session: ServerUI = null;
 
         const updateClicks = () => {
-            session?.close();
             text.setText(entry.data.clicks + " clicks");
-            session = event.peer.showUI(ui);
         }
 
         const button = new UIButton("Add click");
@@ -77,6 +75,14 @@ export class DemoPlugin extends ServerPlugin {
         });
         
         updateClicks();
+
+        const kickButton = new UIButton("kick");
+        kickButton.onClick(() => {
+            event.peer.kick("Self-kick");
+        });
+        ui.addChild(kickButton);
+        
+        session = event.peer.showUI(ui);
     }
 
     public async addContent(registries: BaseRegistries, dataLibrary: DataLibrary) {

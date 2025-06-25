@@ -163,6 +163,19 @@ export class GameUIControl {
     public setServerConnectionError(error: string) {
         document.querySelector("#join-game .connect-error").textContent = error;
     }
+    public async loadLastServerScreenshot(dataLibraryManager: DataLibraryManager) {
+        const library = await dataLibraryManager.getLibrary("screenshots");
+        await library.open(null);
+        return await library.getAsset("last-server").then(async asset => {
+            const titleBackground = document.querySelector("#title-background") as HTMLDivElement;
+            titleBackground.replaceChildren();
+
+            const image = await new ImageLoader().loadAsync(URL.createObjectURL(asset.item.blob));;
+            titleBackground.append(image);
+        }).catch((error) => {
+            console.warn("Cannot open last server screenshot", error);
+        });
+    }
 }
 
 export class DebugInfo {
@@ -362,6 +375,19 @@ async function main() {
         settingsUI.visible = true;
         settingsUI.update();
     })
+
+    window.onbeforeunload = (event: BeforeUnloadEvent) => {
+        if(Client.instance.serverConnectionExists) {
+            event.preventDefault();
+            Client.instance.screenshot("last-server");
+        }
+    }
+    
+    await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
+    setInterval(() => {
+        if(Client.instance.serverSession == null) return;
+        Client.instance.screenshot("last-server");
+    }, 60000);
 }
 
 async function saveConnectionOptions() {
@@ -399,8 +425,8 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
         }
         const returnToMainScreen = async () => {
             loadingScreen.setVisible(false);
-            // await Client.instance.screenshot("last-server");
-            // await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
+            await Client.instance.screenshot("last-server");
+            await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
 
             Client.instance.gameUIControl.setGameVisible(false);
             Client.instance.gameUIControl.setTitleScreenVisible(true);

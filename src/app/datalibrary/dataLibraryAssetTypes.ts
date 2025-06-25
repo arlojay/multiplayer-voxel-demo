@@ -1,4 +1,4 @@
-import { ImageBitmapLoader, Texture, TextureLoader } from "three";
+import { ImageBitmapLoader, ImageLoader, Texture, TextureLoader } from "three";
 import { capabilities } from "../capability";
 import { DataLibrary, DataLibraryItem } from "./dataLibrary";
 
@@ -44,5 +44,9 @@ export class DataLibraryAsset<AssetType = unknown> {
     }
     public getTexture() {
         return this.loadedTexture;
+    }
+
+    public async createHTMLImage() {
+        return await new ImageLoader().loadAsync(URL.createObjectURL(this.item.blob));
     }
 }
