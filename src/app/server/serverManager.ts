@@ -11,20 +11,20 @@ export class ServerPeerError extends Error {
 export class ServerManager {
     public launchOptions: ServerLaunchOptions;
     public peer: Peer;
-    public id: string;
+    public serverCode: string;
     private worker: Worker;
     private connections: Map<string, DataConnection> = new Map;
     public started: boolean = false;
     
-    constructor(serverId: string, launchOptions: ServerLaunchOptions) {
-        this.id = serverId;
+    constructor(serverCode: string, launchOptions: ServerLaunchOptions) {
+        this.serverCode = serverCode;
         this.launchOptions = launchOptions;
     }
 
     public async start() {
-        this.peer = createPeer("server-" + this.id + "-mvd");
-        this.launchOptions.peerId = this.id;
-        console.log("Starting server " + this.id + "...");
+        this.peer = createPeer("server-" + this.serverCode + "-mvd");
+        this.launchOptions.peerId = this.serverCode;
+        console.log("Starting server " + this.serverCode + "...");
         await new Promise<void>((res, rej) => {
             this.peer.once("open", () => res());
             this.peer.once("error", e => rej(new ServerPeerError("Error while creating server connection ", { cause: e })));
@@ -166,7 +166,8 @@ export class ServerManager {
 
             switch(name) {
                 case "close":
-                    connection.close({ flush: true });
+                    params[0] ??= { flush: true };
+                    connection.close(params[0]);
                     this.connections.delete(connection.peer);
                     break;
             }

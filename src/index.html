@@ -15,7 +15,7 @@
     </div>
     <div id="settings"></div>
     <div id="ui">
-        <div class="modal centered visible" data-name="game-select">
+        <div class="modal centered visible" id="title-screen">
             <section id="player-customization">
                 <h1>Player Customization</h1>
                 <div>
@@ -41,13 +41,7 @@
             </section>
             <section id="select-server">
                 <h1>Host a game</h1>
-                <div style="width: 100%; text-align: left; font-weight: bold; display: flex; flex-direction: row;">
-                    <div style="width: 10rem;">Name</div>
-                    <div style="width: 8rem;">Time Created</div>
-                </div>
-                <ul>
-                    <li style="display: block; width: 100%; text-align: center;">Loading your games...</li>
-                </ul>
+                <div class="container"></div>
                 <span>Or create a new game server</span>
                 <button id="create-server-btn">Create</button>
             </section>
@@ -55,17 +49,18 @@
         <div class="modal centered" data-name="create-server">
             
         </div>
-        <div class="modal centered" data-name="server-connection">
-            <div style="display: grid; grid-auto-rows: 1fr; align-items: center;">
-                <h1>Connecting to <span class="server-id"></span></h1>
-                <div class="loading-hint" style="display: flex; flex-direction: column; align-items: center;" hidden>
+        <div class="modal centered" id="loading-screen">
+            <div style="display: grid; grid-auto-rows: 1fr; align-items: center; justify-items: center;">
+                <h1></h1>
+                <div class="hint" style="display: flex; flex-direction: column; align-items: center;">
                     <p class="state"></p>
-                    <div class="progress">
+                    <div class="progress" style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem;">
+                        <div></div>
                         <progress></progress>
-                        <span class="progress-text" style="width: 8rem; font-family: monospace;"></span>
+                        <span style="width: 8rem; font-family: monospace;"></span>
                     </div>
                 </div>
-                <button class="cancel" style="font-size: 1.5em;">Cancel</button>
+                <button class="cancel" style="font-size: 1.5em; width: 12rem;">Cancel</button>
             </div>
         </div>
     </div>

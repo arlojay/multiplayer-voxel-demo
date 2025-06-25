@@ -161,43 +161,52 @@ export class Client extends TypedEmitter<ClientEvents> {
                 serverSession.addListener("disconnected", disconnectedCallback);
 
                 try {
-                    this.gameUIControl.setLoadingHint(true, "Connecting to server");
+                    this.gameUIControl.loadingScreen.setHint("Connecting to server");
                     const negotiationChannel = await serverSession.connect();
+                    
+                    this.gameUIControl.loadingScreen.setCancellable(false);
 
-                    this.gameUIControl.setLoadingHint(true, "Opening negotiation channel");
+                    this.gameUIControl.loadingScreen.setHint("Opening negotiation channel");
                     await negotiationChannel.open();
 
-                    this.gameUIControl.setLoadingHint(true, "Requesting server identity");
+                    this.gameUIControl.loadingScreen.setHint("Requesting server identity");
                     const serverIdentity = await negotiationChannel.request<ServerIdentity>("identity");
                     serverSession.setServerIdentity(serverIdentity.data);
 
-                    this.gameUIControl.setLoadingHint(true, "Opening local data library");
+                    this.gameUIControl.loadingScreen.setHint("Opening local data library");
                     dataLibrary = await this.dataLibraryManager.getLibrary(serverIdentity.data.uuid);
                     
                     await dataLibrary.open(new LibraryDataNegotiationLocator(negotiationChannel));
 
-                    this.gameUIControl.setLoadingHint(true, "Logging in");
+                    this.gameUIControl.loadingScreen.setHint("Logging in");
                     const loginRequest = await negotiationChannel.request<ClientIdentity>("login", {
                         username: connectionOptions.username,
                         color: connectionOptions.color
                     });
 
                     
-                    this.gameUIControl.setLoadingHint(true, "Requesting content package");
+                    this.gameUIControl.loadingScreen.setTitle("Loading content package");
+                    this.gameUIControl.loadingScreen.setHint("Downloading content package");
                     const contentRequest = await negotiationChannel.request("content");
+
                     contentRequest.getStream().on("data", (stream) => {
-                        this.gameUIControl.setLoadingHint(true,
-                            "Downloading content package " + stream.receivedChunks + " / " + stream.totalChunks,
+                        this.gameUIControl.loadingScreen.setHint(
+                            "Downloading content package " + stream.receivedChunks + " / " + stream.totalChunks
+                        );
+                        this.gameUIControl.loadingScreen.setProgress(
                             { max: stream.totalBytes, value: stream.receivedBytes }
                         );
                     });
                     const contentData = await contentRequest.getStream().waitForEnd();
+                    this.gameUIControl.loadingScreen.clearProgress();
                     
-                    this.gameUIControl.setLoadingHint(true, "Decoding content package");
+                    this.gameUIControl.loadingScreen.setHint("Decoding content package");
                     await this.gameUIControl.waitForRepaint();
                     const content = JSON.parse(new TextDecoder().decode(contentData)) as GameContentPackage;
 
-                    this.gameUIControl.setLoadingHint(true, "Loading blocks into local registry");
+
+                    this.gameUIControl.loadingScreen.setTitle("Initializing blocks");
+                    this.gameUIControl.loadingScreen.setHint("Loading blocks into local registry");
                     await this.gameUIControl.waitForRepaint();
 
                     for(const block of content.blocks) {
@@ -206,10 +215,20 @@ export class Client extends TypedEmitter<ClientEvents> {
                     }
                     serverSession.registries.blocks.freeze();
                     
-                    this.gameUIControl.setLoadingHint(true, "Initializing blocks");
-                    await Promise.all(serverSession.registries.blocks.values().map(block => block.init(dataLibrary)));
+                    let loadedBlocks = 0;
+                    const totalBlockToLoad = serverSession.registries.blocks.size();
+                    for await(const block of serverSession.registries.blocks.values()) {
+                        this.gameUIControl.loadingScreen.setHint("Loading " + block.id);
+                        this.gameUIControl.loadingScreen.setProgress({
+                            max: totalBlockToLoad,
+                            value: ++loadedBlocks
+                        })
+                        await block.init(dataLibrary);
+                    }
+                    this.gameUIControl.loadingScreen.clearProgress();
 
-                    this.gameUIControl.setLoadingHint(true, "Building texture atlas");
+                    this.gameUIControl.loadingScreen.setTitle("Building local assets");
+                    this.gameUIControl.loadingScreen.setHint("Building texture atlas");
                     await this.gameUIControl.waitForRepaint();
 
                     const textureAtlas = new TextureAtlas;
@@ -226,15 +245,16 @@ export class Client extends TypedEmitter<ClientEvents> {
                     textureAtlas.builtTexture.generateMipmaps = false;
                     await setTerrainTextureAtlas(textureAtlas);
                     
-                    this.gameUIControl.setLoadingHint(true, "Memoizing block registry");
+                    this.gameUIControl.loadingScreen.setHint("Memoizing block registry");
 
                     await serverSession.blockDataMemoizer.memoize(textureAtlas);
 
-                    this.gameUIControl.setLoadingHint(true, "Building block previews");
+                    this.gameUIControl.loadingScreen.setHint("Building block previews");
                     await serverSession.displayBlockRenderer.build(serverSession.registries.blocks);
                     UIGameBlock.setDisplayBlockRenderer(serverSession.displayBlockRenderer);
                     
-                    this.gameUIControl.setLoadingHint(true, "Joining game");
+                    this.gameUIControl.loadingScreen.setTitle("Joining game");
+                    this.gameUIControl.loadingScreen.clearHint();
 
                     negotiationChannel.close();
                     await serverSession.openRealtime();

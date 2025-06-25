@@ -46,6 +46,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     protected _eventBinder: UIEventBinder;
     private externalEventHandlers: Map<string, (event: UIEvent) => boolean | void> = new Map;
     private onUpdateCallback: () => void;
+    private onDestroyedCallback: () => void;
 
     protected abstract buildElement(): Promise<HTMLElement>;
 
@@ -53,6 +54,19 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
         return this._eventBinder ??= new UIEventBinder;
     }
 
+    public async hide() {
+        if(!this.visible) return;
+        
+        this.visible = false;
+        await this.update();
+    }
+
+    public async show() {
+        if(this.visible) return;
+        
+        this.visible = true;
+        await this.update();
+    }
 
     public async update() {
         if(capabilities.DOCUMENT) {
@@ -77,6 +91,19 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     }
     public onUpdate(callback: () => void) {
         this.onUpdateCallback = callback;
+    }
+    public onDestroyed(callback: () => void) {
+        this.onDestroyedCallback = callback;
+    }
+
+    public destroy() {
+        this.onDestroyedCallback?.();
+        this.parent = null;
+        this.style = null;
+        this.element = null;
+        this.externalEventHandlers.clear();
+        this.externalEventHandlers = null;
+        this._eventBinder = null;
     }
 
     public serialize(): SerializedData {

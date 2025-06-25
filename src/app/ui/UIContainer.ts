@@ -131,4 +131,11 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
             element.percolateEvent(event);
         }
     }
+
+    public destroy() {
+        for(const element of this.elements) {
+            element.destroy();
+        }
+        super.destroy();
+    }
 }

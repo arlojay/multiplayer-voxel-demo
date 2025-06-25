@@ -1,5 +1,5 @@
 import { uniform } from "three/src/nodes/TSL";
-import { BoxGeometry, HemisphereLight, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
+import { BoxGeometry, HemisphereLight, ImageLoader, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { GameUIControl } from "../game";
 import { dlerp } from "../math";

@@ -14,4 +14,7 @@ export class BlockRegistry extends HashedInstanceRegistry<Block, string> {
 
         return this.get(stateKey[0]).states.get(stateKey[1]);
     }
+    public size() {
+        return this.instances.size;
+    }
 }

@@ -86,9 +86,9 @@ export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEve
         if(!this.open) throw new ReferenceError("Cannot send message to closed message port connection");
         this.dataPort.postMessage(data, getTransferableObjects(data));
     }
-    public close() {
+    public close(options?: { flush?: boolean }) {
         this.open = false;
-        this.commandPort.postMessage(["close"]);
+        this.commandPort.postMessage(["close", options]);
     }
 }
 

@@ -14,7 +14,7 @@ type MessageStructure = [string, MessageType, ...any[]];
 
 interface DataConnectionLike {
     open: boolean;
-    close(): void;
+    close(options?: { flush?: boolean }): void;
     send(data: any, chunked?: boolean): void;
 
     addListener(event: string, callback: (...params: any[]) => any): void;
@@ -266,21 +266,6 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
         super();
 
         this.connection = connection;
-
-        this.connection.addListener("data", (data: MessageStructure) => {
-            switch(data[1]) {
-                case MessageType.REQUEST:
-                    this.handleRequest(data);
-                    break;
-                case MessageType.DATA_STREAM:
-                    this.handleStream(data);
-                    break;
-                case MessageType.RESPONSE:
-                case MessageType.RESPONSE_ERROR:
-                    this.handleResponse(data);
-                    break;
-            }
-        })
         this.connection.addListener("close", () => {
             this.state = "closed";
             for(const response of this.waitingResponses.values()) {
@@ -340,11 +325,29 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
         this.state = "waiting-response";
 
         await onReady.promise;
+
+        this.connection.addListener("data", (data: MessageStructure) => {
+            if(this.state != "open") return console.warn("Negotiation channel is not open");
+            
+            switch(data[1]) {
+                case MessageType.REQUEST:
+                    this.handleRequest(data);
+                    break;
+                case MessageType.DATA_STREAM:
+                    this.handleStream(data);
+                    break;
+                case MessageType.RESPONSE:
+                case MessageType.RESPONSE_ERROR:
+                    this.handleResponse(data);
+                    break;
+            }
+        });
+
         this.emit("open");
     }
 
     public close() {
-        this.connection.close();
+        this.connection.close({ flush: false });
         this.state = "closed";
     }
 
@@ -422,7 +425,7 @@ export class NegotiationChannel extends TypedEmitter<NegotiationChannelEvents> {
         this.requestHandlers.delete(tag);
     }
     public request<ResponseSchema = any>(tag: string, data?: any, options: RequestOptions = {}) {
-        if(this.state != "open") throw new Error("channel is not open");
+        if(this.state != "open") throw new Error("Negotiation channel is not open");
 
         options.timeout ??= Infinity;
 
