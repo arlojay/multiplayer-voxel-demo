@@ -103,7 +103,7 @@ export class ServerManager {
 
             function errorCallback(event: ErrorEvent) {
                 cleanupCallbacks();
-                rej(new Error("Error while setting up server worker", { cause: event }))
+                rej(new Error("Error while setting up server worker", { cause: event.error }))
             }
 
             function cleanupCallbacks() {

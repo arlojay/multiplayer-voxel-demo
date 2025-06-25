@@ -1,7 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { BinaryBuffer } from "../binary";
 import { debugLog } from "../logging";
-import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, LibraryDataRequestPacket, LibraryDataResponsePacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, SetBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler } from "../packet";
+import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, splitPacket, SplitPacket, SplitPacketAssembler } from "../packet";
 import { UIContainer } from "../ui";
 import { CHUNK_INC_SCL } from "../voxelGrid";
 import { World } from "../world";
@@ -176,15 +176,6 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         if (packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if (this.onPingResponse != null) this.onPingResponse();
         }
-        if (packet instanceof LibraryDataRequestPacket) {
-            this.server.dataLibrary.getAsset(packet.location).then(asset => {
-                const blob = asset.item.blob;
-
-                blob.arrayBuffer().then(buffer => {
-                    this.sendPacket(new LibraryDataResponsePacket(blob.type, buffer));
-                })
-            });
-        }
 
 
         this.emit("packet", packet);
@@ -193,15 +184,16 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     // TODO: refactor for "add to queue" instead of "send instantly" flag
     public sendPacket(masterPacket: Packet, instant: boolean = false) {
-        for (const packet of splitPacket(masterPacket)) {
-            const buffer = packet.allocateBuffer();
-            try {
-                packet.write(new BinaryBuffer(buffer));
-            } catch (e) {
-                throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
-            }
+        if(instant) {
+            const splitPackets = splitPacket(masterPacket);
+            for (const packet of splitPackets) {
+                const buffer = packet.allocateBuffer();
+                try {
+                    packet.write(new BinaryBuffer(buffer));
+                } catch (e) {
+                    throw new Error("Failed to write packet " + (packet.constructor?.name), { cause: e });
+                }
 
-            if (instant) {
                 if (this.connected) {
                     this.connection.send(buffer);
                 } else {
@@ -209,9 +201,15 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                         this.connection.send(buffer);
                     });
                 }
-            } else {
-                this.packetQueue.add(buffer);
             }
+        } else {
+            const buffer = masterPacket.allocateBuffer();
+            try {
+                masterPacket.write(new BinaryBuffer(buffer));
+            } catch (e) {
+                throw new Error("Failed to write packet " + (masterPacket.constructor?.name), { cause: e });
+            }
+            this.packetQueue.add(buffer);
         }
     }
 
@@ -225,11 +223,12 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         const maxAggregateBytes = 0x4000;
 
 
+        const iterator = this.packetQueue.values();
+        let next: IteratorResult<ArrayBuffer, ArrayBuffer> = iterator.next();
+
         while (this.packetQueue.size > 0) {
             const combinedPacket = new CombinedPacket;
-            const iterator = this.packetQueue.values();
 
-            let next: IteratorResult<ArrayBuffer, ArrayBuffer> = iterator.next();
             let byteAggregate = 0;
             while (!next.done) {
                 if (byteAggregate + next.value.byteLength > maxAggregateBytes) break;

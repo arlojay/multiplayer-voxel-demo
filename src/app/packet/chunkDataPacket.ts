@@ -1,4 +1,4 @@
-import { BinaryBuffer, I32, U16 } from "../binary";
+import { BinaryBuffer, BOOL, I32, U16 } from "../binary";
 import { BlockStateSaveKey } from "../block/blockState";
 import { Player } from "../entity/impl";
 import { CHUNK_SIZE } from "../voxelGrid";
@@ -12,6 +12,7 @@ export class ChunkDataPacket extends Packet {
     public x: number;
     public y: number;
     public z: number;
+    public homogeneousBlock: number;
     public data: Uint16Array = new Uint16Array(CHUNK_SIZE ** 3);
     public entityData: ArrayBuffer[];
     public palette: BlockStateSaveKey[];
@@ -23,7 +24,9 @@ export class ChunkDataPacket extends Packet {
             this.x = chunk.x;
             this.y = chunk.y;
             this.z = chunk.z;
+            this.homogeneousBlock = chunk.getHomogeneousBlock();
             this.data = chunk.data;
+
             this.entityData = chunk.entities.values()
                 .filter(entity => !(entity instanceof Player))
                 .map(entity => {
@@ -41,7 +44,12 @@ export class ChunkDataPacket extends Packet {
         this.y = bin.read_i32();
         this.z = bin.read_i32();
 
-        this.data.set(new Uint16Array(bin.read_buffer()));
+        if(bin.read_boolean()) {
+            this.data.fill(this.homogeneousBlock = bin.read_u16());
+        } else {
+            this.homogeneousBlock = -1;
+            this.data.set(new Uint16Array(bin.read_buffer()));
+        }
         const paletteSize = bin.read_u16();
         this.palette = new Array;
         for(let i = 0; i < paletteSize; i++) {
@@ -62,7 +70,14 @@ export class ChunkDataPacket extends Packet {
         bin.write_i32(this.y);
         bin.write_i32(this.z);
 
-        bin.write_buffer(this.data.buffer as ArrayBuffer);
+        if(this.homogeneousBlock == -1) {
+            bin.write_boolean(false);
+            bin.write_buffer(this.data.buffer as ArrayBuffer);
+        } else {
+            bin.write_boolean(true);
+            bin.write_u16(this.homogeneousBlock);
+        }
+
         bin.write_u16(this.palette.length);
         for(const item of this.palette) bin.write_string(item);
 
@@ -78,7 +93,10 @@ export class ChunkDataPacket extends Packet {
 
         return (
             (I32 * 3) +
-            BinaryBuffer.bufferByteCount(this.data.buffer as ArrayBuffer) +
+            BOOL +
+            (
+                this.homogeneousBlock == -1 ? BinaryBuffer.bufferByteCount(this.data.buffer as ArrayBuffer) : U16
+            ) +
             U16 + paletteBytes +
             U16 +
             (

@@ -1,7 +1,7 @@
 import { Color, Mesh } from "three";
 import { BaseEntity, EntityLogicType } from "./entity/baseEntity";
 import { Server } from "./server/server";
-import { CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
+import { BLOCK_POSITION_X_BITMASK, BLOCK_POSITION_Y_BITMASK, BLOCK_POSITION_Z_BITMASK, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldGenerator } from "./worldGenerator";
 import { WorldRaycaster } from "./worldRaycaster";
 import { EntityGrid, EntityGridChunk } from "./entityGrid";
@@ -42,6 +42,15 @@ export class Chunk {
         this.blockZ = voxelChunk.z << CHUNK_INC_SCL;
     }
 
+    public getHomogeneousBlock() {
+        const data = this.voxelChunk.data;
+        const comparison = data[0];
+        for(let i = 0; i < data.length; i++) {
+            if(data[i] != comparison) return -1;
+        }
+        return comparison;
+    }
+
     public getBlockStateKey(x: number, y: number, z: number): BlockStateSaveKey {
         const id = this.voxelChunk.get(x, y, z);
         return this.flatPalette[id];
@@ -51,7 +60,7 @@ export class Chunk {
         return this.flatPalettePairs[id];
     }
     public getBlockStateAsMemoizedId(x: number, y: number, z: number) {
-        return this.memoizedIds[this.voxelChunk.get(x, y, z)];
+        return this.memoizedIds[this.voxelChunk.get(x & BLOCK_POSITION_X_BITMASK, y & BLOCK_POSITION_Y_BITMASK, z & BLOCK_POSITION_Z_BITMASK)];
     }
     public getBlockState(x: number, y: number, z: number, blockRegistry: BlockRegistry, blockState?: BlockState): BlockState {
         const id = this.voxelChunk.get(x, y, z);
@@ -126,7 +135,7 @@ export class Chunk {
     }
 
     public setPalette(flatPalette: (BlockStateSaveKey | null)[]) {
-        if(flatPalette.length == 0) flatPalette.push("air#default");
+        if(flatPalette.length === 0) flatPalette.push("air#default");
 
         this.palette.clear();
         this.flatPalette = flatPalette ?? [];
@@ -162,7 +171,7 @@ export class Chunk {
     }
 
     public isFullySurrounded() {
-        return this.surroundings == 26;
+        return this.surroundings === 26;
     }
 }
 
@@ -191,9 +200,9 @@ export class World {
     public setBlockState(x: number, y: number, z: number, state: BlockState, update = true) {
         const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
-        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockX = (x & BLOCK_POSITION_X_BITMASK);
+        const blockY = (y & BLOCK_POSITION_Y_BITMASK);
+        const blockZ = (z & BLOCK_POSITION_Z_BITMASK);
 
         if(chunk == null) return;
         
@@ -204,13 +213,13 @@ export class World {
     public setBlockStateKey(x: number, y: number, z: number, key: BlockStateSaveKey | BlockStateSaveKeyPair, update = true) {
         const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
-        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockX = (x & BLOCK_POSITION_X_BITMASK);
+        const blockY = (y & BLOCK_POSITION_Y_BITMASK);
+        const blockZ = (z & BLOCK_POSITION_Z_BITMASK);
 
         if(chunk == null) return;
         
-        chunk.setBlockState(blockX, blockY, blockZ, typeof key == "string" ? key : blockStateSaveKeyPairToString(key));
+        chunk.setBlockState(blockX, blockY, blockZ, typeof key === "string" ? key : blockStateSaveKeyPairToString(key));
 
         if(update) this.updateBlock(x, y, z, chunk);
     }
@@ -218,9 +227,9 @@ export class World {
     public getBlockState(x: number, y: number, z: number, blockState?: BlockState) {
         const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
-        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockX = (x & BLOCK_POSITION_X_BITMASK);
+        const blockY = (y & BLOCK_POSITION_Y_BITMASK);
+        const blockZ = (z & BLOCK_POSITION_Z_BITMASK);
 
         if(chunk == null) return null;
         
@@ -230,9 +239,9 @@ export class World {
     public getBlockStateKey(x: number, y: number, z: number) {
         const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
-        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
+        const blockX = (x & BLOCK_POSITION_X_BITMASK);
+        const blockY = (y & BLOCK_POSITION_Y_BITMASK);
+        const blockZ = (z & BLOCK_POSITION_Z_BITMASK);
 
         if(chunk == null) return null;
         
@@ -242,11 +251,11 @@ export class World {
     public getBlockStateAsMemoizedId(x: number, y: number, z: number) {
         const chunk = this.getChunk(x >> CHUNK_BLOCK_INC_BYTE, y >> CHUNK_BLOCK_INC_BYTE, z >> CHUNK_BLOCK_INC_BYTE);
 
-        const blockX = (x - (x >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockY = (y - (y >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-        const blockZ = (z - (z >> CHUNK_BLOCK_INC_BYTE << CHUNK_BLOCK_INC_BYTE));
-
         if(chunk == null) return 0;
+
+        const blockX = (x & BLOCK_POSITION_X_BITMASK);
+        const blockY = (y & BLOCK_POSITION_Y_BITMASK);
+        const blockZ = (z & BLOCK_POSITION_Z_BITMASK);
         
         return chunk.getBlockStateAsMemoizedId(blockX, blockY, blockZ);
     }
@@ -256,9 +265,9 @@ export class World {
         const chunkY = y >> CHUNK_BLOCK_INC_BYTE;
         const chunkZ = z >> CHUNK_BLOCK_INC_BYTE;
 
-        const relativeX = x - (chunkX << CHUNK_BLOCK_INC_BYTE);
-        const relativeY = y - (chunkY << CHUNK_BLOCK_INC_BYTE);
-        const relativeZ = z - (chunkZ << CHUNK_BLOCK_INC_BYTE);
+        const blockX = (x & BLOCK_POSITION_X_BITMASK);
+        const blockY = (y & BLOCK_POSITION_Y_BITMASK);
+        const blockZ = (z & BLOCK_POSITION_Z_BITMASK);
 
         this.markChunkDirty(chunk);
 
@@ -266,9 +275,9 @@ export class World {
             for(let dy = -1; dy <= 1; dy++) {
                 for(let dz = -1; dz <= 1; dz++) {
                     if(
-                        (relativeX == 15 ? 1 : (relativeX == 0 ? -1 : 0)) == dx ||
-                        (relativeY == 15 ? 1 : (relativeY == 0 ? -1 : 0)) == dy ||
-                        (relativeZ == 15 ? 1 : (relativeZ == 0 ? -1 : 0)) == dz
+                        (blockX === 15 ? 1 : (blockX === 0 ? -1 : 0)) === dx ||
+                        (blockY === 15 ? 1 : (blockY === 0 ? -1 : 0)) === dy ||
+                        (blockZ === 15 ? 1 : (blockZ === 0 ? -1 : 0)) === dz
                     ) {
                         this.markDirtyByPos(chunkX + dx, chunkY + dy, chunkZ + dz);
                     }
@@ -311,6 +320,7 @@ export class World {
     public deleteChunk(x: number, y: number, z: number) {
         const chunk = this.blocks.deleteChunk(x, y, z);
         this.chunkMap.delete(chunk);
+        chunk.dispose();
     }
     
     public setGenerator(generator: WorldGenerator) {

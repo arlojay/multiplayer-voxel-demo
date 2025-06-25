@@ -202,6 +202,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.lastPacketTime = this.client.time;
         
         let packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
+        this.lastPacketReceived.set(packet.id, packet.timestamp);
+
         if(packet instanceof SplitPacket) {
             data = this.splitPacketAssembler.addPart(packet);
             if(data == null) return;
@@ -222,11 +224,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof SetBlockPacket) {
             if(this.localWorld.chunkExists(packet.x >> CHUNK_INC_SCL, packet.y >> CHUNK_INC_SCL, packet.z >> CHUNK_INC_SCL)) {
-                this.localWorld.setBlockStateKey(packet.x, packet.y, packet.z, packet.block);
+                this.localWorld.setBlockStateKey(packet.x, packet.y, packet.z, this.blockDataMemoizer.getStateKey(packet.block));
             }
         }
         if(packet instanceof ChunkDataPacket) {
-            const key = packet.x + ";" + packet.y + ";" + packet.z;
+            const key = packet.x + ";" + packet.y + ";" + packet.z as ChunkFetchingKey;
             const promise = this.waitingChunks.get(key);
             if(promise != null) promise.resolve(packet);
             this.waitingChunks.delete(key);
@@ -360,8 +362,6 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof SetSelectedBlockPacket) {
             this.player.selectedBlock = packet.state;
         }
-        
-        this.lastPacketReceived.set(packet.id, packet.timestamp);
     }
     public handleAddEntity(entity: BaseEntity) {
         this.localWorld.addEntity(entity);
@@ -375,7 +375,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
     public handleRemoveEntity(entity: BaseEntity) {
         this.localWorld.removeEntity(entity);
-        this.lastEntityPacketReceived
+        for(const map of this.lastEntityPacketReceived) {
+            if(map == null) continue;
+            map.delete(entity.uuid);
+        }
         entity.remoteLogic.onRemove();
     }
     private onDisconnected() {

@@ -498,12 +498,12 @@ export class Server extends EventPublisher {
         packet.z = z;
 
         const chunk = world.getChunk(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL);
-        packet.block = chunk.getBlockStateKey(x - chunk.blockX, y - chunk.blockY, z - chunk.blockZ);
+        packet.block = chunk.getBlockStateAsMemoizedId(x - chunk.blockX, y - chunk.blockY, z - chunk.blockZ);
 
         return packet;
     }
 
-    public updateBlock(world: World, x: number, y: number, z: number) {        
+    public updateBlock(world: World, x: number, y: number, z: number) {
         this.broadcastPacket(this.createBlockUpdatePacket(world, x, y, z), world);
     }
 

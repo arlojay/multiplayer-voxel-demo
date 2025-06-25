@@ -32,8 +32,5 @@
 
 /*25*/ export * from "./splitPacket";
 
-/*26*/ export * from "./libraryDataRequestPacket";
-/*27*/ export * from "./libraryDataResponsePacket";
-
-/*28*/ export * from "./setLocalPlayerCapabilitiesPacket";
-/*29*/ export * from "./setSelectedBlockPacket";
+/*26*/ export * from "./setLocalPlayerCapabilitiesPacket";
+/*27*/ export * from "./setSelectedBlockPacket";

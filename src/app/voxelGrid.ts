@@ -1,9 +1,5 @@
 import { AugmentedUint16Array, Uint16ArrayPool } from "./arrayPool";
 
-export const BLOCK_INC_SCL = 4;
-export const BLOCK_X_INC_BYTE = BLOCK_INC_SCL * 2;
-export const BLOCK_Y_INC_BYTE = BLOCK_INC_SCL * 0;
-export const BLOCK_Z_INC_BYTE = BLOCK_INC_SCL * 1;
 
 export const CHUNK_INC_SCL = 4;
 export const CHUNK_X_INC_BYTE = CHUNK_INC_SCL * 2;
@@ -16,6 +12,13 @@ export const REGION_X_INC_BYTE = REGION_INC_SCL * 2;
 export const REGION_Y_INC_BYTE = REGION_INC_SCL * 0;
 export const REGION_Z_INC_BYTE = REGION_INC_SCL * 1;
 export const REGION_BLOCK_INC = CHUNK_BLOCK_INC_BYTE + REGION_INC_SCL;
+
+export const BLOCK_X_INC_BYTE = CHUNK_INC_SCL * 2;
+export const BLOCK_Y_INC_BYTE = CHUNK_INC_SCL * 0;
+export const BLOCK_Z_INC_BYTE = CHUNK_INC_SCL * 1;
+export const BLOCK_POSITION_X_BITMASK = (1 << CHUNK_INC_SCL) - 1;
+export const BLOCK_POSITION_Y_BITMASK = (1 << CHUNK_INC_SCL) - 1;
+export const BLOCK_POSITION_Z_BITMASK = (1 << CHUNK_INC_SCL) - 1;
 
 export const CHUNK_SIZE = 1 << CHUNK_INC_SCL;
 export const REGION_SIZE = 1 << REGION_INC_SCL;
@@ -133,7 +136,7 @@ export class VoxelGrid {
         this.cachedRegionZ = Infinity;
     }
     public getRegion(x: number, y: number, z: number): VoxelGridRegion {
-        if(x == this.cachedRegionX && y == this.cachedRegionY && z == this.cachedRegionZ) return this.cachedRegion;
+        if(x === this.cachedRegionX && y === this.cachedRegionY && z === this.cachedRegionZ) return this.cachedRegion;
         this.cachedRegionX = x;
         this.cachedRegionY = y;
         this.cachedRegionZ = z;
