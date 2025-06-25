@@ -38,7 +38,6 @@ export class GameData {
 
     public async saveClientOptions() {
         this.clientOptions.controls.keybinds = serializeControls();
-        console.log(this.clientOptions.controls.keybinds);
         await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"), { packArrays: false })
     }
     public async loadClientOptions() {

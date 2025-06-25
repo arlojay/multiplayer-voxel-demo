@@ -119,8 +119,6 @@ export function makeSettingsUI(gameData: GameData) {
         changeKeybindButton.onClick(async () => {
             await changeKeybindButton.setText("<Press>");
 
-            console.log(changeKeybindButton.element);
-
             changeKeybindButton.element.tabIndex = 0;
             changeKeybindButton.element.focus();
             changeKeybindButton.element.requestPointerLock();

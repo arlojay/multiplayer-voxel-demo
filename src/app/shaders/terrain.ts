@@ -66,12 +66,10 @@ export async function setTextureAtlas(atlas: TextureAtlas) {
     for(let i = 0; i < imageData.data.length; i += 4) {
         imageData.data[i + 3] = 255;
     }
-    console.log(imageData.data);
     ctx.putImageData(imageData, 0, 0);
 
     const blob = await canvas.convertToBlob();
     const url = URL.createObjectURL(blob);
-    console.log(url);
     
     const texture = await new TextureLoader().loadAsync(url);
     texture.magFilter = texture.minFilter = NearestFilter;

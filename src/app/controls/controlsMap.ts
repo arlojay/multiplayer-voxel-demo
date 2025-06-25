@@ -63,7 +63,6 @@ function register(name: string, defaultKey: string) {
 }
 
 export function serializeControls() {
-    console.trace("serialize controls", controls);
     const mappings: Record<string, string> = {};
     for(const key of Object.keys(controls)) {
         mappings[key] = (controls as Record<string, KeyControl>)[key].get();
@@ -72,7 +71,6 @@ export function serializeControls() {
 }
 
 export function deserializeControls(serializedControls: Record<string, string>) {
-    console.trace("deserialize controls", serializedControls);
     if(serializedControls == null) return;
 
     for(const key of Object.keys(serializedControls)) {

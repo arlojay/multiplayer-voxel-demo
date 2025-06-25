@@ -85,7 +85,7 @@ export class DisplayBlockRenderer {
         this.renderer.setSize(sizeX * blockViewSize, sizeY * blockViewSize);
         await this.renderer.renderAsync(scene, this.camera);
 
-        console.log("Rendered " + totalCount + " blocks in " + Math.round(performance.now() - t1) + "ms");
+        console.debug("Rendered " + totalCount + " blocks in " + Math.round(performance.now() - t1) + "ms");
         const t2 = performance.now();
 
         const canvas = new OffscreenCanvas(this.canvas.width, this.canvas.height);
@@ -111,13 +111,11 @@ export class DisplayBlockRenderer {
                 index++;
             }
         }
-        console.log("Sliced " + totalCount + " blocks in " + Math.round(performance.now() - t2) + "ms");
+        console.debug("Sliced " + totalCount + " blocks in " + Math.round(performance.now() - t2) + "ms");
     }
 
     private getMaterial(faceTexture: Texture) {
         if(this.materials.has(faceTexture)) return this.materials.get(faceTexture);
-
-        console.log("create material", faceTexture);
 
         const colorNode = texture(faceTexture).mul(vertexColor()).mix(
             color(0, 0, 0),

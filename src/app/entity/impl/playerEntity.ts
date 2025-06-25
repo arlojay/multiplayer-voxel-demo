@@ -496,7 +496,6 @@ export class LocalPlayer extends LocalEntity<Player> {
 
         const stateKey = this.base.selectedBlock;
         const block = this.base.world.memoizer.getMemoizedId(stateKey);
-        console.log(stateKey, block);
 
         if(this.collisionChecker.collidesWithBlock(x, y, z, block)) return;
         

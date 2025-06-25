@@ -14,7 +14,6 @@ export class LibraryDataNegotiationLocator extends LibraryDataLocator {
         this.negotiationChannel = negotiationChannel;
     }
     public async get(location: string) {
-        console.warn("NEGOTIATION LOCATOR", location);
         const response = await this.negotiationChannel.request<AssetResponse>("asset", location);
         
         const stream = response.getStream();

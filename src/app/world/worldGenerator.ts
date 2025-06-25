@@ -3,8 +3,6 @@ import { ColorBlock } from "../block/colorBlock";
 import { CHUNK_SIZE } from "./voxelGrid";
 import { Chunk, World } from "./world";
 
-let logged = false;
-
 export class WorldGenerator {
     public world: World;
 
@@ -23,11 +21,6 @@ export class WorldGenerator {
         const stone = world.blockRegistry.getStateType("color#" + ColorBlock.getClosestColor(0x888888) as BlockStateSaveKey);
         const dirt = world.blockRegistry.getStateType("color#" + ColorBlock.getClosestColor(0xCC9966) as BlockStateSaveKey);
         const grass = world.blockRegistry.getStateType("color#" + ColorBlock.getClosestColor(0xBBFF99) as BlockStateSaveKey);
-
-        if(!logged) {
-            console.log(air, stone, dirt, grass);
-            logged = true;
-        }
 
         for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
             for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {

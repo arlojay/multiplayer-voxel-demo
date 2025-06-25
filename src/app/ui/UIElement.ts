@@ -74,7 +74,6 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
             if(element == null) throw new ReferenceError("Built element must not be null");
             if(!this.visible) element.hidden = true;
             
-            console.log("replacing element");
             if(this.element != null) this.element.replaceWith(element);
             this.eventBinder.setElement(element);
             this.element = element;
