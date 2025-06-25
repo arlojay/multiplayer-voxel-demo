@@ -24,9 +24,7 @@ export class ServerPlayer {
     }
 
     public update(dt: number): void {
-        if(this.base.position.y < -100) {
-            this.respawn();
-        }
+        
     }
 
     public onAuthenticated() {
