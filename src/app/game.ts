@@ -3,7 +3,7 @@ import { ServerSession } from "./client/serverSession";
 import { ClientCustomizationOptions } from "./controlOptions";
 import { cloneDb, dbExists } from "./dbUtils";
 import { debugLog } from "./logging";
-import { dlerp } from "./math";
+import { dlerp, map } from "./math";
 import { PluginLoader } from "./server/pluginLoader";
 import { ServerLaunchOptions } from "./server/server";
 import { ServerData, ServerOptions } from "./server/serverData";
@@ -25,12 +25,166 @@ function createRandomServerGameCode() {
     return str;
 }
 
+export class GameUIControl {
+    public setLoadingHint(visible: boolean, text: string, progress?: { min?: number, max: number, value: number }) {
+        if(progress != null) {
+            progress.min ??= 0;
+        }
+        if(visible) console.debug("Loading... ", text, progress != null ? (Math.round(map(progress.value, progress.min, progress.max, 0, 100)) + "%") : "");
+        
+        document.querySelectorAll(".loading-hint").forEach((hintElement: HTMLElement) => {
+            hintElement.hidden = !visible;
+            hintElement.querySelector(".state").textContent = text;
+            const progressContainer = hintElement.querySelector(".progress") as HTMLDivElement;
+            const progressElement = progressContainer.querySelector("progress");
+
+            if(progress == null) {
+                progressContainer.hidden = true;
+            } else {
+                progressContainer.hidden = false;
+
+                progressElement.setAttribute("min", progress.min.toString());
+                progressElement.setAttribute("max", progress.max.toString());
+                progressElement.setAttribute("value", progress.value.toString());
+                progressElement.textContent = Math.round(map(progress.value, progress.min, progress.max, 0, 100)) + "%";
+                hintElement.querySelector(".progress-text").textContent = progressElement.textContent;
+            }
+        })
+    }
+    public getRoot() {
+        return gameRoot;
+    }
+    public getCanvas() {
+        return gameRoot.querySelector("canvas") as HTMLCanvasElement;
+    }
+    public getUI() {
+        return gameRoot.querySelector("#game-ui") as HTMLDivElement;
+    }
+    public isOnTab() {
+        return document.visibilityState == "visible";
+    }
+    public isNotFocusedOnAnything() {
+        return document.activeElement == document.body;
+    }
+    public waitForRepaint() {
+        return new Promise<number>(requestAnimationFrame);
+    }
+}
+
 main();
 
+export class DebugInfo {
+    private performanceMeter: HTMLDivElement;
+    private memCounter: HTMLDivElement;
+    private fpsCounter: HTMLDivElement;
+    private frametimeCounter: HTMLDivElement;
+    private networkCounter: HTMLDivElement;
+    private drawCallsCounter: HTMLDivElement;
+    private memused: number;
+    private displayMemused: number;
+    private lastSentBytes: number;
+    private lastSentByteInterval: number;
+    private lastRecvBytes: number;
+    private lastRecvByteInterval: number;
+    private lastTime: number;
+    private lastDrawCalls: number;
+    private drawCalls: number;
+
+    private cbs: ({ time: number, run: () => void })[];
+    private client: Client;
+
+    constructor(client: Client) {
+        this.client = client;
+        this.performanceMeter = document.querySelector("#perf-meters");
+        this.memCounter = this.performanceMeter.querySelector(".mem");
+        this.fpsCounter = this.performanceMeter.querySelector(".fps");
+        this.frametimeCounter = this.performanceMeter.querySelector(".frametime");
+        this.networkCounter = this.performanceMeter.querySelector(".network");
+        this.drawCallsCounter = this.performanceMeter.querySelector(".draw-calls");
+
+        this.memused = 0;
+        this.displayMemused = 0;
+        this.lastSentBytes = 0;
+        this.lastSentByteInterval = 0;
+        this.lastRecvBytes = 0;
+        this.lastRecvByteInterval = 0;
+
+        this.cbs = new Array;
+        this.lastTime = 0;
+        this.lastDrawCalls = 0;
+
+        setInterval(() => {
+            const memory = (performance as any).memory;
+            if(memory != null) {
+                this.memused = memory.usedJSHeapSize / 1024 / 1024;
+            }
+            this.updateElements();
+        }, 100)
+    }
+    public decimalToAccuracy(value: number, places: number) {
+        const n = 10 ** places;
+        const count = (Math.round(value * n) / n).toString();
+        let [ whole, frac ] = count.split(".");
+        if(frac == null) frac = "";
+        frac = frac.padEnd(places, "0");
+
+        return whole + "." + frac;
+    }
+    public update(time: number) {
+        while(this.cbs[0]?.time < time) this.cbs.shift().run();
+
+        if(this.client.serverSession?.serverConnection != null) {
+            getStats(this.client.serverSession.serverConnection).then(stats => {
+                if(stats != null) {
+                    const sent = stats.bytesSent - this.lastSentBytes;
+                    this.lastSentBytes = stats.bytesSent;
+                    this.lastSentByteInterval += sent;
+
+                    const recv = stats.bytesReceived - this.lastRecvBytes;
+                    this.lastRecvBytes = stats.bytesReceived;
+                    this.lastRecvByteInterval += recv;
+
+                    if(sent > 0 || recv > 0) this.cbs.push({ time, run() {
+                        this.lastSentByteInterval -= sent;
+                        this.lastRecvByteInterval -= recv;
+                    }})
+                }
+            });
+        }
+
+
+        const dt = (time - this.lastTime);
+        this.lastTime = time;
+
+        this.displayMemused = Math.min(this.memused, dlerp(this.displayMemused, this.memused, dt, 5));
+            
+        this.drawCalls = this.client.gameRenderer.renderer.info.calls - this.lastDrawCalls;
+        this.lastDrawCalls = this.client.gameRenderer.renderer.info.calls;
+        this.client.gameRenderer.renderer.info.reset();
+    }
+    public updateElements() {
+        this.memCounter.textContent = this.decimalToAccuracy(this.displayMemused, 2) + "MB used";
+        
+        if(this.client.gameRenderer != null) {
+            this.fpsCounter.textContent = Math.round(this.client.gameRenderer.framerate) + " FPS";
+            this.frametimeCounter.textContent = this.decimalToAccuracy(this.client.gameRenderer.frametime * 1000, 3) + " ms/f";
+            this.drawCallsCounter.textContent = this.drawCalls + " calls/f";
+        }
+        if(this.client.peer != null) {
+            this.networkCounter.textContent = (
+                this.decimalToAccuracy(this.lastSentByteInterval / 1024, 2).padStart(10, " ") + "kB/s up" +
+                this.decimalToAccuracy(this.lastRecvByteInterval / 1024, 2).padStart(10, " ") + "kB/s down"
+            );
+        }
+    }
+}
+
 async function main() {
-    const client = new Client(gameRoot);
+    const client = new Client(new GameUIControl);
     await client.init();
     (window as any).client = client;
+
+    client.setDebugInfo(new DebugInfo(client));
     
     if("navigator" in window && "keyboard" in window.navigator) {
         (window.navigator as any).keyboard.lock([
@@ -54,78 +208,6 @@ async function main() {
             }
         }
     });
-
-    const performanceMeter = document.querySelector("#perf-meters");
-    const memCounter = performanceMeter.querySelector(".mem");
-    const fpsCounter = performanceMeter.querySelector(".fps");
-    const frametimeCounter = performanceMeter.querySelector(".frametime");
-    const networkCounter = performanceMeter.querySelector(".network");
-
-    function decimalToAccuracy(value: number, places: number) {
-        const n = 10 ** places;
-        const count = (Math.round(value * n) / n).toString();
-        let [ whole, frac ] = count.split(".");
-        if(frac == null) frac = "";
-        frac = frac.padEnd(places, "0");
-
-        return whole + "." + frac;
-    }
-
-    let memused = 0;
-    let displayMemused = 0;
-    let lastSentBytes = 0;
-    let lastSentByteInterval = 0;
-    let lastRecvBytes = 0;
-    let lastRecvByteInterval = 0;
-    setInterval(() => {
-        const memory = (performance as any).memory;
-        if(memory != null) {
-            memused = memory.usedJSHeapSize / 1024 / 1024;
-        }
-    }, 10);
-
-    const cbs: ({ time: number, run: () => void })[] = new Array;
-    let lastTime = 0;
-
-    const cb = (time: number) => {
-        while(cbs[0]?.time + 1000 < lastTime) cbs.shift().run();
-
-        if(client.serverSession?.serverConnection != null) {
-            getStats(client.serverSession.serverConnection).then(stats => {
-                if(stats != null) {
-                    const sent = stats.bytesSent - lastSentBytes;
-                    lastSentBytes = stats.bytesSent;
-                    lastSentByteInterval += sent;
-
-                    const recv = stats.bytesReceived - lastRecvBytes;
-                    lastRecvBytes = stats.bytesReceived;
-                    lastRecvByteInterval += recv;
-
-                    if(sent > 0 || recv > 0) cbs.push({ time: lastTime, run() {
-                        lastSentByteInterval -= sent;
-                        lastRecvByteInterval -= recv;
-                    }})
-                }
-            });
-        }
-
-
-        const dt = (time - lastTime) / 1000;
-        lastTime = time;
-
-        displayMemused = Math.min(memused, dlerp(displayMemused, memused, dt, 5));
-        memCounter.textContent = decimalToAccuracy(displayMemused, 2) + "MB used";
-        
-        if(client.gameRenderer != null) {
-            fpsCounter.textContent = Math.round(client.gameRenderer.framerate) + " FPS";
-            frametimeCounter.textContent = decimalToAccuracy(client.gameRenderer.frametime * 1000, 3) + " ms/frame";
-        }
-        if(client.peer != null) {
-            networkCounter.textContent = decimalToAccuracy(lastSentByteInterval / 1024, 2).padStart(10, " ") + "kB/s up" + decimalToAccuracy(lastRecvByteInterval / 1024, 2).padStart(10, " ") + "kB/s down"
-        }
-        requestAnimationFrame(cb);
-    };
-    requestAnimationFrame(cb);
 
 
 
@@ -260,8 +342,6 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
         const connectedServerSession = await connectionController.promise; // resolves with completed server connection
         serverConnection.classList.remove("visible");
         cancelConnectionButton.removeEventListener("click", cancelButtonCallback);
-        
-        loadChunks(connectedServerSession);
 
         
         connectedServerSession.addListener("disconnected", reason => {
@@ -606,15 +686,4 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
     });
 
     serverData.close();
-}
-
-function loadChunks(serverSession: ServerSession) {
-    serverSession.updateViewDistance();
-    const interval = setInterval(() => {
-        serverSession.updateViewDistance();
-    }, 2000);
-
-    serverSession.addListener("disconnected", () => {
-        clearInterval(interval);
-    });
 }

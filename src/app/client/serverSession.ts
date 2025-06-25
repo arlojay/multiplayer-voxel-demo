@@ -382,6 +382,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         entity.remoteLogic.onRemove();
     }
     private onDisconnected() {
+        this.music.destroy();
+
         this.chunkFetchingQueue.forEach(v => this.chunkFetchingQueue.remove(v));
         this.chunkFetchingQueueMap.clear();
         this.fetchingChunks.clear();
@@ -637,12 +639,18 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         this.updateChunkFetchQueue(dt);
 
+        if(this.serverConnection?.open) {
         if(this.lastPacketTime + 5000 < time) {
             this.close("Server not responding");
+            }
+        } else {
+            this.lastPacketTime = this.client.time;
         }
     }
 
     private onConnected() {
+        this.lastPacketTime = this.client.time;
+
         this.player = new Player(EntityLogicType.LOCAL_LOGIC);
         this.player.setWorld(this.localWorld);
         this.player.position.set(0, 10, 0);

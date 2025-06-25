@@ -64,7 +64,11 @@ enum NegotiationStreamType {
     RECEIVE
 }
 
-class NegotiationStream {
+interface NegotiationStreamEvents {
+    "data": (stream: NegotiationStream, data: ArrayBuffer, index: number) => void;
+    "end": (stream: NegotiationStream) => void;
+}
+class NegotiationStream extends TypedEmitter<NegotiationStreamEvents> {
     public id: string;
     public readonly type: NegotiationStreamType;
 
@@ -75,6 +79,7 @@ class NegotiationStream {
     private descriptor: StreamMessageDescriptor;
 
     constructor(id: string, type: NegotiationStreamType) {
+        super();
         this.id = id;
         this.type = type;
     }
@@ -117,6 +122,8 @@ class NegotiationStream {
         this.builtStreamData.set(new Uint8Array(chunk), index);
         this.waitingStreamChunks--;
         this.totalReceivedBytes += chunk.byteLength;
+
+        this.emit("data", this, chunk, index);
 
         if(this.waitingStreamChunks == 0) {
             this.onStreamFinish.resolve(this.builtStreamData.buffer as ArrayBuffer);

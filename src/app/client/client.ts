@@ -17,9 +17,8 @@ import { NearestFilter } from "three";
 import { setTextureAtlas as setTerrainTextureAtlas, terrainMap } from "../shaders/terrain";
 import { LibraryDataNegotiationLocator } from "../data/libraryDataNegotiationLocator";
 import { ClientIdentity, ServerIdentity } from "../serverIdentity";
-import { BlockDataMemoizer } from "../block/blockDataMemoizer";
-import { BSON } from "bson";
 import { UIGameBlock } from "../ui/UIGameBlock";
+import { DebugInfo, GameUIControl } from "../game";
 
 interface ClientEvents {
     "login": () => void;
@@ -50,18 +49,20 @@ export class Client extends TypedEmitter<ClientEvents> {
     public audioManager = new AudioManager;
     public dataLibraryManager = new DataLibraryManager("client");
     public time: number;
+    public gameUIControl: GameUIControl;
+    public debugInfo: DebugInfo;
     
-    constructor(gameRoot: HTMLElement) {
+    constructor(gameUIControl: GameUIControl) {
         super();
         Client.instance = this;
+        this.gameUIControl = gameUIControl;
 
-        const canvas = gameRoot.querySelector("canvas") as HTMLCanvasElement;
-        const UIRoot = gameRoot.querySelector("#game-ui") as HTMLDivElement;
-        this.gameRenderer = new GameRenderer(canvas, UIRoot);
-        this.playerController = new PlayerController(canvas);
+        this.gameRenderer = new GameRenderer(gameUIControl);
+        this.playerController = new PlayerController(gameUIControl.getCanvas());
         
         this.gameRenderer.addListener("frame", (time, dt) => {
             this.update(time, dt);
+            this.debugInfo.update(time);
         });
 
         let lastForcedUpdate = 0;
@@ -69,7 +70,7 @@ export class Client extends TypedEmitter<ClientEvents> {
         let firstForcedUpdate = 0;
 
         setInterval(() => {
-            if(document.visibilityState == "visible") {
+            if(this.gameUIControl.isOnTab()) {
                 lastRealUpdate = this.time;
                 lastForcedUpdate = firstForcedUpdate = performance.now();
                 return;
@@ -83,6 +84,10 @@ export class Client extends TypedEmitter<ClientEvents> {
 
             this.update(this.time, dt / 1000);
         }, 200);
+    }
+    
+    public setDebugInfo(debugInfo: DebugInfo) {
+        this.debugInfo = debugInfo;
     }
 
     public login(id: string = "client-" + Math.random().toString().slice(2) + "-mvd") {
@@ -157,27 +162,44 @@ export class Client extends TypedEmitter<ClientEvents> {
                 serverSession.addListener("disconnected", disconnectedCallback);
 
                 try {
+                    this.gameUIControl.setLoadingHint(true, "Connecting to server");
                     const negotiationChannel = await serverSession.connect();
+
+                    this.gameUIControl.setLoadingHint(true, "Opening negotiation channel");
                     await negotiationChannel.open();
 
+                    this.gameUIControl.setLoadingHint(true, "Requesting server identity");
                     const serverIdentity = await negotiationChannel.request<ServerIdentity>("identity");
                     serverSession.setServerIdentity(serverIdentity.data);
-                    
-                    console.debug("<client> hello " + serverIdentity.data.uuid + "!! gonna try and get blocks now...");
 
+                    this.gameUIControl.setLoadingHint(true, "Opening local data library");
                     dataLibrary = await this.dataLibraryManager.getLibrary(serverIdentity.data.uuid);
                     
                     await dataLibrary.open(new LibraryDataNegotiationLocator(negotiationChannel));
 
+                    this.gameUIControl.setLoadingHint(true, "Logging in");
                     const loginRequest = await negotiationChannel.request<ClientIdentity>("login", {
                         username: connectionOptions.username,
                         color: connectionOptions.color
                     });
 
-                    console.debug("<client> gonna try and get blocks now...");
+                    
+                    this.gameUIControl.setLoadingHint(true, "Requesting content package");
                     const contentRequest = await negotiationChannel.request("content");
+                    contentRequest.getStream().on("data", (stream) => {
+                        this.gameUIControl.setLoadingHint(true,
+                            "Downloading content package " + stream.receivedChunks + " / " + stream.totalChunks,
+                            { max: stream.totalBytes, value: stream.receivedBytes }
+                        );
+                    });
                     const contentData = await contentRequest.getStream().waitForEnd();
+                    
+                    this.gameUIControl.setLoadingHint(true, "Decoding content package");
+                    await this.gameUIControl.waitForRepaint();
                     const content = JSON.parse(new TextDecoder().decode(contentData)) as GameContentPackage;
+
+                    this.gameUIControl.setLoadingHint(true, "Loading blocks into local registry");
+                    await this.gameUIControl.waitForRepaint();
 
                     for(const block of content.blocks) {
                         const BlockClass = createDeserializedBlockClass(block);
@@ -185,7 +207,11 @@ export class Client extends TypedEmitter<ClientEvents> {
                     }
                     serverSession.registries.blocks.freeze();
                     
+                    this.gameUIControl.setLoadingHint(true, "Initializing blocks");
                     await Promise.all(serverSession.registries.blocks.values().map(block => block.init(dataLibrary)));
+
+                    this.gameUIControl.setLoadingHint(true, "Building texture atlas");
+                    await this.gameUIControl.waitForRepaint();
 
                     const textureAtlas = new TextureAtlas;
                     for(const block of serverSession.registries.blocks.values()) {
@@ -200,12 +226,16 @@ export class Client extends TypedEmitter<ClientEvents> {
                     textureAtlas.builtTexture.colorSpace = "srgb";
                     textureAtlas.builtTexture.generateMipmaps = false;
                     await setTerrainTextureAtlas(textureAtlas);
+                    
+                    this.gameUIControl.setLoadingHint(true, "Memoizing block registry");
 
                     await serverSession.blockDataMemoizer.memoize(textureAtlas);
-                    serverSession.displayBlockRenderer.build(serverSession.registries.blocks);
-                    UIGameBlock.setDisplayBlockRenderer(serverSession.displayBlockRenderer);
 
-                    console.debug("<client> woohoo!!! joining now!!");
+                    this.gameUIControl.setLoadingHint(true, "Building block previews");
+                    await serverSession.displayBlockRenderer.build(serverSession.registries.blocks);
+                    UIGameBlock.setDisplayBlockRenderer(serverSession.displayBlockRenderer);
+                    
+                    this.gameUIControl.setLoadingHint(true, "Joining game");
 
                     negotiationChannel.close();
                     await serverSession.openRealtime();

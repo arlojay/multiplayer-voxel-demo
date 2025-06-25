@@ -9,6 +9,7 @@ import { uniform } from "three/src/nodes/TSL";
 import { Client } from "./client/client";
 import { CHUNK_SIZE } from "./voxelGrid";
 import { dlerp } from "./math";
+import { GameUIControl } from "./game";
 
 interface GameRendererEvents {
     "frame": (time: number, dt: number) => void;
@@ -33,12 +34,14 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     private regainingRendererContext = false;
     public framerate = 0;
     public frametime = 0;
+    public gameUIControl: GameUIControl;
 
-    constructor(canvas: HTMLCanvasElement, UIRoot: HTMLDivElement) {
+    constructor(gameUIControl: GameUIControl) {
         super();
         
-        this.canvas = canvas;
-        this.UIRoot = UIRoot;
+        this.gameUIControl = gameUIControl;
+        this.canvas = gameUIControl.getCanvas();
+        this.UIRoot = gameUIControl.getUI();
     }
     public async init() {
         await this.initRenderer();
@@ -61,6 +64,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         this.renderer.autoClearColor = false;
         this.renderer.autoClearDepth = false;
         this.renderer.autoClearStencil = false;
+        this.renderer.info.autoReset = false;
 
         this.renderer.onDeviceLost = (info) => {
             if(this.regainingRendererContext) return;
@@ -184,7 +188,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         this.showingUIs.delete(container);
         if(this.UIRoot.contains(container.element)) this.UIRoot.removeChild(container.element);
         
-        if(document.activeElement == document.body) {
+        if(this.gameUIControl.isNotFocusedOnAnything()) {
             Client.instance.playerController.setPointerLocked(true);
         }
     }
