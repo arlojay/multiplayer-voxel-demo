@@ -19,6 +19,7 @@ import { BlockStateType } from "src/app/block/blockStateType";
 
 export class SimplexTerrainGenerator extends WorldGenerator {
     private noise: NoiseNode;
+    private stoneNoise: NoiseScaler;
 
     constructor(world: World) {
         super(world);
@@ -29,10 +30,17 @@ export class SimplexTerrainGenerator extends WorldGenerator {
                     new SimplexNoiseGenerator(0, 0),
                     8, 0.5, 2, 0.3
                 ),
-                new ConstantValueGenerator(60),
+                new ConstantValueGenerator(160),
                 OperationType.MULTIPLY
             ),
-            100, 100, 100, 100
+            1000, 1000, 1000, 1000
+        );
+        this.stoneNoise = new NoiseScaler(
+            new OctaveNoise(
+                new SimplexNoiseGenerator(0, 0),
+                2, 0.5, 3, 0.5
+            ),
+            250, 250, 250, 250
         );
     }
     public generateChunk(chunk: Chunk) {
@@ -45,6 +53,7 @@ export class SimplexTerrainGenerator extends WorldGenerator {
         const grass = world.blockRegistry.getStateType("grass#default");
         const dirt = world.blockRegistry.getStateType("dirt#default");
         const stone = world.blockRegistry.getStateType("stone#default");
+        const stoneSandy = world.blockRegistry.getStateType("stone#sandy");
 
         for(let x = 0; x < CHUNK_SIZE; x++, globalX++) {
             for(let z = 0; z < CHUNK_SIZE; z++, globalZ++) {
@@ -52,7 +61,13 @@ export class SimplexTerrainGenerator extends WorldGenerator {
                 for(let y = 0; y < CHUNK_SIZE; y++, globalY++) {
                     let block: BlockStateType = null;
 
-                    if(globalY < height - 5) block = stone;
+                    if(globalY < height - 5) {
+                        if(this.stoneNoise.sample3d(globalX, globalY, globalZ) > 0) {
+                            block = stone;
+                        } else {
+                            block = stoneSandy;
+                        }
+                    }
                     else if(globalY < height - 1) block = dirt;
                     else if(globalY < height) block = grass;
 
@@ -105,14 +120,21 @@ export class DirtBlock extends Block {
 
 export class StoneBlock extends Block {    
     public async init(dataLibrary: DataLibrary) {
-        const texture = await dataLibrary.getAsset("textures/stone1-texture.jpg").then(asset => asset.loadTexture());
-
         this.addState(
             "default",
             new BlockModel(
                 new BlockModelCuboid()
                 .createAllFaces()
-                .setAllTextures(texture)
+                .setAllTextures(await dataLibrary.getAsset("textures/stone1-texture.jpg").then(asset => asset.loadTexture()))
+            ),
+            BASIC_COLLIDER.collider
+        );
+        this.addState(
+            "sandy",
+            new BlockModel(
+                new BlockModelCuboid()
+                .createAllFaces()
+                .setAllTextures(await dataLibrary.getAsset("textures/stone2-texture.png").then(asset => asset.loadTexture()))
             ),
             BASIC_COLLIDER.collider
         );
