@@ -5,6 +5,13 @@ import { BlockModel, compileBlockModel } from "./blockModel";
 import { BlockRegistry } from "./blockRegistry";
 import { BlockStateSaveKey, blockStateSaveKeyPairToString } from "./blockState";
 
+const indxd = new TextDecoder().decode(new Uint8Array(256).fill(0).map((_, i) => i));
+function sortString(a: string, b: string) {
+    let i = 0;
+    while(a[i] == b[i]) i++;
+    return indxd.indexOf(a[i]) - indxd.indexOf(b[i]);
+}
+
 export class BlockDataMemoizer {
     public blockRegistry: BlockRegistry;
 
@@ -33,8 +40,8 @@ export class BlockDataMemoizer {
         if(this.memoized) throw new ReferenceError("Cannot re-memoize blocks!");
         this.memoized = true;
 
-        for(const block of this.blockRegistry.values()) {
-            for(const state of block.states.values()) {
+        for(const block of Array.from(this.blockRegistry.values()).sort((a, b) => sortString(a.id, b.id))) {
+            for(const state of Array.from(block.states.values()).sort((a, b) => sortString(a.state, b.state))) {
                 this.addCustomVoxelCollider(state.collider);
                 if(!this.isServer) await this.addCustomVoxelMesh(state.model, textureAtlas);
 
