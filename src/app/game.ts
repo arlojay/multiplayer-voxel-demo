@@ -377,6 +377,8 @@ async function main() {
     })
 
     window.onbeforeunload = (event: BeforeUnloadEvent) => {
+        if(!Client.instance.gameData.clientOptions.warnBeforeLeave) return;
+        
         if(Client.instance.serverConnectionExists) {
             event.preventDefault();
             Client.instance.screenshot("last-server");

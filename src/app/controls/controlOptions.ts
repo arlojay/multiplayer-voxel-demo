@@ -13,4 +13,5 @@ export class ClientOptions {
     controls = new ClientControls;
     customization = new ClientCustomizationOptions;
     viewDistance: number = 4;
+    warnBeforeLeave: boolean = true;
 }

@@ -48,6 +48,13 @@ export function makeSettingsUI(gameData: GameData) {
             default: false,
             set: (value: boolean) => gameData.clientOptions.controls.invertY = value,
             get: () => gameData.clientOptions.controls.invertY
+        } as SettingsOption<boolean>,
+        {
+            name: "Warn Before Leave",
+            type: "boolean",
+            default: true,
+            set: (value: boolean) => gameData.clientOptions.warnBeforeLeave = value,
+            get: () => gameData.clientOptions.warnBeforeLeave
         } as SettingsOption<boolean>
     ];
 
