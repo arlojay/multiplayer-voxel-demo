@@ -1,5 +1,6 @@
 import { Vector2 } from "three";
 import { capabilities } from "./capability";
+import { KeyControl, MouseKey } from "./controlsMap";
 
 export class PlayerController {
     public pointerRoot: HTMLElement;
@@ -26,6 +27,8 @@ export class PlayerController {
 
     private initEvents() {
         const updatePointer = (event: MouseEvent) => {
+            event.preventDefault();
+
             this.pointer.x = event.clientX;
             this.pointer.y = event.clientY;
 
@@ -102,5 +105,17 @@ export class PlayerController {
 
     public keyDown(key: string) {
         return this.keys.has(key.toUpperCase());
+    }
+
+    public controlDown(control: KeyControl) {
+        if(this.keys.values().some(key => control.is(key))) return true;
+
+        if(this.leftPointer && control.is(MouseKey.LEFT_CLICK)) return true;
+        if(this.middlePointer && control.is(MouseKey.MIDDLE_CLICK)) return true;
+        if(this.rightPointer && control.is(MouseKey.RIGHT_CLICK)) return true;
+        if(this.backPointer && control.is(MouseKey.NAV_BACK)) return true;
+        if(this.forwardPointer && control.is(MouseKey.NAV_FORWARD)) return true;
+
+        return false;
     }
 }

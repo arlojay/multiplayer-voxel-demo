@@ -12,6 +12,7 @@ import { PlayerModel } from "../../client/playerModel";
 import { RemoteEntity } from "../remoteEntity";
 import { capabilities } from "../../capability";
 import { BlockState, BlockStateSaveKey } from "../../block/blockState";
+import { controls } from "../../controlsMap";
 
 export class PlayerCapabilities implements EntityComponent<PlayerCapabilities> {
     public canFly = false;
@@ -179,7 +180,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         this.controller.resetPointerMovement();
 
         if(receivingControls && !this.freecam) {
-            if(this.controller.keyDown("shift")) {
+            if(this.controller.controlDown(controls.RUN)) {
                 speed *= 1.5;
                 maxHorizontalSpeed *= 1.5;
                 this.sprinting = true;
@@ -187,7 +188,7 @@ export class LocalPlayer extends LocalEntity<Player> {
                 this.sprinting = false;
             }
 
-            if(this.controller.keyDown("c") && !this.flying) {
+            if(this.controller.controlDown(controls.CROUCH) && !this.flying) {
                 this.crouching = true;
             } else {
                 this.base.hitbox.copy(LocalPlayer.hitboxStanding);
@@ -202,11 +203,11 @@ export class LocalPlayer extends LocalEntity<Player> {
                 maxHorizontalSpeed *= 0.5;
             }
 
-            if(this.controller.keyDown("w")) dz--;
-            if(this.controller.keyDown("s")) dz++;
+            if(this.controller.controlDown(controls.FORWARD)) dz--;
+            if(this.controller.controlDown(controls.BACKWARD)) dz++;
 
-            if(this.controller.keyDown("a")) dx--;
-            if(this.controller.keyDown("d")) dx++;
+            if(this.controller.controlDown(controls.STRAFE_LEFT)) dx--;
+            if(this.controller.controlDown(controls.STRAFE_RIGHT)) dx++;
         }
         
         if(this.crouching) {
@@ -243,7 +244,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         if(receivingControls && !this.freecam) {
             let flyingYChange = 0;
 
-            if(this.controller.keyDown(" ")) {
+            if(this.controller.controlDown(controls.JUMP)) {
                 if(!this.holdingJump) {
                     if(this.lastJumpAttempt < 0.5 && this.base.capabilities.canFly) {
                         this.flying = !this.flying;
@@ -262,7 +263,7 @@ export class LocalPlayer extends LocalEntity<Player> {
             } else {
                 this.holdingJump = false;
             }
-            if(this.controller.keyDown("c") && this.flying) {
+            if(this.controller.controlDown(controls.CROUCH) && this.flying) {
                 flyingYChange--;
             }
 
@@ -380,7 +381,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         const raycastResult = this.base.world.raycaster.cast(this.visionRay, 10);
 
         this.placeBlockCooldown -= dt;
-        if(this.controller.keyDown("e") && receivingControls && !this.freecam) {
+        if(this.controller.controlDown(controls.PLACE_BLOCK) && receivingControls && !this.freecam) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
@@ -391,7 +392,7 @@ export class LocalPlayer extends LocalEntity<Player> {
                     );
                 }
             }
-        } else if(this.controller.keyDown("r") && receivingControls && !this.freecam) {
+        } else if(this.controller.controlDown(controls.BREAK_BLOCK) && receivingControls && !this.freecam) {
             if(this.placeBlockCooldown <= 0) {
                 this.placeBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
@@ -412,7 +413,7 @@ export class LocalPlayer extends LocalEntity<Player> {
             this.lookingBlock = null;
         }
 
-        if(this.controller.keyDown("u")) {
+        if(this.controller.controlDown(controls.FREECAM)) {
             if(!this.pressedFreecam) {
                 this.pressedFreecam = true;
                 this.freecam = !this.freecam;
@@ -429,21 +430,21 @@ export class LocalPlayer extends LocalEntity<Player> {
             let dx = 0;
             let dz = 0;
             let dy = 0;
-            if(this.controller.keyDown("w")) dz--;
-            if(this.controller.keyDown("s")) dz++;
-            if(this.controller.keyDown("a")) dx--;
-            if(this.controller.keyDown("d")) dx++;
-            if(this.controller.keyDown("q")) dy--;
-            if(this.controller.keyDown("e")) dy++;
+            if(this.controller.controlDown(controls.FORWARD)) dz--;
+            if(this.controller.controlDown(controls.BACKWARD)) dz++;
+            if(this.controller.controlDown(controls.STRAFE_LEFT)) dx--;
+            if(this.controller.controlDown(controls.STRAFE_RIGHT)) dx++;
+            if(this.controller.controlDown(controls.FREECAM_DOWN)) dy--;
+            if(this.controller.controlDown(controls.FREECAM_UP)) dy++;
 
-            const mult = this.controller.keyDown("shift") ? 6 : 1;
+            const mult = this.controller.controlDown(controls.RUN) ? 6 : 1;
 
             const zmove = new Vector3(0, 0, dz * dt * this.freecamSpeed * mult).applyEuler(this.freeCamera.rotation);
             const xmove = new Vector3(dx * dt * this.freecamSpeed * mult, 0, 0).applyEuler(this.freeCamera.rotation);
             const ymove = new Vector3(0, dy * dt * this.freecamSpeed * mult, 0).applyEuler(this.freeCamera.rotation);
             
-            if(this.controller.keyDown(" ")) this.freeCamera.position.y += dt * mult * this.freecamSpeed;
-            if(this.controller.keyDown("c")) this.freeCamera.position.y -= dt * mult * this.freecamSpeed;
+            if(this.controller.controlDown(controls.JUMP)) this.freeCamera.position.y += dt * mult * this.freecamSpeed;
+            if(this.controller.controlDown(controls.CROUCH)) this.freeCamera.position.y -= dt * mult * this.freecamSpeed;
 
             this.freeCamera.position.add(xmove).add(zmove).add(ymove);
             

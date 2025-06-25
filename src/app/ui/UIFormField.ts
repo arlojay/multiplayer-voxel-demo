@@ -4,13 +4,14 @@ import { UIFormContributor } from "./UIForm";
 type FormFieldInputType = "text" | "password" | "checkbox" | "slider" | "number";
 
 interface SerializedUIFormField extends SerializedUIElement {
-    placeholder: string;
+    ptext: string;
     value: string;
-    inputType: FormFieldInputType;
+    inType: FormFieldInputType;
     clearOnSubmit: boolean;
     min: number;
     max: number;
     step: number;
+    disp: boolean;
     align: UIFormFieldInputSide;
 }
 
@@ -29,6 +30,7 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
     public min: number = 0;
     public max: number = 1;
     public step: number = 1;
+    public displayValue: boolean;
     public alignment = UIFormFieldInputSide.RIGHT;
 
     public get checked() {
@@ -46,14 +48,14 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
         if(value != null) this.value = value;
     }
 
-    getFormContributionValue(): string {
+    public getFormContributionValue(): string {
         if(this.inputType == "checkbox") {
             return ((this.element as HTMLInputElement)?.checked ?? this.checked) ? "on" : "off";
         } else {
             return (this.element as HTMLInputElement)?.value ?? this.value;
         }
     }
-    setFormContributionValue(value: string): void {
+    public setFormContributionValue(value: string): void {
         this.value = value;
         if(this.element != null) {
             if(this.inputType == "checkbox") {
@@ -74,6 +76,22 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
         label.htmlFor = name;
         label.textContent = this.name;
         
+        const inputText = document.createElement("span");
+        inputText.style.width = "3rem";
+        inputText.style.display = "inline-block";
+        inputText.style.font = "monospace";
+        inputText.style.marginLeft = "1ch";
+
+        const updateInputText = () => {
+            const value = this.inputType == "checkbox" ? (this.checked ? "Yes" : "No") : this.value;
+            inputText.textContent = "(" + value + ")";
+        }
+        updateInputText();
+
+        if(this.displayValue) {
+            label.appendChild(inputText);
+        }
+        
         if(this.alignment == UIFormFieldInputSide.LEFT) {
             label.style.marginLeft = "0.5rem";
         } else {
@@ -81,7 +99,7 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
         }
 
         const input = document.createElement("input");
-        input.type = this.inputType;
+        input.type = this.inputType == "slider" ? "range" : this.inputType;
         input.id = name;
         if(this.inputType == "checkbox") {
             input.checked = this.checked;
@@ -101,13 +119,21 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
             }
         }
 
+        if(this.inputType == "slider") {
+            input.min = this.min.toString();
+            input.max = this.max.toString();
+            input.step = this.step.toString();
+        }
+
         input.addEventListener("input", () => {
             this.value = input.value;
+            updateInputText();
         })
         input.addEventListener("change", () => {
             if(this.inputType != "checkbox") return;
 
             this.checked = input.checked;
+            updateInputText();
         })
 
         if(this.inputType == "text" || this.inputType == "password" || this.inputType == "number") {
@@ -139,23 +165,25 @@ export class UIFormField extends UIElement<SerializedUIFormField> implements UIF
     }
     public serialize() {
         const data = super.serialize();
-        data.placeholder = this.placeholder;
+        data.ptext = this.placeholder;
         data.value = this.value;
-        data.inputType = this.inputType;
+        data.inType = this.inputType;
         data.min = this.min;
         data.max = this.max;
         data.step = this.step;
+        data.disp = this.displayValue;
         data.align = this.alignment;
         return data;
     }
     public deserialize(data: SerializedUIFormField): void {
         super.deserialize(data);
-        this.placeholder = data.placeholder;
+        this.placeholder = data.ptext;
         this.value = data.value;
-        this.inputType = data.inputType;
+        this.inputType = data.inType;
         this.min = data.min;
         this.max = data.max;
         this.step = data.step;
+        this.displayValue = data.disp;
         this.alignment = data.align;
     }
 }

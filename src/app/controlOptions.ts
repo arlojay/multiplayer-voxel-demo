@@ -6,6 +6,7 @@ export class ClientCustomizationOptions {
 export class ClientControls {
     mouseSensitivity: number = 0.3;
     invertY: boolean = false;
+    keybinds: Record<string, string> = {};
 }
 
 export class ClientOptions {

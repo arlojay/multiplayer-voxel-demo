@@ -207,7 +207,7 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
 
     // const skyReflection = skyColorNode({ pos: reflection });
 
-    const anisotropy = 2;
+    const anisotropy = 1;
     const faceColor = vec4(0, 0, 0, 0).toVar();
     const anisotropyCoefficient = dist.toVar();
     for(let dx = -anisotropy; dx <= anisotropy; dx++) {

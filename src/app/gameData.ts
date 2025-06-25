@@ -1,4 +1,5 @@
 import { ClientOptions } from "./controlOptions";
+import { deserializeControls, serializeControls } from "./controlsMap";
 import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "./dbUtils";
 import { debugLog } from "./logging";
 
@@ -37,10 +38,13 @@ export class GameData {
 
 
     public async saveClientOptions() {
+        this.clientOptions.controls.keybinds = serializeControls();
+        console.log(this.clientOptions.controls.keybinds);
         await saveJsonAsObjectStore(this.clientOptions, this.db.transaction("options", "readwrite").objectStore("options"), { packArrays: false })
     }
     public async loadClientOptions() {
         await loadObjectStoreIntoJson(this.clientOptions, this.db.transaction("options", "readonly").objectStore("options"))
+        deserializeControls(this.clientOptions.controls.keybinds);
     }
 
     public async createServer(name: string) {
@@ -75,20 +79,20 @@ export class GameData {
         }
     }
 
-    public async deleteServer(descriptor: ServerDescriptor) {
-        if(!this.servers.has(descriptor.id)) throw new ReferenceError("No server with id " + descriptor.id + " exists");
+    public async deleteServer(id: string) {
+        if(!this.servers.has(id)) throw new ReferenceError("No server with id " + id + " exists");
 
         const transaction = this.db.transaction("servers", "readwrite");
 
-        transaction.objectStore("servers").delete(descriptor.id);
-        debugLog("Deleting server " + descriptor.name + " (" + descriptor.id + ")");
+        transaction.objectStore("servers").delete(id);
+        debugLog("Deleting server " + id);
 
         try {
             await waitForTransaction(transaction);
         } catch(e) {
-            throw new Error("Failed to delete server " + descriptor.id + " (" + descriptor.name + ")", { cause: e });
+            throw new Error("Failed to delete server " + id, { cause: e });
         }
-        this.servers.delete(descriptor.id);
+        this.servers.delete(id);
         debugLog("Finished deleting server");
     }
 

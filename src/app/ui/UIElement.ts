@@ -31,13 +31,13 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public static deserialize(data: SerializedUIElement) {
         const ElementClass = UIElementRegistry.getFactory(data.type);
         if(ElementClass == null) throw new ReferenceError("UI element " + data.type + " is not registered");
-
+        
         const element = new ElementClass;
         element.deserialize(data);
         return element;
     }
-
-
+    
+    
     public abstract readonly type: string;
     public element: HTMLElement;
     public visible = true;
@@ -45,6 +45,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
     public parent: UIContainer;
     protected _eventBinder: UIEventBinder;
     private externalEventHandlers: Map<string, (event: UIEvent) => boolean | void> = new Map;
+    private onUpdateCallback: () => void;
 
     protected abstract buildElement(): Promise<HTMLElement>;
 
@@ -59,6 +60,7 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
             if(element == null) throw new ReferenceError("Built element must not be null");
             if(!this.visible) element.hidden = true;
             
+            console.log("replacing element");
             if(this.element != null) this.element.replaceWith(element);
             this.eventBinder.setElement(element);
             this.element = element;
@@ -69,8 +71,12 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
         }
 
         this.bubbleEvent(new UIEvent("updateElement", this));
+        this.onUpdateCallback?.();
 
         return this.element;
+    }
+    public onUpdate(callback: () => void) {
+        this.onUpdateCallback = callback;
     }
 
     public serialize(): SerializedData {
