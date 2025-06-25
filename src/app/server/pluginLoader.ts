@@ -1,4 +1,5 @@
 import { BannerPlugin } from "./plugins/banner";
+import { BlocksPlugin } from "./plugins/blocks";
 import { ChatPlugin } from "./plugins/chat";
 import { DemoPlugin } from "./plugins/demo";
 import { FreebuildPlugin } from "./plugins/freebuild";
@@ -14,6 +15,7 @@ const pluginList = new Map<string, () => ServerPlugin>([
     ["demo", () => new DemoPlugin],
     ["game code banner", () => new BannerPlugin],
     ["god-tools", () => new GodToolsPlugin],
+    ["blocks", () => new BlocksPlugin],
 ])
 
 export class PluginLoader {
