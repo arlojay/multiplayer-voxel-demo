@@ -1,7 +1,7 @@
 import { Box3, Vector3 } from "three";
-import { World } from "../world";
 import { BlockDataMemoizer } from "../block/blockDataMemoizer";
 import { BlockStateSaveKey } from "../block/blockState";
+import { World } from "../world/world";
 
 export type SerializedCustomVoxelColliderBox = [
     number, number, number, // min coordinate

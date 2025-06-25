@@ -1,5 +1,5 @@
-import { BinaryBuffer } from "../binary";
 import { BlockStateSaveKey } from "../block/blockState";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class SetSelectedBlockPacket extends Packet {

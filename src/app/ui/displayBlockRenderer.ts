@@ -1,10 +1,9 @@
-import { BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicNodeMaterial, OrthographicCamera, PlaneGeometry, Scene, Texture, Vector3, WebGPURenderer } from "three/src/Three.WebGPU";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
-import { BlockRegistry } from "../block/blockRegistry";
-import { BlockStateType } from "../block/blockStateType";
 import { color, dot, normalFlat, texture, vec3, vertexColor } from "three/src/nodes/TSL";
+import { BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicNodeMaterial, OrthographicCamera, PlaneGeometry, Scene, Texture, Vector3, WebGPURenderer } from "three/src/Three.WebGPU";
+import { BlockRegistry } from "../block/blockRegistry";
 import { BlockState, BlockStateSaveKey } from "../block/blockState";
-import { Client } from "../client/client";
+import { BlockStateType } from "../block/blockStateType";
 
 
 export class DisplayBlockRenderer {

@@ -1,5 +1,5 @@
-import { BaseRegistries } from "../baseRegistries";
-import { DataLibrary } from "../data/dataLibrary";
+import { DataLibrary } from "../datalibrary/dataLibrary";
+import { BaseRegistries } from "../synchronization/baseRegistries";
 import { EventSubscriber } from "./events";
 import { Server } from "./server";
 

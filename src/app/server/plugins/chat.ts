@@ -1,5 +1,5 @@
-import { World } from "../../world";
 import { UIButton, UIForm, UISection, UIText, UITextInput } from "../../ui";
+import { World } from "../../world/world";
 import { Subscribe } from "../events";
 import { PeerJoinEvent, PeerLeaveEvent, PluginEvents } from "../pluginEvents";
 import { ServerPeer } from "../serverPeer";

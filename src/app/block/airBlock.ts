@@ -1,4 +1,4 @@
-import { DataLibrary } from "../data/dataLibrary";
+import { DataLibrary } from "../datalibrary/dataLibrary";
 import { CustomVoxelCollider } from "../entity/collisionChecker";
 import { Block } from "./block";
 import { BlockModel } from "./blockModel";

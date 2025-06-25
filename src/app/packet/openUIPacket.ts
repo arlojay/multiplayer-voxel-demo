@@ -1,4 +1,4 @@
-import { BinaryBuffer } from "../binary";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { SerializedUIContainer } from "../ui";
 import { Packet, packetRegistry } from "./packet";
 

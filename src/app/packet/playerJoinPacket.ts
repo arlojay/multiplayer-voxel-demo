@@ -1,6 +1,6 @@
-import { BinaryBuffer, CHAR } from "../binary";
+import { BinaryBuffer, CHAR } from "../serialization/binaryBuffer";
 import { ServerPeer } from "../server/serverPeer";
-import { Packet, packetRegistry } from "./packet";
+import { packetRegistry } from "./packet";
 import { PlayerInfo } from "./playerInfo";
 
 export class PlayerJoinPacket extends PlayerInfo {

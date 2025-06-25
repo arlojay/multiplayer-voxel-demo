@@ -1,6 +1,6 @@
 import { compileCollider, CompiledCustomVoxelCollider, CustomVoxelCollider } from "../entity/collisionChecker";
 import { TextureAtlas } from "../texture/textureAtlas";
-import { CustomVoxelMesh, BlockOcclusionType } from "../voxelMesher";
+import { BlockOcclusionType, CustomVoxelMesh } from "../world/voxelMesher";
 import { BlockModel, compileBlockModel } from "./blockModel";
 import { BlockRegistry } from "./blockRegistry";
 import { BlockStateSaveKey, blockStateSaveKeyPairToString } from "./blockState";

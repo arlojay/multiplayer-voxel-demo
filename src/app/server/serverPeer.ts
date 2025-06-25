@@ -1,17 +1,16 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { BinaryBuffer } from "../binary";
-import { debugLog } from "../logging";
 import { AddEntityPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, splitPacket, SplitPacket, SplitPacketAssembler } from "../packet";
+import { EntityLookPacket } from "../packet/entityLookPacket";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
+import { ClientIdentity } from "../synchronization/serverIdentity";
 import { UIContainer } from "../ui";
-import { CHUNK_INC_SCL } from "../voxelGrid";
-import { World } from "../world";
+import { CHUNK_INC_SCL } from "../world/voxelGrid";
+import { World } from "../world/world";
 import { BreakBlockEvent, PlaceBlockEvent } from "./pluginEvents";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { ServerUI } from "./serverUI";
 import { MessagePortConnection } from "./thread";
-import { EntityLookPacket } from "../packet/entityLookPacket";
-import { ClientIdentity } from "../serverIdentity";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -295,7 +294,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         } else {
             this.connection.close();
         }
-        debugLog("Kicked " + this.id + " for: " + reason);
+        console.log("Kicked " + this.id + " for: " + reason);
     }
 
     public update(dt: number) {

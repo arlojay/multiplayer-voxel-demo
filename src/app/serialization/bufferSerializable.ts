@@ -1,5 +1,5 @@
-import { BinaryBuffer, U16 } from "./binary";
-import { IndexedFactoryRegistry } from "./registry";
+import { IndexedFactoryRegistry } from "../synchronization/registry";
+import { BinaryBuffer, U16 } from "./binaryBuffer";
 
 export abstract class BufferSerializableRegistry<
     SerializableType extends BufferSerializable,

@@ -1,5 +1,5 @@
-import { BinaryBuffer } from "../binary";
 import { Player, PlayerCapabilities } from "../entity/impl";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class SetLocalPlayerCapabilitiesPacket extends Packet {

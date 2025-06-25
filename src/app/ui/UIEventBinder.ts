@@ -1,4 +1,3 @@
-import { UIElement } from "./UIElement";
 
 export class UIEventBinder {
     private events: Map<string, (event?: Event) => void> = new Map;

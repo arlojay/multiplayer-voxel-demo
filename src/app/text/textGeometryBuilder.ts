@@ -1,6 +1,6 @@
-import { BufferGeometry, Float32BufferAttribute, PlaneGeometry, Uint8BufferAttribute } from "three";
+import { BufferGeometry, Float32BufferAttribute, Uint8BufferAttribute } from "three";
+import { ColorRGBA } from "../client/floatingText";
 import { AtlasGlyph, TextGlyphAtlas } from "./textGlyphAtlas";
-import { ColorRGBA } from "../floatingText";
 
 export class TextGeometryBuilder {
     public readonly atlas: TextGlyphAtlas;

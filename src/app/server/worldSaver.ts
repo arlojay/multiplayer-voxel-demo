@@ -1,7 +1,6 @@
 import { BlockStateSaveKey } from "../block/blockState";
-import { openDb, waitForTransaction } from "../dbUtils";
-import { debugLog } from "../logging";
-import { Chunk, World } from "../world";
+import { openDb, waitForTransaction } from "../serialization/dbUtils";
+import { Chunk, World } from "../world/world";
 import { Server } from "./server";
 
 export const WORLD_VERSION = 1;
@@ -30,7 +29,7 @@ export class WorldSaver {
         this.db = await openDb("servers/" + this.server.id + "/worlds/" + this.id, {
             version: WORLD_VERSION,
             upgrade(db: IDBDatabase, target: number) {
-                debugLog("Migrating server world " + this.id + " to v" + target);
+                console.log("Migrating server world " + this.id + " to v" + target);
                 if(target == 1) {
                     db.createObjectStore("data", { keyPath: "position" });
                 }
@@ -69,7 +68,7 @@ export class WorldSaver {
     }
 
     public async saveModified() {
-        debugLog("Saving world " + this.id);
+        console.log("Saving world " + this.id);
         this.chunkObjectStore = this.db.transaction("data", "readwrite").objectStore("data");
 
         for(const chunk of this.world.dirtyChunkQueue) {
@@ -84,6 +83,6 @@ export class WorldSaver {
 
         this.world.dirtyChunkQueue.clear();
 
-        debugLog("Saving world " + this.id + " complete");
+        console.log("Saving world " + this.id + " complete");
     }
 }

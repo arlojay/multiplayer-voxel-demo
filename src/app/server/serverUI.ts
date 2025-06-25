@@ -1,9 +1,9 @@
-import { CloseUIPacket, Packet, OpenUIPacket, UIInteractionPacket, RemoveUIElementPacket, InsertUIElementPacket } from "../packet";
-import { UIInteractions } from "../client/networkUI";
-import { ServerPeer } from "./serverPeer";
-import { UIButton, UIContainer, UIElement, UIEvent, UIForm, UIGameBlock } from "../ui";
 import { $enum } from "ts-enum-util";
+import { UIInteractions } from "../client/networkUI";
+import { CloseUIPacket, InsertUIElementPacket, OpenUIPacket, Packet, RemoveUIElementPacket, UIInteractionPacket } from "../packet";
 import { UpdateUIElementPacket } from "../packet/updateUIElementPacket";
+import { UIButton, UIContainer, UIElement, UIEvent, UIForm, UIGameBlock } from "../ui";
+import { ServerPeer } from "./serverPeer";
 
 export class ServerUI {
     public peer: ServerPeer;

@@ -1,17 +1,16 @@
+import hsl from "color-space/hsl";
+import { Block } from "../../block/block";
+import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
+import { DataLibrary } from "../../datalibrary/dataLibrary";
+import { BASIC_COLLIDER } from "../../entity/collisionChecker";
+import { TextEntity } from "../../entity/impl";
+import { BaseRegistries } from "../../synchronization/baseRegistries";
 import { UIButton, UISection, UIText } from "../../ui";
-import { Subscribe } from "../events";
 import { DatabaseObjectStore, DatabaseView } from "../databaseView";
+import { Subscribe } from "../events";
 import { PeerJoinEvent, PlaceBlockEvent, PluginEvents, ServerLoadedEvent, ServerTickEvent } from "../pluginEvents";
 import { ServerPlugin } from "../serverPlugin";
 import { ServerUI } from "../serverUI";
-import { TextEntity } from "../../entity/impl";
-import hsl from "color-space/hsl";
-import { BaseRegistries } from "../../baseRegistries";
-import { DataLibrary } from "../../data/dataLibrary";
-import { Block } from "../../block/block";
-import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
-import { BASIC_COLLIDER } from "../../entity/collisionChecker";
-import { UIGameBlock } from "../../ui/UIGameBlock";
 
 interface PlayerClicksEntry {
     username: string;

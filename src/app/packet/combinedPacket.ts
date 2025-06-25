@@ -1,4 +1,4 @@
-import { BinaryBuffer, U16 } from "../binary";
+import { BinaryBuffer, U16 } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class CombinedPacket extends Packet {

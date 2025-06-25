@@ -1,10 +1,10 @@
 import { Box3, Vector3 } from "three";
 import { $enum } from "ts-enum-util";
-import { BinaryBuffer, F16, F32, U16, VEC3 } from "../binary";
-import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
+import { BinaryBuffer, F32, U16, VEC3 } from "../serialization/binaryBuffer";
+import { BufferSerializable, BufferSerializableRegistry } from "../serialization/bufferSerializable";
 import { Server } from "../server/server";
-import { CHUNK_INC_SCL, CHUNK_SIZE } from "../voxelGrid";
-import { World } from "../world";
+import { CHUNK_SIZE } from "../world/voxelGrid";
+import { World } from "../world/world";
 import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
 

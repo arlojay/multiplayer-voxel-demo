@@ -1,6 +1,6 @@
 import { BlockState } from "../block/blockState";
 import { Player } from "../entity/impl";
-import { World } from "../world";
+import { World } from "../world/world";
 import { EmittedEvent } from "./events";
 import { Server } from "./server";
 import { ServerPeer } from "./serverPeer";

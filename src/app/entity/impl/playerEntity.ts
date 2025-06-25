@@ -1,18 +1,18 @@
-import { Box3, Color, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
-import { BinaryBuffer, BOOL, VEC3 } from "../../binary";
-import { BaseEntity, EntityComponent, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
-import { GRAVITY, LocalEntity } from "../localEntity";
-import { dlerp } from "../../math";
-import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
-import { PlayerController } from "../../playerController";
-import { CHUNK_INC_SCL } from "../../voxelGrid";
+import { Box3, Euler, PerspectiveCamera, Ray, Scene, Vector3 } from "three";
+import { BlockState, BlockStateSaveKey } from "../../block/blockState";
+import { capabilities } from "../../capability";
 import { Client, getClient } from "../../client/client";
 import { ClientSounds } from "../../client/clientSounds";
 import { PlayerModel } from "../../client/playerModel";
+import { controls } from "../../controls/controlsMap";
+import { PlayerController } from "../../controls/playerController";
+import { dlerp } from "../../math";
+import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
+import { BinaryBuffer, BOOL, VEC3 } from "../../serialization/binaryBuffer";
+import { CHUNK_INC_SCL } from "../../world/voxelGrid";
+import { BaseEntity, EntityComponent, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
+import { GRAVITY, LocalEntity } from "../localEntity";
 import { RemoteEntity } from "../remoteEntity";
-import { capabilities } from "../../capability";
-import { BlockState, BlockStateSaveKey } from "../../block/blockState";
-import { controls } from "../../controlsMap";
 
 export class PlayerCapabilities implements EntityComponent<PlayerCapabilities> {
     public canFly = false;

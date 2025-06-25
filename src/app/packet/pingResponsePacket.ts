@@ -1,4 +1,4 @@
-import { BinaryBuffer } from "../binary";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class PingResponsePacket extends Packet {

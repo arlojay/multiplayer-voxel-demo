@@ -1,4 +1,4 @@
-import { color, cos, float, Fn, min, mix, normalize, positionLocal, sin, smoothstep, tan, time, vec3 } from "three/src/nodes/TSL";
+import { color, float, Fn, min, mix, normalize, positionLocal, smoothstep, vec3 } from "three/src/nodes/TSL";
 
 // export const sunPos = normalize(vec3(cos(time), tan(cos(time.mul(0.25)).mul(Math.PI/2)), sin(time)));
 export const sunPos = normalize(vec3(0.3, 1, 0.6)).toVar();

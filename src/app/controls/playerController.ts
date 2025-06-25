@@ -1,5 +1,5 @@
 import { Vector2 } from "three";
-import { capabilities } from "./capability";
+import { capabilities } from "../capability";
 import { KeyControl, MouseKey } from "./controlsMap";
 
 export class PlayerController {

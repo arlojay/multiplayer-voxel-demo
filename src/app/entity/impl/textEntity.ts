@@ -1,6 +1,6 @@
 import { Color, Scene } from "three";
-import { BinaryBuffer, F32, U8 } from "../../binary";
-import { ColorRGBA, FloatingText } from "../../floatingText";
+import { ColorRGBA, FloatingText } from "../../client/floatingText";
+import { BinaryBuffer, F32, U8 } from "../../serialization/binaryBuffer";
 import { BaseEntity, entityRegistry } from "../baseEntity";
 import { LocalEntity } from "../localEntity";
 import { RemoteEntity } from "../remoteEntity";

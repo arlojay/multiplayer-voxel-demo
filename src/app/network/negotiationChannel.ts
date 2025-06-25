@@ -1,7 +1,6 @@
-import { DataConnection } from "peerjs";
+import { TypedEmitter } from "tiny-typed-emitter";
 import { capabilities } from "../capability";
 import { TimedOutError } from "../server/serverPeer";
-import { TypedEmitter } from "tiny-typed-emitter";
 
 enum MessageType {
     REQUEST,

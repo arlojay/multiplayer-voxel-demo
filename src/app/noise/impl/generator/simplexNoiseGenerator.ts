@@ -1,8 +1,8 @@
 import alea from "alea";
 import { createNoise2D, createNoise3D, createNoise4D, NoiseFunction2D, NoiseFunction3D, NoiseFunction4D } from "simplex-noise";
 import { NoiseGenerator } from "../../noiseGenerator";
-import { NoiseNode } from "../../noiseNode";
 import { registerNoiseNode } from "../../noiseLoader";
+import { NoiseNode } from "../../noiseNode";
 
 export class SimplexNoiseGenerator extends NoiseGenerator {
     public noise2d: NoiseFunction2D;

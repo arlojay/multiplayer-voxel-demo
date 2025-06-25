@@ -1,9 +1,9 @@
-import { attribute, cameraPosition, color, dot, float, Fn, If, ivec2, mix, nodeProxy, positionWorld, smoothstep, texture, textureSize, uint, vec2, vec3, vec4, vertexStage } from "three/src/nodes/TSL";
-import { FaceDirection } from "../voxelMesher";
-import { nightFactor, skyColorNode, sunPos } from "./sky";
 import { Texture } from "three";
+import { attribute, cameraPosition, color, dot, float, Fn, If, ivec2, mix, nodeProxy, positionWorld, smoothstep, texture, textureSize, uint, vec2, vec3, vec4, vertexStage } from "three/src/nodes/TSL";
 import { NearestFilter, Node, NodeBuilder, TextureLoader } from "three/src/Three.WebGPU";
 import { TextureAtlas } from "../texture/textureAtlas";
+import { FaceDirection } from "../world/voxelMesher";
+import { nightFactor, skyColorNode, sunPos } from "./sky";
 
 // https://github.com/mrdoob/three.js/issues/30663
 

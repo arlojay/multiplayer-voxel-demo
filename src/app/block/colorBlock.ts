@@ -1,10 +1,9 @@
 import { Color, ColorRepresentation, Vector3 } from "three";
-import { DataLibrary } from "../data/dataLibrary";
+import { DataLibrary } from "../datalibrary/dataLibrary";
 import { CustomVoxelCollider, CustomVoxelColliderBox } from "../entity/collisionChecker";
+import { clamp } from "../math";
 import { Block } from "./block";
 import { BlockModel, BlockModelCuboid } from "./blockModel";
-import { BlockStateType } from "./blockStateType";
-import { clamp } from "../math";
 
 export class ColorBlock extends Block {
     public static getClosestColor(color: ColorRepresentation) {

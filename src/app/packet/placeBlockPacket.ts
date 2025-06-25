@@ -1,5 +1,5 @@
-import { BinaryBuffer, I32 } from "../binary";
 import { BlockStateSaveKey } from "../block/blockState";
+import { BinaryBuffer, I32 } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class PlaceBlockPacket extends Packet {

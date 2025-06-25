@@ -1,5 +1,5 @@
-import { BinaryBuffer } from "../binary";
 import { BaseEntity } from "../entity/baseEntity";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { EntityPacket } from "./entityPacket";
 import { Packet, packetRegistry } from "./packet";
 

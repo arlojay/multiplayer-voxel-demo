@@ -1,8 +1,8 @@
 import { BufferGeometry, Color, Mesh } from "three";
 import { attribute, cameraProjectionMatrix, Fn, mix, modelViewMatrix, positionGeometry, texture, vec4 } from "three/src/nodes/TSL";
 import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
-import { TextGlyphAtlas } from "./text/textGlyphAtlas";
-import { TextGeometryBuilder } from "./text/textGeometryBuilder";
+import { TextGeometryBuilder } from "../text/textGeometryBuilder";
+import { TextGlyphAtlas } from "../text/textGlyphAtlas";
 
 export class ColorRGBA {
     public readonly color: Color;

@@ -1,6 +1,6 @@
 import { Vector3 } from "three";
-import { BinaryBuffer, F16, VEC3 } from "../binary";
 import { Player } from "../entity/impl";
+import { BinaryBuffer, F16, VEC3 } from "../serialization/binaryBuffer";
 import { Packet } from "./packet";
 
 export abstract class PlayerInfo extends Packet {

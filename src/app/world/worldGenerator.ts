@@ -1,5 +1,5 @@
-import { BlockStateSaveKey } from "./block/blockState";
-import { ColorBlock } from "./block/colorBlock";
+import { BlockStateSaveKey } from "../block/blockState";
+import { ColorBlock } from "../block/colorBlock";
 import { CHUNK_SIZE } from "./voxelGrid";
 import { Chunk, World } from "./world";
 

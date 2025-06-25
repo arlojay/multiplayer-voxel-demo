@@ -1,4 +1,4 @@
-import { SerializedUIElement, UIElement, UIElementRegistry, UIEvent } from "./UIElement";
+import { SerializedUIElement, UIElement, UIElementRegistry } from "./UIElement";
 import { UIFormContributor } from "./UIForm";
 
 export interface SerializedUISliderInput extends SerializedUIElement {

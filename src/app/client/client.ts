@@ -1,24 +1,23 @@
 import Peer from "peerjs";
-import { TypedEmitter } from "tiny-typed-emitter";
-import { GameRenderer } from "../gameRenderer";
-import { createPeer } from "../turn";
-import { ServerSession } from "./serverSession";
-import { PlayerController } from "../playerController";
-import { debugLog } from "../logging";
-import { GameData } from "../gameData";
-import { AudioManager } from "../sound/soundManager";
-import { ClientSounds } from "./clientSounds";
-import { ClientCustomizationOptions } from "../controlOptions";
-import { DataLibrary, DataLibraryManager } from "../data/dataLibrary";
-import { GameContentPackage } from "../network/gameContentPackage";
-import { createDeserializedBlockClass } from "../block/block";
-import { TextureAtlas } from "../texture/textureAtlas";
 import { NearestFilter } from "three";
-import { setTextureAtlas as setTerrainTextureAtlas, terrainMap } from "../shaders/terrain";
-import { LibraryDataNegotiationLocator } from "../data/libraryDataNegotiationLocator";
-import { ClientIdentity, ServerIdentity } from "../serverIdentity";
-import { UIGameBlock } from "../ui/UIGameBlock";
+import { TypedEmitter } from "tiny-typed-emitter";
+import { createDeserializedBlockClass } from "../block/block";
+import { ClientCustomizationOptions } from "../controls/controlOptions";
+import { PlayerController } from "../controls/playerController";
+import { DataLibrary, DataLibraryManager } from "../datalibrary/dataLibrary";
+import { LibraryDataNegotiationLocator } from "../datalibrary/libraryDataNegotiationLocator";
 import { DebugInfo, GameUIControl } from "../game";
+import { GameContentPackage } from "../network/gameContentPackage";
+import { setTextureAtlas as setTerrainTextureAtlas } from "../shaders/terrain";
+import { AudioManager } from "../sound/soundManager";
+import { ClientIdentity, ServerIdentity } from "../synchronization/serverIdentity";
+import { TextureAtlas } from "../texture/textureAtlas";
+import { createPeer } from "../turn";
+import { UIGameBlock } from "../ui/UIGameBlock";
+import { ClientSounds } from "./clientSounds";
+import { GameData } from "./gameData";
+import { GameRenderer } from "./gameRenderer";
+import { ServerSession } from "./serverSession";
 
 interface ClientEvents {
     "login": () => void;
@@ -128,16 +127,16 @@ export class Client extends TypedEmitter<ClientEvents> {
 
     public async waitForLogin() {
         if(this.online) return;
-        debugLog("Waiting for internet...");
+        console.log("Waiting for internet...");
         await new Promise<void>(r => this.once("login", r));
-        debugLog("Connected to the internet");
+        console.log("Connected to the internet");
     }
 
     public async initServerConnection(serverPeerId: string, connectionOptions: ClientCustomizationOptions): Promise<ConnectionRequestController> {
         if(this.serverSession != null) throw new Error("Already connected to a server");
 
         await this.waitForLogin();
-        debugLog("Connecting to the server " + serverPeerId);
+        console.log("Connecting to the server " + serverPeerId);
 
         const serverSession = new ServerSession(this, serverPeerId);
         let dataLibrary: DataLibrary;

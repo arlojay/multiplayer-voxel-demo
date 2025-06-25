@@ -1,4 +1,4 @@
-import { float32ToInt32Bits } from "../bitUtils";
+import { float32ToInt32Bits } from "../serialization/bitUtils";
 
 
 export class WhiteNoise {

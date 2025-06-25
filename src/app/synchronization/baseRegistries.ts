@@ -1,4 +1,4 @@
-import { BlockRegistry } from "./block/blockRegistry";
+import { BlockRegistry } from "../block/blockRegistry";
 
 export interface BaseRegistries {
     blocks: BlockRegistry;

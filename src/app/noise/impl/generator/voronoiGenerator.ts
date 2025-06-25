@@ -1,9 +1,8 @@
 import { $enum } from "ts-enum-util";
-import { NoiseGenerator } from "../../noiseGenerator";
-import { NoiseNode } from "../../noiseNode";
-import { WhiteNoise } from "../../whiteNoise";
-import { registerNoiseNode } from "../../noiseLoader";
 import { map } from "../../../math";
+import { NoiseGenerator } from "../../noiseGenerator";
+import { registerNoiseNode } from "../../noiseLoader";
+import { WhiteNoise } from "../../whiteNoise";
 
 export enum VoronoiMode { CELL, DISTANCE, DISTANCE2, EDGE };
 

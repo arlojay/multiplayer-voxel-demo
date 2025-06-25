@@ -1,6 +1,6 @@
-import { waitForTransaction } from "../dbUtils";
-import { inflate } from "../flatPackedObject";
-import { RichSerializedJson } from "../objectSerializer";
+import { waitForTransaction } from "../serialization/dbUtils";
+import { inflate } from "../serialization/flatPackedObject";
+import { RichSerializedJson } from "../serialization/objectSerializer";
 
 export class DatabaseObject<KeyPath extends string, Schema = any> {
     public db: IDBDatabase;

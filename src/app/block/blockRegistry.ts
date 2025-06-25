@@ -1,5 +1,5 @@
-import { HashedInstanceRegistry } from "../registry";
-import { World } from "../world";
+import { HashedInstanceRegistry } from "../synchronization/registry";
+import { World } from "../world/world";
 import { Block } from "./block";
 import { BlockState, BlockStateSaveKey, BlockStateSaveKeyPair, blockStateSaveKeyToPair } from "./blockState";
 

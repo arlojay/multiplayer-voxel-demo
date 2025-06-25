@@ -1,5 +1,4 @@
-import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "../dbUtils";
-import { debugLog } from "../logging";
+import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "../serialization/dbUtils";
 import { DatabaseView } from "./databaseView";
 import { ServerPlugin } from "./serverPlugin";
 
@@ -35,7 +34,7 @@ export class ServerData {
         this.db = await openDb("servers/" + this.id, {
             version: SERVER_VERSION,
             upgrade(db, target) {
-                debugLog("Migrating server data " + this.id + " to v" + target);
+                console.log("Migrating server data " + this.id + " to v" + target);
                 if(target == 1) {
                     db.createObjectStore("worlds", { keyPath: "name" });
                     db.createObjectStore("options", { keyPath: "name" });
@@ -90,7 +89,7 @@ export class ServerData {
         const transaction = this.db.transaction("worlds", "readwrite");
 
         transaction.objectStore("worlds").delete(descriptor.name);
-        debugLog("Deleting world " + descriptor.name + " (" + descriptor.id + ")");
+        console.log("Deleting world " + descriptor.name + " (" + descriptor.id + ")");
 
         try {
             await waitForTransaction(transaction);
@@ -98,7 +97,7 @@ export class ServerData {
             throw new Error("Failed to delete world " + descriptor.id + " (" + descriptor.name + ")", { cause: e });
         }
         this.worlds.delete(descriptor.id);
-        debugLog("Finished deleting world");
+        console.log("Finished deleting world");
     }
 
     public async loadWorlds() {

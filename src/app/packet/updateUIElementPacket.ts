@@ -1,4 +1,4 @@
-import { BinaryBuffer } from "../binary";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { SerializedUIElement, UIElement } from "../ui";
 import { Packet, packetRegistry } from "./packet";
 

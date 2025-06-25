@@ -1,5 +1,5 @@
-import { bufferToHex } from "../bitUtils";
-import { DatabaseObject, DatabaseObjectStore, DatabaseView } from "../server/databaseView";
+import { bufferToHex } from "../serialization/bitUtils";
+import { DatabaseObjectStore, DatabaseView } from "../server/databaseView";
 import { DataLibraryAsset, DataLibraryAssetReference } from "./dataLibraryAssetTypes";
 import { LibraryDataLocator } from "./libraryDataLocator";
 

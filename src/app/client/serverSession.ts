@@ -1,29 +1,27 @@
 import FastPriorityQueue from "fastpriorityqueue";
 import { DataConnection } from "peerjs";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { BinaryBuffer } from "../binary";
+import { BlockDataMemoizer } from "../block/blockDataMemoizer";
+import { BlockRegistry } from "../block/blockRegistry";
 import { NetworkUI } from "../client/networkUI";
 import { BaseEntity, EntityLogicType, entityRegistry, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
-import { debugLog } from "../logging";
+import { NegotiationChannel } from "../network/negotiationChannel";
 import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerCapabilitiesPacket, SetLocalPlayerPositionPacket, SetSelectedBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
-import { LoopingMusic } from "../sound/loopingMusic";
-import { UIElement } from "../ui";
-import { CHUNK_INC_SCL } from "../voxelGrid";
-import { Chunk, World } from "../world";
-import { Client } from "./client";
 import { EntityLookPacket } from "../packet/entityLookPacket";
 import { EntityPacket } from "../packet/entityPacket";
-import { TimedOutError } from "../server/serverPeer";
-import { NegotiationChannel } from "../network/negotiationChannel";
-import { BaseRegistries } from "../baseRegistries";
-import { BlockRegistry } from "../block/blockRegistry";
-import { ServerIdentity } from "../serverIdentity";
-import { BlockState, blockStateSaveKeyPairToString } from "../block/blockState";
-import { BlockDataMemoizer } from "../block/blockDataMemoizer";
 import { UpdateUIElementPacket } from "../packet/updateUIElementPacket";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
+import { TimedOutError } from "../server/serverPeer";
+import { LoopingMusic } from "../sound/loopingMusic";
+import { BaseRegistries } from "../synchronization/baseRegistries";
+import { ServerIdentity } from "../synchronization/serverIdentity";
+import { UIElement } from "../ui";
 import { DisplayBlockRenderer } from "../ui/displayBlockRenderer";
+import { CHUNK_INC_SCL } from "../world/voxelGrid";
+import { Chunk, World } from "../world/world";
+import { Client } from "./client";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -164,7 +162,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }, 10000);
         });
 
-        debugLog("Connected to the server " + this.serverPeerId + "!");
+        console.log("Connected to the server " + this.serverPeerId + "!");
         this.initConnectionEvents();
 
         this.resetLocalWorld();

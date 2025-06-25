@@ -1,8 +1,8 @@
-import { World } from "../../world";
-import { UIButton, UIForm, UISection, UIText } from "../../ui";
-import { WorldGenerator } from "../../worldGenerator";
+import { UIButton, UIForm, UIText } from "../../ui";
+import { World } from "../../world/world";
+import { WorldGenerator } from "../../world/worldGenerator";
 import { Subscribe } from "../events";
-import { PeerJoinEvent, PluginEvents, ServerLoadedEvent } from "../pluginEvents";
+import { PeerJoinEvent, PluginEvents } from "../pluginEvents";
 import { ServerPeer } from "../serverPeer";
 import { ServerPlugin } from "../serverPlugin";
 

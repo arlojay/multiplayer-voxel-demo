@@ -1,6 +1,6 @@
-import { NoiseNode } from "../../noiseNode";
-import { registerNoiseNode } from "../../noiseLoader";
 import { NoiseGenerator } from "../../noiseGenerator";
+import { registerNoiseNode } from "../../noiseLoader";
+import { NoiseNode } from "../../noiseNode";
 
 export class ConstantValueGenerator extends NoiseGenerator {
     value: number;

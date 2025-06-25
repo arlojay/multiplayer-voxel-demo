@@ -1,5 +1,5 @@
-import { BinaryBuffer, F32 } from "../binary";
 import { BaseEntity, RotatingEntity } from "../entity/baseEntity";
+import { BinaryBuffer, F32 } from "../serialization/binaryBuffer";
 import { EntityPacket } from "./entityPacket";
 import { Packet, packetRegistry } from "./packet";
 

@@ -1,8 +1,7 @@
 import { BufferGeometry, Float32BufferAttribute, InterleavedBuffer, InterleavedBufferAttribute } from "three";
+import { clamp } from "../math";
 import { CHUNK_SIZE } from "./voxelGrid";
 import { Chunk, World } from "./world";
-import { $enum } from "ts-enum-util";
-import { clamp } from "./math";
 
 export enum FaceDirection {
     WEST, EAST, SOUTH, NORTH, DOWN, UP

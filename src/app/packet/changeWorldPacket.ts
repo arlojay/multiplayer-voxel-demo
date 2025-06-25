@@ -1,5 +1,5 @@
-import { BinaryBuffer } from "../binary";
-import { World } from "../world";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
+import { World } from "../world/world";
 import { Packet, packetRegistry } from "./packet";
 
 export class ChangeWorldPacket extends Packet {

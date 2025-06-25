@@ -1,7 +1,7 @@
 import { Box3, Scene, Vector3 } from "three";
+import { CHUNK_SIZE } from "../world/voxelGrid";
+import { World } from "../world/world";
 import { BaseEntity } from "./baseEntity";
-import { CHUNK_INC_SCL, CHUNK_SIZE } from "../voxelGrid";
-import { World } from "../world";
 
 export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
     protected readonly base: Base;

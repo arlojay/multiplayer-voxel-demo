@@ -1,5 +1,5 @@
-import { BinaryBuffer, U16, U32 } from "../binary";
-import { BufferSerializable, BufferSerializableRegistry } from "../bufferSerializable";
+import { BinaryBuffer, U32 } from "../serialization/binaryBuffer";
+import { BufferSerializable, BufferSerializableRegistry } from "../serialization/bufferSerializable";
 import { makeAdvancingTimestamp } from "../timestamp";
 
 export const packetRegistry = new class PacketRegistry extends BufferSerializableRegistry<Packet, ConstructorParameters<typeof Packet>> {

@@ -1,4 +1,4 @@
-import { UIButton, UISection, UIText } from "../../ui";
+import { UISection, UIText } from "../../ui";
 import { Subscribe } from "../events";
 import { PeerJoinEvent, PluginEvents } from "../pluginEvents";
 import { ServerPlugin } from "../serverPlugin";

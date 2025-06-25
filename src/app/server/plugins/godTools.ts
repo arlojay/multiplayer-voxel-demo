@@ -1,5 +1,5 @@
 import { SetSelectedBlockPacket } from "../../packet";
-import { UIButton, UIFieldset, UISection, UIGameBlock, UIText } from "../../ui";
+import { UIButton, UIFieldset, UIGameBlock, UISection, UIText } from "../../ui";
 import { Subscribe } from "../events";
 import { PeerJoinEvent, PluginEvents } from "../pluginEvents";
 import { ServerPeer } from "../serverPeer";

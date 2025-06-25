@@ -1,21 +1,21 @@
-import { WorldGenerator } from "../../worldGenerator";
-import { ServerPlugin } from "../serverPlugin";
-import { NoiseNode } from "../../noise/noiseNode";
-import { Chunk, World } from "../../world";
-import { NoiseScaler } from "../../noise/impl/transformer/noiseScaler";
-import { NoiseOperation, OperationType } from "../../noise/impl/transformer/noiseOperation";
-import { OctaveNoise } from "../../noise/impl/transformer/octaveNoise";
-import { SimplexNoiseGenerator } from "../../noise/impl/generator/simplexNoiseGenerator";
+import { BlockStateType } from "src/app/block/blockStateType";
+import { Block } from "../../block/block";
+import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
+import { DataLibrary } from "../../datalibrary/dataLibrary";
+import { BASIC_COLLIDER } from "../../entity/collisionChecker";
 import { ConstantValueGenerator } from "../../noise/impl/generator/constantValueGenerator";
-import { CHUNK_INC_SCL, CHUNK_SIZE, VoxelGridChunk } from "../../voxelGrid";
+import { SimplexNoiseGenerator } from "../../noise/impl/generator/simplexNoiseGenerator";
+import { NoiseOperation, OperationType } from "../../noise/impl/transformer/noiseOperation";
+import { NoiseScaler } from "../../noise/impl/transformer/noiseScaler";
+import { OctaveNoise } from "../../noise/impl/transformer/octaveNoise";
+import { NoiseNode } from "../../noise/noiseNode";
+import { BaseRegistries } from "../../synchronization/baseRegistries";
+import { CHUNK_SIZE } from "../../world/voxelGrid";
+import { Chunk, World } from "../../world/world";
+import { WorldGenerator } from "../../world/worldGenerator";
 import { Subscribe } from "../events";
 import { PluginEvents, ServerLoadedEvent } from "../pluginEvents";
-import { Block } from "../../block/block";
-import { BASIC_COLLIDER } from "../../entity/collisionChecker";
-import { DataLibrary } from "../../data/dataLibrary";
-import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
-import { BaseRegistries } from "../../baseRegistries";
-import { BlockStateType } from "src/app/block/blockStateType";
+import { ServerPlugin } from "../serverPlugin";
 
 export class SimplexTerrainGenerator extends WorldGenerator {
     private noise: NoiseNode;

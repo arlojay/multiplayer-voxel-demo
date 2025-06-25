@@ -1,7 +1,6 @@
 import Peer, { DataConnection } from "peerjs";
 import { deserializeError } from "serialize-error";
 import { createPeer } from "../turn";
-import { debugLog } from "../logging";
 import { ServerLaunchOptions } from "./server";
 import { getTransferableObjects } from "./transferableUtils";
 
@@ -25,16 +24,16 @@ export class ServerManager {
     public async start() {
         this.peer = createPeer("server-" + this.id + "-mvd");
         this.launchOptions.peerId = this.id;
-        debugLog("Starting server " + this.id + "...");
+        console.log("Starting server " + this.id + "...");
         await new Promise<void>((res, rej) => {
             this.peer.once("open", () => res());
             this.peer.once("error", e => rej(new ServerPeerError("Error while creating server connection ", { cause: e })));
         });
-        debugLog("Server connected to internet");
+        console.log("Server connected to internet");
 
-        debugLog("Setting up server worker...");
+        console.log("Setting up server worker...");
         await this.setupWorker();
-        debugLog("Setting up server network listeners");
+        console.log("Setting up server network listeners");
         this.initListeners();
         this.started = true;
     }
@@ -66,7 +65,7 @@ export class ServerManager {
         });
 
         this.worker = null;
-        debugLog("Server closed successfully");
+        console.log("Server closed successfully");
     }
     private setupWorker() {
         const worker = new Worker(new URL("./thread.ts", import.meta.url));
@@ -82,10 +81,10 @@ export class ServerManager {
                     const errorPort = params[1] as MessagePort;
 
                     debugPort.addEventListener("message", event => {
-                        debugLog(event.data);
+                        console.log(event.data);
                     })
                     errorPort.addEventListener("message", event => {
-                        debugLog(event.data);
+                        console.log(event.data);
                     })
                 }
                 if(name == "getoptions") {

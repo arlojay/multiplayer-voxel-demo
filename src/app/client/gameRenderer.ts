@@ -1,15 +1,15 @@
+import { uniform } from "three/src/nodes/TSL";
 import { BoxGeometry, HemisphereLight, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { World } from "./world";
-import { WorldRenderer } from "./worldRenderer";
-import { terrainColor } from "./shaders/terrain";
-import { skyColor } from "./shaders/sky";
-import { UIContainer } from "./ui";
-import { uniform } from "three/src/nodes/TSL";
-import { Client } from "./client/client";
-import { CHUNK_SIZE } from "./voxelGrid";
-import { dlerp } from "./math";
-import { GameUIControl } from "./game";
+import { GameUIControl } from "../game";
+import { dlerp } from "../math";
+import { skyColor } from "../shaders/sky";
+import { terrainColor } from "../shaders/terrain";
+import { UIContainer } from "../ui";
+import { CHUNK_SIZE } from "../world/voxelGrid";
+import { World } from "../world/world";
+import { WorldRenderer } from "../world/worldRenderer";
+import { Client } from "./client";
 
 interface GameRendererEvents {
     "frame": (time: number, dt: number) => void;

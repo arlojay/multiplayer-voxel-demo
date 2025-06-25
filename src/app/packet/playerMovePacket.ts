@@ -1,5 +1,5 @@
-import { BinaryBuffer } from "../binary";
-import { Packet, packetRegistry } from "./packet";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
+import { packetRegistry } from "./packet";
 import { PlayerInfo } from "./playerInfo";
 
 

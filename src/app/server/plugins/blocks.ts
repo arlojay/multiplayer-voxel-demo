@@ -1,9 +1,9 @@
-import { BaseRegistries } from "../../baseRegistries";
-import { DataLibrary } from "../../data/dataLibrary";
-import { ServerPlugin } from "../serverPlugin";
 import { Block } from "../../block/block";
-import { BASIC_COLLIDER } from "../../entity/collisionChecker";
 import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
+import { DataLibrary } from "../../datalibrary/dataLibrary";
+import { BASIC_COLLIDER } from "../../entity/collisionChecker";
+import { BaseRegistries } from "../../synchronization/baseRegistries";
+import { ServerPlugin } from "../serverPlugin";
 
 export class BrickBlock extends Block {
     public readonly collider = BASIC_COLLIDER.collider;

@@ -1,5 +1,5 @@
 import { UIContainer } from "./UIContainer";
-import { UIElement, UIElementRegistry, UIEvent } from "./UIElement";
+import { UIElementRegistry, UIEvent } from "./UIElement";
 
 export interface UIFormContributor {
     getFormContributionValue(): any;

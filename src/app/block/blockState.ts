@@ -1,5 +1,5 @@
-import { CHUNK_INC_SCL } from "../voxelGrid";
-import { Chunk, World } from "../world";
+import { CHUNK_INC_SCL } from "../world/voxelGrid";
+import { World } from "../world/world";
 import { Block } from "./block";
 import { BlockDataMemoizer } from "./blockDataMemoizer";
 

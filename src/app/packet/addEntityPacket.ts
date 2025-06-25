@@ -1,5 +1,5 @@
-import { BinaryBuffer, U32 } from "../binary";
 import { BaseEntity } from "../entity/baseEntity";
+import { BinaryBuffer, U32 } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class AddEntityPacket extends Packet {

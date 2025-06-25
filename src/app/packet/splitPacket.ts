@@ -1,5 +1,5 @@
-import { BinaryBuffer, MAX_U32, U16, U32 } from "../binary";
 import { capabilities } from "../capability";
+import { BinaryBuffer, MAX_U32, U16, U32 } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class SplitPacket extends Packet {

@@ -1,9 +1,9 @@
 import { Box3, Color, Texture, Vector2, Vector3 } from "three";
-import { BlockOcclusionType, CustomVoxelMesh, FaceDirection, packVec2, VoxelMesher } from "../voxelMesher";
-import { clamp, map } from "../math";
+import { DataLibrary } from "../datalibrary/dataLibrary";
+import { DataLibraryAsset, DataLibraryAssetReference } from "../datalibrary/dataLibraryAssetTypes";
+import { map } from "../math";
 import { TextureAtlas } from "../texture/textureAtlas";
-import { DataLibraryAsset, DataLibraryAssetReference } from "../data/dataLibraryAssetTypes";
-import { DataLibrary } from "../data/dataLibrary";
+import { BlockOcclusionType, CustomVoxelMesh, FaceDirection, packVec2 } from "../world/voxelMesher";
 
 export type SerializedBlockCuboidFace = [
     number, // texture (index from serialized block)

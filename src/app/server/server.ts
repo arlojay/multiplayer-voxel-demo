@@ -1,34 +1,31 @@
-import { BSON } from "bson";
-import { BaseRegistries } from "../baseRegistries";
+import { Color } from "three";
 import { AirBlock } from "../block/airBlock";
 import { SerializedBlock } from "../block/block";
 import { BlockDataMemoizer } from "../block/blockDataMemoizer";
 import { BlockRegistry } from "../block/blockRegistry";
+import { BlockStateSaveKey } from "../block/blockState";
 import { ColorBlock } from "../block/colorBlock";
-import { DataLibrary, DataLibraryManager } from "../data/dataLibrary";
-import { LibraryDataFetchLocator } from "../data/libraryDataFetchLocator";
-import { createLibraryDataNegotiationLocatorServer } from "../data/libraryDataNegotiationLocator";
+import { DataLibrary, DataLibraryManager } from "../datalibrary/dataLibrary";
+import { LibraryDataFetchLocator } from "../datalibrary/libraryDataFetchLocator";
+import { createLibraryDataNegotiationLocatorServer } from "../datalibrary/libraryDataNegotiationLocator";
 import { BaseEntity, EntityLogicType, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
-import { debugLog } from "../logging";
-import { GameContentPackage } from "../network/gameContentPackage";
 import { NegotiationChannel } from "../network/negotiationChannel";
 import { AddEntityPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket, SetSelectedBlockPacket } from "../packet";
 import { EntityLookPacket } from "../packet/entityLookPacket";
-import { ClientIdentity, ServerIdentity } from "../serverIdentity";
-import { CHUNK_INC_SCL, CHUNK_X_INC_BYTE } from "../voxelGrid";
-import { Chunk, World } from "../world";
-import { WorldGenerator } from "../worldGenerator";
+import { BaseRegistries } from "../synchronization/baseRegistries";
+import { ClientIdentity, ServerIdentity } from "../synchronization/serverIdentity";
+import { CHUNK_INC_SCL } from "../world/voxelGrid";
+import { Chunk, World } from "../world/world";
+import { WorldGenerator } from "../world/worldGenerator";
 import { EventPublisher } from "./events";
 import { FlushPacketQueueEvent, PeerJoinEvent, PeerLeaveEvent, ServerLoadedEvent, ServerPreinitEvent, ServerTickEvent, WorldCreateEvent } from "./pluginEvents";
 import { PluginLoader } from "./pluginLoader";
-import { ServerData, ServerOptions, WorldDescriptor } from "./serverData";
+import { ServerData, ServerOptions } from "./serverData";
 import { ServerPeer } from "./serverPeer";
 import { ServerPlugin } from "./serverPlugin";
 import { MessagePortConnection, serverCrash } from "./thread";
 import { DatabaseChunk, WorldSaver } from "./worldSaver";
-import { BlockStateSaveKey } from "../block/blockState";
-import { Color } from "three";
 
 export interface ServerLaunchOptions {
     id: string;
@@ -128,7 +125,7 @@ export class Server extends EventPublisher {
         this.startLoop();
 
         this.emit(new ServerLoadedEvent(this));
-        debugLog("Server loaded!");
+        console.log("Server loaded!");
     }
 
     private loadPlugins() {
@@ -367,7 +364,7 @@ export class Server extends EventPublisher {
     }
 
     public handleDisconnection(peer: ServerPeer, cause: { toString(): string }) {
-        debugLog("Peer " + peer.id + " disconnected: " + cause.toString());
+        console.log("Peer " + peer.id + " disconnected: " + cause.toString());
 
         const event = new PeerLeaveEvent(this);
         event.peer = peer;

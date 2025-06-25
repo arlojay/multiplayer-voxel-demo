@@ -1,7 +1,6 @@
-import alea from "alea";
 import { NoiseGenerator } from "../../noiseGenerator";
-import { NoiseNode } from "../../noiseNode";
 import { registerNoiseNode } from "../../noiseLoader";
+import { NoiseNode } from "../../noiseNode";
 import { WhiteNoise } from "../../whiteNoise";
 
 export class WhiteNoiseGenerator extends NoiseGenerator {

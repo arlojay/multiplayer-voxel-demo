@@ -1,10 +1,10 @@
 import { Euler, Object3D, SkinnedMesh } from "three";
-import { dlerp } from "../math";
-import { attribute, color, dot, mix, uniform, vec3, vec4 } from "three/src/nodes/TSL";
-import { sunPos } from "../shaders/sky";
-import { Color, MeshBasicNodeMaterial, Vector3 } from "three/src/Three.WebGPU";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import { FloatingText } from "../floatingText";
+import { attribute, color, dot, mix, uniform } from "three/src/nodes/TSL";
+import { Color, MeshBasicNodeMaterial, Vector3 } from "three/src/Three.WebGPU";
+import { dlerp } from "../math";
+import { sunPos } from "../shaders/sky";
+import { FloatingText } from "./floatingText";
 
 const loader = new GLTFLoader();
 

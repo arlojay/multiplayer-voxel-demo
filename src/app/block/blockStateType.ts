@@ -1,5 +1,5 @@
-import { DataLibrary } from "../data/dataLibrary";
-import { DataLibraryAssetReference } from "../data/dataLibraryAssetTypes";
+import { DataLibrary } from "../datalibrary/dataLibrary";
+import { DataLibraryAssetReference } from "../datalibrary/dataLibraryAssetTypes";
 import { CustomVoxelCollider, SerializedCustomVoxelCollider } from "../entity/collisionChecker";
 import { Block } from "./block";
 import { BlockModel, SerializedBlockModel } from "./blockModel";

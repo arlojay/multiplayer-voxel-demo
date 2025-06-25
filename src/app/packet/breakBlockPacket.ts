@@ -1,4 +1,4 @@
-import { BinaryBuffer, I32 } from "../binary";
+import { BinaryBuffer, I32 } from "../serialization/binaryBuffer";
 import { Packet, packetRegistry } from "./packet";
 
 export class BreakBlockPacket extends Packet {

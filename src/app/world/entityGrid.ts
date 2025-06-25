@@ -1,4 +1,4 @@
-import { BaseEntity } from "./entity/baseEntity";
+import { BaseEntity } from "../entity/baseEntity";
 import { CHUNK_SIZE, CHUNK_X_INC_BYTE, CHUNK_Y_INC_BYTE, CHUNK_Z_INC_BYTE, REGION_INC_SCL, REGION_SIZE } from "./voxelGrid";
 
 export class EntityGridChunk {

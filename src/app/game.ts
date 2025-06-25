@@ -1,17 +1,16 @@
 import { $enum } from "ts-enum-util";
 import { Client, getClient } from "./client/client";
 import { ServerSession } from "./client/serverSession";
-import { ClientCustomizationOptions } from "./controlOptions";
-import { controls, KeyControl, MouseKey } from "./controlsMap";
-import { cloneDb, dbExists } from "./dbUtils";
-import { debugLog } from "./logging";
+import { ClientCustomizationOptions } from "./controls/controlOptions";
+import { controls, KeyControl, MouseKey } from "./controls/controlsMap";
 import { dlerp, map } from "./math";
+import { cloneDb, dbExists } from "./serialization/dbUtils";
 import { PluginLoader } from "./server/pluginLoader";
 import { ServerLaunchOptions } from "./server/server";
 import { ServerData, ServerOptions } from "./server/serverData";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
 import { getStats } from "./turn";
-import { UIButton, UIElement, UIFieldset, UIForm, UISection, UISliderInput, UIText, UITextInput } from "./ui";
+import { UIButton, UIFieldset, UIForm, UISection, UIText } from "./ui";
 import { UIFormField, UIFormFieldInputSide } from "./ui/UIFormField";
 import { UISpacer } from "./ui/UISpacer";
 
@@ -72,8 +71,6 @@ export class GameUIControl {
         return new Promise<number>(requestAnimationFrame);
     }
 }
-
-main();
 
 export class DebugInfo {
     private performanceMeter: HTMLDivElement;
@@ -181,6 +178,8 @@ export class DebugInfo {
     }
 }
 
+main();
+
 async function main() {
     const client = new Client(new GameUIControl);
     await client.init();
@@ -192,13 +191,13 @@ async function main() {
         (window.navigator as any).keyboard.lock([
             "KeyW", "KeyA", "KeyS", "KeyD", "Space"
         ]).then(() => {
-            debugLog("Locked keyboard events!");
+            console.log("Locked keyboard events!");
         }).catch((e: any) => {
-            debugLog(e.message);
+            console.log(e.message);
             console.warn(e);
         });
     } else {
-        debugLog("Keyboard locking unsupported");
+        console.log("Keyboard locking unsupported");
     }
 
     document.addEventListener("keydown", e => {

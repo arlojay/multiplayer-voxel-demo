@@ -1,6 +1,6 @@
 import { UIContainer } from ".";
 import { capabilities } from "../capability";
-import { HashedFactoryRegistry } from "../registry";
+import { HashedFactoryRegistry } from "../synchronization/registry";
 import { UIEventBinder } from "./UIEventBinder";
 
 export interface SerializedUIElement {

@@ -3,7 +3,7 @@ import { ConstantSplineInterpolator } from "./constantSplineInterpolator";
 import { CubicSplineInterpolator } from "./cubicSplineInterpolator";
 import { LinearSplineInterpolator } from "./linearSplineInterpolator";
 import { SmoothstepSplineInterpolator } from "./smoothstepSplineInterpolator";
-import { SplineInterpolator, SplinePoint } from "./splineInterpolator"
+import { SplineInterpolator, SplinePoint } from "./splineInterpolator";
 
 type InterpolatorFactory<T extends SplineInterpolator<T>> = (points: SplinePoint[]) => SplineInterpolator<T>;
 

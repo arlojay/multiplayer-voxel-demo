@@ -1,13 +1,13 @@
 import { Color, Mesh } from "three";
-import { BaseEntity, EntityLogicType } from "./entity/baseEntity";
-import { Server } from "./server/server";
+import { BlockDataMemoizer } from "../block/blockDataMemoizer";
+import { BlockRegistry } from "../block/blockRegistry";
+import { BlockState, BlockStateSaveKey, BlockStateSaveKeyPair, blockStateSaveKeyPairToString, blockStateSaveKeyToPair } from "../block/blockState";
+import { BaseEntity, EntityLogicType } from "../entity/baseEntity";
+import { Server } from "../server/server";
+import { EntityGrid, EntityGridChunk } from "./entityGrid";
 import { BLOCK_POSITION_X_BITMASK, BLOCK_POSITION_Y_BITMASK, BLOCK_POSITION_Z_BITMASK, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldGenerator } from "./worldGenerator";
 import { WorldRaycaster } from "./worldRaycaster";
-import { EntityGrid, EntityGridChunk } from "./entityGrid";
-import { BlockRegistry } from "./block/blockRegistry";
-import { BlockState, BlockStateSaveKey, BlockStateSaveKeyPair, blockStateSaveKeyPairToString, blockStateSaveKeyToPair } from "./block/blockState";
-import { BlockDataMemoizer } from "./block/blockDataMemoizer";
 
 export type ColorType = Color | number | null;
 

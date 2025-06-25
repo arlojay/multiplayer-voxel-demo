@@ -1,8 +1,8 @@
-import { DataLibrary } from "../data/dataLibrary";
-import { DataLibraryAssetReference } from "../data/dataLibraryAssetTypes";
+import { DataLibrary } from "../datalibrary/dataLibrary";
+import { DataLibraryAssetReference } from "../datalibrary/dataLibraryAssetTypes";
 import { CustomVoxelCollider } from "../entity/collisionChecker";
-import { RegistryObject } from "../registry";
-import { World } from "../world";
+import { RegistryObject } from "../synchronization/registry";
+import { World } from "../world/world";
 import { BlockModel } from "./blockModel";
 import { BlockState } from "./blockState";
 import { BlockStateOptions, BlockStateType, SerializedBlockStateType } from "./blockStateType";

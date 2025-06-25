@@ -1,8 +1,8 @@
-import { BinaryBuffer, BOOL, I32, U16 } from "../binary";
 import { BlockStateSaveKey } from "../block/blockState";
 import { Player } from "../entity/impl";
-import { CHUNK_SIZE } from "../voxelGrid";
-import { Chunk } from "../world";
+import { BinaryBuffer, BOOL, I32, U16 } from "../serialization/binaryBuffer";
+import { CHUNK_SIZE } from "../world/voxelGrid";
+import { Chunk } from "../world/world";
 import { Packet, packetRegistry } from "./packet";
 
 export class ChunkDataPacket extends Packet {

@@ -1,8 +1,8 @@
-import { Box3, Scene, Vector3 } from "three";
+import { Box3, Vector3 } from "three";
+import { CHUNK_SIZE } from "../world/voxelGrid";
+import { World } from "../world/world";
 import { BaseEntity } from "./baseEntity";
 import { CollisionChecker, CollisionDescription } from "./collisionChecker";
-import { CHUNK_INC_SCL, CHUNK_SIZE } from "../voxelGrid";
-import { World } from "../world";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);

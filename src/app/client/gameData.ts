@@ -1,7 +1,6 @@
-import { ClientOptions } from "./controlOptions";
-import { deserializeControls, serializeControls } from "./controlsMap";
-import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "./dbUtils";
-import { debugLog } from "./logging";
+import { ClientOptions } from "../controls/controlOptions";
+import { deserializeControls, serializeControls } from "../controls/controlsMap";
+import { loadObjectStoreIntoJson, openDb, saveJsonAsObjectStore, waitForTransaction } from "../serialization/dbUtils";
 
 export const DATA_VERSION = 2;
 
@@ -22,7 +21,7 @@ export class GameData {
         this.db = await openDb("mvd-data", {
             version: DATA_VERSION,
             upgrade(db: IDBDatabase, target: number) {
-                debugLog("Migrating game data to v" + target);
+                console.log("Migrating game data to v" + target);
 
                 if(target == 1) {
                     db.createObjectStore("worlds", { keyPath: "id", autoIncrement: true });
@@ -85,7 +84,7 @@ export class GameData {
         const transaction = this.db.transaction("servers", "readwrite");
 
         transaction.objectStore("servers").delete(id);
-        debugLog("Deleting server " + id);
+        console.log("Deleting server " + id);
 
         try {
             await waitForTransaction(transaction);
@@ -93,7 +92,7 @@ export class GameData {
             throw new Error("Failed to delete server " + id, { cause: e });
         }
         this.servers.delete(id);
-        debugLog("Finished deleting server");
+        console.log("Finished deleting server");
     }
 
     public async loadServers() {

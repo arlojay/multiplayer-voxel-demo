@@ -1,6 +1,6 @@
 import { ImageBitmapLoader, Texture, TextureLoader } from "three";
-import { DataLibrary, DataLibraryItem } from "./dataLibrary";
 import { capabilities } from "../capability";
+import { DataLibrary, DataLibraryItem } from "./dataLibrary";
 
 export enum DataLibraryAssetType {
     UNKNOWN = "unknown",

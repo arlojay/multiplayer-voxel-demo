@@ -1,9 +1,8 @@
 import { Box3, Ray, Vector3 } from "three";
+import { BlockDataMemoizer } from "../block/blockDataMemoizer";
+import { BlockState, BlockStateSaveKey } from "../block/blockState";
+import { BASIC_COLLIDER, CompiledCustomVoxelCollider } from "../entity/collisionChecker";
 import { World } from "./world";
-import { BASIC_COLLIDER, CompiledCustomVoxelCollider } from "./entity/collisionChecker";
-import { debugArrow } from "./debug";
-import { BlockState, BlockStateSaveKey } from "./block/blockState";
-import { BlockDataMemoizer } from "./block/blockDataMemoizer";
 
 interface IntersectionResult {
     intersected: boolean,

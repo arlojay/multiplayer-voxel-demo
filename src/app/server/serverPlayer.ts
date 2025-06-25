@@ -1,12 +1,12 @@
+import { EntityLogicType } from "../entity/baseEntity";
 import { CollisionChecker } from "../entity/collisionChecker";
 import { Player } from "../entity/impl";
 import { ClientMovePacket, SetLocalPlayerPositionPacket } from "../packet";
-import { CHUNK_INC_SCL } from "../voxelGrid";
-import { World } from "../world";
-import { ServerPeer } from "./serverPeer";
-import { EntityLogicType } from "../entity/baseEntity";
-import { PeerMoveEvent } from "./pluginEvents";
 import { SetLocalPlayerCapabilitiesPacket } from "../packet/setLocalPlayerCapabilitiesPacket";
+import { CHUNK_INC_SCL } from "../world/voxelGrid";
+import { World } from "../world/world";
+import { PeerMoveEvent } from "./pluginEvents";
+import { ServerPeer } from "./serverPeer";
 
 export class ServerPlayer {
     public peer: ServerPeer;
