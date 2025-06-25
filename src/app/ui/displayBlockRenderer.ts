@@ -157,20 +157,20 @@ export class DisplayBlockRenderer {
 
                 geometryList.push(south);
             }
-            if(cuboid.north != null) {
-                const north = new PlaneGeometry(size.x, size.y);
-                north.setAttribute("color", new Float32BufferAttribute(new Float32Array([
-                    cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b,
-                    cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b,
-                    cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b,
-                    cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b
-                ]), 3));
-                north.rotateY(Math.PI);
-                north.translate(center.x, center.y, cuboid.size.min.z);
-                materialList.push(this.getMaterial(cuboid.north.texture.getTexture()));
+            // if(cuboid.north != null) {
+            //     const north = new PlaneGeometry(size.x, size.y);
+            //     north.setAttribute("color", new Float32BufferAttribute(new Float32Array([
+            //         cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b,
+            //         cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b,
+            //         cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b,
+            //         cuboid.north.color.r, cuboid.north.color.g, cuboid.north.color.b
+            //     ]), 3));
+            //     north.rotateY(Math.PI);
+            //     north.translate(center.x, center.y, cuboid.size.min.z);
+            //     materialList.push(this.getMaterial(cuboid.north.texture.getTexture()));
 
-                geometryList.push(north);
-            }
+            //     geometryList.push(north);
+            // }
             if(cuboid.east != null) {
                 const east = new PlaneGeometry(size.z, size.y);
                 east.setAttribute("color", new Float32BufferAttribute(new Float32Array([
@@ -185,20 +185,20 @@ export class DisplayBlockRenderer {
 
                 geometryList.push(east);
             }
-            if(cuboid.west != null) {
-                const west = new PlaneGeometry(size.z, size.y);
-                west.setAttribute("color", new Float32BufferAttribute(new Float32Array([
-                    cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b,
-                    cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b,
-                    cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b,
-                    cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b
-                ]), 3));
-                west.rotateY(Math.PI * -0.5);
-                west.translate(cuboid.size.min.x, center.y, center.z);
-                materialList.push(this.getMaterial(cuboid.west.texture.getTexture()));
+            // if(cuboid.west != null) {
+            //     const west = new PlaneGeometry(size.z, size.y);
+            //     west.setAttribute("color", new Float32BufferAttribute(new Float32Array([
+            //         cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b,
+            //         cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b,
+            //         cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b,
+            //         cuboid.west.color.r, cuboid.west.color.g, cuboid.west.color.b
+            //     ]), 3));
+            //     west.rotateY(Math.PI * -0.5);
+            //     west.translate(cuboid.size.min.x, center.y, center.z);
+            //     materialList.push(this.getMaterial(cuboid.west.texture.getTexture()));
 
-                geometryList.push(west);
-            }
+            //     geometryList.push(west);
+            // }
             if(cuboid.up != null) {
                 const up = new PlaneGeometry(size.x, size.z);
                 up.setAttribute("color", new Float32BufferAttribute(new Float32Array([
@@ -213,20 +213,20 @@ export class DisplayBlockRenderer {
 
                 geometryList.push(up);
             }
-            if(cuboid.down != null) {
-                const down = new PlaneGeometry(size.z, size.y);
-                down.setAttribute("color", new Float32BufferAttribute(new Float32Array([
-                    cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b,
-                    cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b,
-                    cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b,
-                    cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b
-                ]), 3));
-                down.rotateX(Math.PI * 0.5);
-                down.translate(center.x, cuboid.size.min.y, center.z);
-                materialList.push(this.getMaterial(cuboid.down.texture.getTexture()));
+            // if(cuboid.down != null) {
+            //     const down = new PlaneGeometry(size.z, size.y);
+            //     down.setAttribute("color", new Float32BufferAttribute(new Float32Array([
+            //         cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b,
+            //         cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b,
+            //         cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b,
+            //         cuboid.down.color.r, cuboid.down.color.g, cuboid.down.color.b
+            //     ]), 3));
+            //     down.rotateX(Math.PI * 0.5);
+            //     down.translate(center.x, cuboid.size.min.y, center.z);
+            //     materialList.push(this.getMaterial(cuboid.down.texture.getTexture()));
 
-                geometryList.push(down);
-            }
+            //     geometryList.push(down);
+            // }
         }
         
 

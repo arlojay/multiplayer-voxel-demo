@@ -1,5 +1,5 @@
 import { Box3, Color, Texture, Vector2, Vector3 } from "three";
-import { CustomVoxelMesh, FaceDirection, packVec2, VoxelMesher } from "../voxelMesher";
+import { BlockOcclusionType, CustomVoxelMesh, FaceDirection, packVec2, VoxelMesher } from "../voxelMesher";
 import { clamp, map } from "../math";
 import { TextureAtlas } from "../texture/textureAtlas";
 import { DataLibraryAsset, DataLibraryAssetReference } from "../data/dataLibraryAssetTypes";
@@ -225,6 +225,26 @@ export class BlockModel {
         this.cuboids.push(...cuboids);
     }
 
+    public setAoCasting(aoCasting: boolean) {
+        this.aoCasting = aoCasting;
+        return this;
+    }
+
+    public setAoReceiving(aoReceiving: boolean) {
+        this.aoReceiving = aoReceiving;
+        return this;
+    }
+
+    public setOpaque(opaque: boolean) {
+        this.opaque = opaque;
+        return this;
+    }
+
+    public setCullable(cullable: boolean) {
+        this.cullable = cullable;
+        return this;
+    }
+
     public getUsedTextures(): DataLibraryAsset[] {
         const textures: Set<DataLibraryAsset> = new Set;
         for(const cuboid of this.cuboids) {
@@ -263,37 +283,32 @@ interface CompiledModelFace {
     fposNP: number;
     fposPN: number;
     fposPP: number;
+    textureIndex: number;
 }
 
 async function compileFaceUVs(face: BlockCuboidFace, textureAtlas: TextureAtlas) {
     await face.texture.loadTexture();
-    const entry = textureAtlas.getTexturePosition(face.texture.getTexture());
-
-    let top = textureAtlas.height - entry.top;
-    let left = entry.left;
-    let bottom = top - face.uvMax.y;
-    let right = left + face.uvMax.x;
-
-    left += face.uvMin.x;
-    top -= face.uvMin.y;
+    const texturePosition = textureAtlas.getTexturePosition(face.texture.getTexture());
+    const textureIndex = textureAtlas.getTextureIndex(face.texture.getTexture());
     
     return {
         uvNN: packVec2(
-            Math.round(left),
-            Math.round(bottom),
+            Math.round(face.uvMin.x / texturePosition.object.width * 0xffff),
+            Math.round(face.uvMin.y / texturePosition.object.height * 0xffff),
         ),
         uvNP: packVec2(
-            Math.round(left),
-            Math.round(top),
+            Math.round(face.uvMin.x / texturePosition.object.width * 0xffff),
+            Math.round(face.uvMax.y / texturePosition.object.height * 0xffff),
         ),
         uvPN: packVec2(
-            Math.round(right),
-            Math.round(bottom),
+            Math.round(face.uvMax.x / texturePosition.object.width * 0xffff),
+            Math.round(face.uvMin.y / texturePosition.object.height * 0xffff),
         ),
         uvPP: packVec2(
-            Math.round(right),
-            Math.round(top),
+            Math.round(face.uvMax.x / texturePosition.object.width * 0xffff),
+            Math.round(face.uvMax.y / texturePosition.object.height * 0xffff),
         ),
+        textureIndex: textureIndex << 11
     };
 }
 function compileFacePositions(left: number, bottom: number, right: number, top: number) {
@@ -413,12 +428,12 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
         aoReceiving: model.aoReceiving,
         opaque: model.opaque,
         cullable: model.cullable,
-        build(mesher, vertices, bindata, indices, x, y, z, color) {
+        build(mesher, vertices, bindata, indices, x, y, z) {
             let vcount = mesher.vertexCount;
-            const ao = model.aoReceiving ? mesher.packedAO : VoxelMesher.NO_AO;
+            const faceData = mesher.packedFace;
 
             // West
-            for(const face of mesher.renderFace[FaceDirection.WEST] ? facesWest : facesWestAlways) {
+            for(const face of mesher.adjacentOcclusionType[FaceDirection.WEST] === BlockOcclusionType.NONE ? facesWest : facesWestAlways) {
                 vertices.push(
                     x + face.localDepthPos, y + face.localHeightMax, z + face.localWidthMin,
                     x + face.localDepthPos, y + face.localHeightMax, z + face.localWidthMax,
@@ -426,10 +441,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localDepthPos, y + face.localHeightMin, z + face.localWidthMin,
                 );
                 bindata.push(
-                    face.color, ao[FaceDirection.WEST], face.fposNP, face.uvNP,
-                    face.color, ao[FaceDirection.WEST], face.fposPP, face.uvPP,
-                    face.color, ao[FaceDirection.WEST], face.fposPN, face.uvPN,
-                    face.color, ao[FaceDirection.WEST], face.fposNN, face.uvNN
+                    face.color, faceData[FaceDirection.WEST] | face.textureIndex, face.fposNP, face.uvNP,
+                    face.color, faceData[FaceDirection.WEST] | face.textureIndex, face.fposPP, face.uvPP,
+                    face.color, faceData[FaceDirection.WEST] | face.textureIndex, face.fposPN, face.uvPN,
+                    face.color, faceData[FaceDirection.WEST] | face.textureIndex, face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -439,7 +454,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             }
 
             // East
-            for(const face of mesher.renderFace[FaceDirection.EAST] ? facesEast : facesEastAlways) {
+            for(const face of mesher.adjacentOcclusionType[FaceDirection.EAST] === BlockOcclusionType.NONE ? facesEast : facesEastAlways) {
                 vertices.push(
                     x + face.localDepthPos, y + face.localHeightMax, z + face.localWidthMax,
                     x + face.localDepthPos, y + face.localHeightMax, z + face.localWidthMin,
@@ -447,10 +462,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localDepthPos, y + face.localHeightMin, z + face.localWidthMax,
                 );
                 bindata.push(
-                    face.color, ao[FaceDirection.EAST], face.fposNP, face.uvNP,
-                    face.color, ao[FaceDirection.EAST], face.fposPP, face.uvPP,
-                    face.color, ao[FaceDirection.EAST], face.fposPN, face.uvPN,
-                    face.color, ao[FaceDirection.EAST], face.fposNN, face.uvNN
+                    face.color, faceData[FaceDirection.EAST] | face.textureIndex, face.fposNP, face.uvNP,
+                    face.color, faceData[FaceDirection.EAST] | face.textureIndex, face.fposPP, face.uvPP,
+                    face.color, faceData[FaceDirection.EAST] | face.textureIndex, face.fposPN, face.uvPN,
+                    face.color, faceData[FaceDirection.EAST] | face.textureIndex, face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -460,7 +475,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             }
 
             // South
-            for(const face of mesher.renderFace[FaceDirection.SOUTH] ? facesSouth : facesSouthAlways) {
+            for(const face of mesher.adjacentOcclusionType[FaceDirection.SOUTH] === BlockOcclusionType.NONE ? facesSouth : facesSouthAlways) {
                 vertices.push(
                     x + face.localWidthMin, y + face.localHeightMax, z + face.localDepthPos,
                     x + face.localWidthMax, y + face.localHeightMax, z + face.localDepthPos,
@@ -468,10 +483,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMin, y + face.localHeightMin, z + face.localDepthPos,
                 );
                 bindata.push(
-                    face.color, ao[FaceDirection.SOUTH], face.fposNP, face.uvNP,
-                    face.color, ao[FaceDirection.SOUTH], face.fposPP, face.uvPP,
-                    face.color, ao[FaceDirection.SOUTH], face.fposPN, face.uvPN,
-                    face.color, ao[FaceDirection.SOUTH], face.fposNN, face.uvNN
+                    face.color, faceData[FaceDirection.SOUTH] | face.textureIndex, face.fposNP, face.uvNP,
+                    face.color, faceData[FaceDirection.SOUTH] | face.textureIndex, face.fposPP, face.uvPP,
+                    face.color, faceData[FaceDirection.SOUTH] | face.textureIndex, face.fposPN, face.uvPN,
+                    face.color, faceData[FaceDirection.SOUTH] | face.textureIndex, face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -481,7 +496,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             }
 
             // North
-            for(const face of mesher.renderFace[FaceDirection.NORTH] ? facesNorth : facesNorthAlways) {
+            for(const face of mesher.adjacentOcclusionType[FaceDirection.NORTH] === BlockOcclusionType.NONE ? facesNorth : facesNorthAlways) {
                 vertices.push(
                     x + face.localWidthMax, y + face.localHeightMax, z + face.localDepthPos,
                     x + face.localWidthMin, y + face.localHeightMax, z + face.localDepthPos,
@@ -489,10 +504,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMax, y + face.localHeightMin, z + face.localDepthPos,
                 );
                 bindata.push(
-                    face.color, ao[FaceDirection.NORTH], face.fposNP, face.uvNP,
-                    face.color, ao[FaceDirection.NORTH], face.fposPP, face.uvPP,
-                    face.color, ao[FaceDirection.NORTH], face.fposPN, face.uvPN,
-                    face.color, ao[FaceDirection.NORTH], face.fposNN, face.uvNN
+                    face.color, faceData[FaceDirection.NORTH] | face.textureIndex, face.fposNP, face.uvNP,
+                    face.color, faceData[FaceDirection.NORTH] | face.textureIndex, face.fposPP, face.uvPP,
+                    face.color, faceData[FaceDirection.NORTH] | face.textureIndex, face.fposPN, face.uvPN,
+                    face.color, faceData[FaceDirection.NORTH] | face.textureIndex, face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -502,7 +517,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             }
 
             // Up
-            for(const face of mesher.renderFace[FaceDirection.UP] ? facesUp : facesUpAlways) {
+            for(const face of mesher.adjacentOcclusionType[FaceDirection.UP] === BlockOcclusionType.NONE ? facesUp : facesUpAlways) {
                 vertices.push(
                     x + face.localWidthMin, y + face.localDepthPos, z + face.localHeightMin,
                     x + face.localWidthMax, y + face.localDepthPos, z + face.localHeightMin,
@@ -510,10 +525,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMin, y + face.localDepthPos, z + face.localHeightMax,
                 );
                 bindata.push(
-                    face.color, ao[FaceDirection.UP], face.fposNP, face.uvNP,
-                    face.color, ao[FaceDirection.UP], face.fposPP, face.uvPP,
-                    face.color, ao[FaceDirection.UP], face.fposPN, face.uvPN,
-                    face.color, ao[FaceDirection.UP], face.fposNN, face.uvNN
+                    face.color, faceData[FaceDirection.UP] | face.textureIndex, face.fposNP, face.uvNP,
+                    face.color, faceData[FaceDirection.UP] | face.textureIndex, face.fposPP, face.uvPP,
+                    face.color, faceData[FaceDirection.UP] | face.textureIndex, face.fposPN, face.uvPN,
+                    face.color, faceData[FaceDirection.UP] | face.textureIndex, face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,
@@ -523,7 +538,7 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
             }
 
             // Down
-            for(const face of mesher.renderFace[FaceDirection.DOWN] ? facesDown : facesDownAlways) {
+            for(const face of mesher.adjacentOcclusionType[FaceDirection.DOWN] === BlockOcclusionType.NONE ? facesDown : facesDownAlways) {
                 vertices.push(
                     x + face.localWidthMin, y + face.localDepthPos, z + face.localHeightMax,
                     x + face.localWidthMax, y + face.localDepthPos, z + face.localHeightMax,
@@ -531,10 +546,10 @@ export async function compileBlockModel(model: BlockModel, textureAtlas: Texture
                     x + face.localWidthMin, y + face.localDepthPos, z + face.localHeightMin,
                 );
                 bindata.push(
-                    face.color, ao[FaceDirection.DOWN], face.fposNP, face.uvNP,
-                    face.color, ao[FaceDirection.DOWN], face.fposPP, face.uvPP,
-                    face.color, ao[FaceDirection.DOWN], face.fposPN, face.uvPN,
-                    face.color, ao[FaceDirection.DOWN], face.fposNN, face.uvNN
+                    face.color, faceData[FaceDirection.DOWN] | face.textureIndex, face.fposNP, face.uvNP,
+                    face.color, faceData[FaceDirection.DOWN] | face.textureIndex, face.fposPP, face.uvPP,
+                    face.color, faceData[FaceDirection.DOWN] | face.textureIndex, face.fposPN, face.uvPN,
+                    face.color, faceData[FaceDirection.DOWN] | face.textureIndex, face.fposNN, face.uvNN
                 );
                 indices.push(
                     vcount + 2, vcount + 1, vcount,

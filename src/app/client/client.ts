@@ -14,7 +14,7 @@ import { GameContentPackage } from "../network/gameContentPackage";
 import { createDeserializedBlockClass } from "../block/block";
 import { TextureAtlas } from "../texture/textureAtlas";
 import { NearestFilter } from "three";
-import { terrainMap } from "../shaders/terrain";
+import { setTextureAtlas as setTerrainTextureAtlas, terrainMap } from "../shaders/terrain";
 import { LibraryDataNegotiationLocator } from "../data/libraryDataNegotiationLocator";
 import { ClientIdentity, ServerIdentity } from "../serverIdentity";
 import { BlockDataMemoizer } from "../block/blockDataMemoizer";
@@ -198,7 +198,8 @@ export class Client extends TypedEmitter<ClientEvents> {
                     textureAtlas.build();
                     textureAtlas.builtTexture.magFilter = NearestFilter;
                     textureAtlas.builtTexture.colorSpace = "srgb";
-                    terrainMap.value = textureAtlas.builtTexture;
+                    textureAtlas.builtTexture.generateMipmaps = false;
+                    await setTerrainTextureAtlas(textureAtlas);
 
                     await serverSession.blockDataMemoizer.memoize(textureAtlas);
                     serverSession.displayBlockRenderer.build(serverSession.registries.blocks);

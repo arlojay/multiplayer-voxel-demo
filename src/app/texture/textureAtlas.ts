@@ -16,6 +16,9 @@ export class TextureAtlas {
     public getTexturePosition(texture: Texture) {
         return this.workingAtlas.placedObjectMap.get(texture);
     }
+    public getTextureIndex(texture: Texture) {
+        return this.workingAtlas.getObjectIndex(texture);
+    }
 
     private trySize(indexedTextures: IndexedPackingObject<Texture>[], width: number, height: number) {
         const prototypeAtlas = new SkylinePackedAtlas(width, height);

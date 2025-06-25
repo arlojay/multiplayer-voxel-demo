@@ -28,6 +28,7 @@ export class SkylinePackedAtlas<T = Texture> {
     public readonly sizeY: number;
     public readonly placedObjects: PlacedObject<T>[] = new Array;
     public readonly placedObjectMap: Map<T, PlacedObject<T>> = new Map;
+    public readonly placedObjectIdMap: Map<number, PlacedObject<T>> = new Map;
     private skyline: SkylineObject<T>[] = new Array;
 
     constructor(sizeX: number, sizeY: number) {
@@ -50,6 +51,16 @@ export class SkylinePackedAtlas<T = Texture> {
                 }
             }
         });
+    }
+
+    public getObjectIndex(object: T) {
+        const placedObject = this.placedObjectMap.get(object);
+        if(placedObject == null) return -1;
+
+        return placedObject.object.id;
+    }
+    public getPlacedObjectById(id: number) {
+        return this.placedObjectIdMap.get(id);
     }
 
     private addSkylineObject(placedObject: PlacedObject<T>) {
@@ -163,6 +174,7 @@ export class SkylinePackedAtlas<T = Texture> {
             const placedObject = { left: 0, top: 0, right: object.width, bottom: object.height, object };
             this.placedObjects.push(placedObject);
             this.placedObjectMap.set(placedObject.object.object, placedObject);
+            this.placedObjectIdMap.set(placedObject.object.id, placedObject);
             this.addSkylineObject(placedObject);
             return;
         }
@@ -198,7 +210,7 @@ export class SkylinePackedAtlas<T = Texture> {
         
         this.placedObjects.push(bestPlacement);
         this.placedObjectMap.set(bestPlacement.object.object, bestPlacement);
+        this.placedObjectIdMap.set(bestPlacement.object.id, bestPlacement);
         this.addSkylineObject(bestPlacement);
-
     }
 }
