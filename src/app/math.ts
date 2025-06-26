@@ -2,7 +2,7 @@ export function lerp(a: number, b: number, t: number) {
     return (b - a) * t + a;
 }
 export function dlerp(a: number, b: number, dt: number, speed: number) {
-    return (b - a) * (1 - (1 / (speed + 1)) ** (dt)) + a;
+    return (b - a) * (1 - 0.5 ** (speed * dt)) + a;
 }
 export function vlerp(a: number, dt: number, velocity: number) {
     return a + velocity * dt;

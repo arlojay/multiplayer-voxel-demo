@@ -227,7 +227,7 @@ export abstract class BaseEntity<
     }
 
     public getBufferSize() {
-        return super.getBufferSize() + BinaryBuffer.stringByteCount(this.uuid) + VEC3 + VEC3 + U16;
+        return super.getBufferSize() + BinaryBuffer.stringByteCount(this.uuid) + VEC3 + VEC3 + VEC3 + VEC3 + U16;
     }
 
     protected abstract getExpectedSize(): number;

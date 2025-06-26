@@ -286,7 +286,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         }
 
 
-        this.panRoll = dlerp(this.panRoll, 0, dt, 2500);
+        this.panRoll = dlerp(this.panRoll, 0, dt, 50);
         if(receivingControls && !this.freecam) {
             this.base.rotation.yaw += pointerMoveX * controlOptions.mouseSensitivity * (Math.PI / 180);
             this.base.rotation.pitch += pointerMoveY * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
@@ -305,8 +305,8 @@ export class LocalPlayer extends LocalEntity<Player> {
         if(this.sprinting) fovm *= 1.1;
         else if(this.crouching) fovm /= 1.3;
 
-        this.fovMultiplier = dlerp(this.fovMultiplier, fovm, dt, 500);
-        this.pitchOffset = dlerp(this.pitchOffset, Math.atan(this.base.velocity.y * 0.03) * 0.2, dt, 500);
+        this.fovMultiplier = dlerp(this.fovMultiplier, fovm, dt, 25);
+        this.pitchOffset = dlerp(this.pitchOffset, Math.atan(this.base.velocity.y * 0.03) * 0.2, dt, 25);
 
         this.playerCamera.position.copy(this.base.position);
         this.playerCamera.position.y += this.eyeHeight;

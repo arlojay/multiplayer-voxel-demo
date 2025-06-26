@@ -46,7 +46,7 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
         newPosition.y = positionLerp(dt, newPosition.y, this.velocity.y, this.acceleration.y, this.drag.y);
         newPosition.z = positionLerp(dt, newPosition.z, this.velocity.z, this.acceleration.z, this.drag.z);
 
-        this.renderPosition.lerp(newPosition, 1 - 0.5 ** (dt * 30));
+        this.renderPosition.lerp(newPosition, 1 - 0.5 ** (dt * 100));
         if(isNaN(this.renderPosition.x)) {
             this.renderPosition.copy(this.base.position);
         }
