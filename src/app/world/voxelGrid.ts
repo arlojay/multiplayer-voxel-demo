@@ -6,6 +6,9 @@ export const CHUNK_X_INC_BYTE = CHUNK_INC_SCL * 2;
 export const CHUNK_Y_INC_BYTE = CHUNK_INC_SCL * 0;
 export const CHUNK_Z_INC_BYTE = CHUNK_INC_SCL * 1;
 export const CHUNK_BLOCK_INC_BYTE = CHUNK_INC_SCL;
+export const CHUNK_POSITION_X_BITMASK = (1 << CHUNK_INC_SCL) - 1;
+export const CHUNK_POSITION_Y_BITMASK = (1 << CHUNK_INC_SCL) - 1;
+export const CHUNK_POSITION_Z_BITMASK = (1 << CHUNK_INC_SCL) - 1;
 
 export const REGION_INC_SCL = 4;
 export const REGION_X_INC_BYTE = REGION_INC_SCL * 2;
@@ -19,6 +22,9 @@ export const BLOCK_Z_INC_BYTE = CHUNK_INC_SCL * 1;
 export const BLOCK_POSITION_X_BITMASK = (1 << CHUNK_INC_SCL) - 1;
 export const BLOCK_POSITION_Y_BITMASK = (1 << CHUNK_INC_SCL) - 1;
 export const BLOCK_POSITION_Z_BITMASK = (1 << CHUNK_INC_SCL) - 1;
+export const REGION_BLOCK_POSITION_X_BITMASK = (1 << REGION_BLOCK_INC) - 1;
+export const REGION_BLOCK_POSITION_Y_BITMASK = (1 << REGION_BLOCK_INC) - 1;
+export const REGION_BLOCK_POSITION_Z_BITMASK = (1 << REGION_BLOCK_INC) - 1;
 
 export const CHUNK_SIZE = 1 << CHUNK_INC_SCL;
 export const REGION_SIZE = 1 << REGION_INC_SCL;
@@ -94,9 +100,9 @@ export class VoxelGridRegion {
         if(chunk == null) return 0;
 
         return chunk.get(
-            x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL),
-            y - (y >> CHUNK_INC_SCL << CHUNK_INC_SCL),
-            z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL),
+            x & BLOCK_POSITION_X_BITMASK,
+            y & BLOCK_POSITION_Y_BITMASK,
+            z & BLOCK_POSITION_Z_BITMASK,
         );
     }
     public set(x: number, y: number, z: number, value: number): void {
@@ -106,9 +112,9 @@ export class VoxelGridRegion {
             z >> CHUNK_INC_SCL
         );
         chunk.set(
-            x - (x >> CHUNK_INC_SCL << CHUNK_INC_SCL),
-            y - (y >> CHUNK_INC_SCL << CHUNK_INC_SCL),
-            z - (z >> CHUNK_INC_SCL << CHUNK_INC_SCL),
+            x & BLOCK_POSITION_X_BITMASK,
+            y & BLOCK_POSITION_Y_BITMASK,
+            z & BLOCK_POSITION_Z_BITMASK,
             value
         );
     }
@@ -156,9 +162,9 @@ export class VoxelGrid {
         );
 
         return region.chunkExists(
-            x - (x >> REGION_INC_SCL << REGION_INC_SCL),
-            y - (y >> REGION_INC_SCL << REGION_INC_SCL),
-            z - (z >> REGION_INC_SCL << REGION_INC_SCL)
+            x & CHUNK_POSITION_X_BITMASK,
+            y & CHUNK_POSITION_Y_BITMASK,
+            z & CHUNK_POSITION_Z_BITMASK
         );
     }
     public getChunk(x: number, y: number, z: number, create = true): VoxelGridChunk {
@@ -169,9 +175,9 @@ export class VoxelGrid {
         );
 
         return region.getChunk(
-            x - (x >> REGION_INC_SCL << REGION_INC_SCL),
-            y - (y >> REGION_INC_SCL << REGION_INC_SCL),
-            z - (z >> REGION_INC_SCL << REGION_INC_SCL),
+            x & CHUNK_POSITION_X_BITMASK,
+            y & CHUNK_POSITION_Y_BITMASK,
+            z & CHUNK_POSITION_Z_BITMASK,
             create
         );
     }
@@ -183,9 +189,9 @@ export class VoxelGrid {
         );
 
         return region.deleteChunk(
-            x - (x >> REGION_INC_SCL << REGION_INC_SCL),
-            y - (y >> REGION_INC_SCL << REGION_INC_SCL),
-            z - (z >> REGION_INC_SCL << REGION_INC_SCL)
+            x & CHUNK_POSITION_X_BITMASK,
+            y & CHUNK_POSITION_Y_BITMASK,
+            z & CHUNK_POSITION_Z_BITMASK
         );
     }
     public get(x: number, y: number, z: number, createChunk = true): number {
@@ -196,9 +202,9 @@ export class VoxelGrid {
         );
 
         return region.get(
-            x - (x >> REGION_BLOCK_INC << REGION_BLOCK_INC),
-            y - (y >> REGION_BLOCK_INC << REGION_BLOCK_INC),
-            z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            x & CHUNK_POSITION_X_BITMASK,
+            y & CHUNK_POSITION_Y_BITMASK,
+            z & CHUNK_POSITION_Z_BITMASK,
             createChunk
         );
     }
@@ -210,9 +216,9 @@ export class VoxelGrid {
         );
 
         region.set(
-            x - (x >> REGION_BLOCK_INC << REGION_BLOCK_INC),
-            y - (y >> REGION_BLOCK_INC << REGION_BLOCK_INC),
-            z - (z >> REGION_BLOCK_INC << REGION_BLOCK_INC),
+            x & REGION_BLOCK_POSITION_X_BITMASK,
+            y & REGION_BLOCK_POSITION_Y_BITMASK,
+            z & REGION_BLOCK_POSITION_Z_BITMASK,
             value
         );
     }
