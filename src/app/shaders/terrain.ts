@@ -1,5 +1,5 @@
 import { Texture } from "three";
-import { attribute, cameraPosition, color, dot, float, Fn, If, ivec2, mix, nodeProxy, positionWorld, smoothstep, texture, textureSize, uint, vec2, vec3, vec4, vertexStage } from "three/src/nodes/TSL";
+import { attribute, cameraPosition, color, Discard, dot, float, Fn, If, ivec2, mix, nodeProxy, positionWorld, smoothstep, texture, textureSize, uint, vec2, vec3, vec4, vertexStage } from "three/src/nodes/TSL";
 import { NearestFilter, Node, NodeBuilder, TextureLoader } from "three/src/Three.WebGPU";
 import { TextureAtlas } from "../texture/textureAtlas";
 import { FaceDirection } from "../world/voxelMesher";
@@ -114,8 +114,10 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
         colorToU32LE(dataTexture.sample(getUvFromIndex(faceTextureId.mul(4).add(2), textureDimension))).toFloat(),
         colorToU32LE(dataTexture.sample(getUvFromIndex(faceTextureId.mul(4).add(3), textureDimension))).toFloat()
     )).toVar("faceTextureMax");
+    const faceTextureSize = faceTextureMax.sub(faceTextureMin).toVar("faceTextureSize");
 
     const texSize = vec2(textureSize(terrainMap));
+    const facePixelSize = faceTextureSize.reciprocal().toVar();
 
     const rawFaceUv = unpackVec2(attribute("uv")).div(0xffff).toVar();
     const faceUv = vertexStage(rawFaceUv).toVar();
@@ -149,8 +151,10 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
     //     floor(uv.x.mul(s)).add(floor(uv.y.mul(s))).bitAnd(1).toFloat()
     // ), 1);
 
-    const lum = Fn(({ c = color() }) => {
-        return c.r.mul(0.2126).add(c.g.mul(0.7152)).add(c.b.mul(0.0722));
+    const dist = positionWorld.sub(cameraPosition).length();
+    const fogFactor = dist.remapClamp(viewDistance.mul(0.75), viewDistance.mul(0.95), 0, 1);
+    If(fogFactor.greaterThanEqual(1), () => {
+        Discard();
     })
     
     const topRightAo = float(packedFaceData.bitAnd(0b11)).toVar("topRightAo");
@@ -163,8 +167,6 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
 
     const faceDirection = packedFaceData.bitAnd(0b111 << 8).shiftRight(8).toVar("faceDirection");
     const normal = vec3(0, 1, 0).toVar("f_normal");
-    const dist = positionWorld.sub(cameraPosition).length();
-    const fogFactor = dist.remapClamp(viewDistance.mul(0.75), viewDistance.mul(0.95), 0, 1);
 
     If(faceDirection.equal(FaceDirection.EAST), () => {
         normal.assign(vec3(1, 0, 0));
@@ -198,8 +200,8 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
     ).toVar("flatColor");
 
     const aoDarken = float(1).div(ao.pow(1.5).add(1));
-    const shadow = dot(normal, sunPos).clamp(0, 1).remap(0, 1, 0.25, 1).mul(aoDarken);
-    const isLightColor = lum({ c: flatColor }).greaterThan(float(0.25));
+    const shadow = dot(normal, sunPos).clamp(0, 1).remap(0, 1, 0.25, 1).mul(aoDarken).toVar();
+    
     // const reflection = reflect(incident, normal);
 
     // const IOR = float(4/3);
@@ -216,24 +218,37 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
         [0, 0],
     ]
     const faceColor = vec4(0, 0, 0, 0).toVar();
-    const anisotropyCoefficient = dist.mul(texSize).div(128).sqrt().sub(2.4).max(0).toVar();
+    const anisotropyCoefficient = dist.mul(texSize).div(128).sqrt().sub(2.4).max(0).div(texSize).toVar();
+    const uvClampMin = facePixelSize.mul(0.5).toVar("uvClampMin");
+    const uvClampMax = uvClampMin.oneMinus().toVar("uvClampMax");
     for(const [ dx, dy ] of anisotropyLocations) {
         faceColor.addAssign(terrainMap.sample(vec2(
-            mix(faceTextureMin.x, faceTextureMax.x, faceUv.x.add(float(dx).div(texSize.x).mul(anisotropyCoefficient.x)).fract()).div(texSize.x),
-            mix(faceTextureMin.y, faceTextureMax.y, faceUv.y.add(float(dy).div(texSize.y).mul(anisotropyCoefficient.y)).fract()).div(texSize.y)
+            mix(faceTextureMin.x, faceTextureMax.x, faceUv.x.add(float(dx).mul(anisotropyCoefficient.x)).fract().clamp(uvClampMin.x, uvClampMax.x)).div(texSize.x),
+            mix(faceTextureMin.y, faceTextureMax.y, faceUv.y.add(float(dy).mul(anisotropyCoefficient.y)).fract().clamp(uvClampMin.y, uvClampMax.y)).div(texSize.y)
         )));
     }
     faceColor.divAssign(anisotropyLocations.length);
-    // const faceColor = vec4(1, 1, 1, 1).toVar();
 
-    const dayColor = faceColor.mul(flatColor).mul(shadow);
-    const nightColor = mix(
-        faceColor,
-        faceColor.mul(color(0, 0, 0.05)),
-        shadow.remap(0, 1, 1, 0.95)
-    );
+    const dayColor = vec3(0, 0, 0).toVar("dayColor");
+    const nightColor = vec3(0, 0, 0).toVar("nightColor");
+    
+    If(nightColor.lessThan(1), () => {
+        dayColor.assign(faceColor.mul(flatColor).mul(shadow));
+    })
+    If(nightFactor.greaterThan(0), () => {
+        nightColor.assign(mix(
+            faceColor,
+            faceColor.mul(color(0, 0, 0.05)),
+            shadow.remap(0, 1, 1, 0.95)
+        ));
+    });
 
-    const outColor = mix(mix(dayColor, nightColor, nightFactor), skyColorNode(positionWorld.sub(cameraPosition)), fogFactor);
+    const fogColor = vec3(0, 0, 0).toVar("fogColor");
+    If(fogFactor.greaterThan(0), () => {
+        fogColor.assign(skyColorNode(positionWorld.sub(cameraPosition)));
+    })
+
+    const outColor = mix(mix(dayColor, nightColor, nightFactor), fogColor, fogFactor);
 
     // outColor.assign(mix(outColor, skyReflection, fresnel));
     // outColor.assign(vec4(fresnel, fresnel, fresnel, 1));
