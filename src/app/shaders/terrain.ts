@@ -208,20 +208,25 @@ export const terrainColor = Fn(([viewDistance = float(16)]) => {
 
     // const skyReflection = skyColorNode({ pos: reflection });
 
-    const anisotropy = 1;
+    const anisotropyLocations = [
+        [1, -1],
+        [1, 1],
+        [-1, -1],
+        [-1, 1],
+        [0, 0],
+    ]
     const faceColor = vec4(0, 0, 0, 0).toVar();
-    const anisotropyCoefficient = dist.toVar();
-    for(let dx = -anisotropy; dx <= anisotropy; dx++) {
-        for(let dy = -anisotropy; dy <= anisotropy; dy++) {
-            faceColor.addAssign(terrainMap.sample(vec2(
-                mix(faceTextureMin.x, faceTextureMax.x, faceUv.x.add(float(dx).div(texSize.x).mul(anisotropyCoefficient)).fract()).div(texSize.x),
-                mix(faceTextureMin.y, faceTextureMax.y, faceUv.y.add(float(dy).div(texSize.y).mul(anisotropyCoefficient)).fract()).div(texSize.y)
-            )).mul(flatColor));
-        }
+    const anisotropyCoefficient = dist.mul(texSize).div(128).sqrt().sub(2.4).max(0).toVar();
+    for(const [ dx, dy ] of anisotropyLocations) {
+        faceColor.addAssign(terrainMap.sample(vec2(
+            mix(faceTextureMin.x, faceTextureMax.x, faceUv.x.add(float(dx).div(texSize.x).mul(anisotropyCoefficient.x)).fract()).div(texSize.x),
+            mix(faceTextureMin.y, faceTextureMax.y, faceUv.y.add(float(dy).div(texSize.y).mul(anisotropyCoefficient.y)).fract()).div(texSize.y)
+        )));
     }
-    faceColor.divAssign((anisotropy * 2 + 1) ** 2);
+    faceColor.divAssign(anisotropyLocations.length);
+    // const faceColor = vec4(1, 1, 1, 1).toVar();
 
-    const dayColor = faceColor.mul(shadow);
+    const dayColor = faceColor.mul(flatColor).mul(shadow);
     const nightColor = mix(
         faceColor,
         faceColor.mul(color(0, 0, 0.05)),
