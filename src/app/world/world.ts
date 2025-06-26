@@ -169,6 +169,13 @@ export class Chunk {
             this.surroundings++;
         }
     }
+    public unmarkSurrounded(dx: number, dy: number, dz: number) {
+        const i = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+        if(this.surroundedChunks[i]) {
+            this.surroundedChunks[i] = false;
+            this.surroundings--;
+        }
+    }
 
     public isFullySurrounded() {
         return this.surroundings === 26;

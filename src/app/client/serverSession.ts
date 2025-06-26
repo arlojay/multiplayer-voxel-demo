@@ -548,6 +548,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             chunk.mesh.parent.remove(chunk.mesh);
             chunk.deleteMesh();
         }
+        this.localWorld.getChunk(chunk.x - 1, chunk.y, chunk.z, false)?.unmarkSurrounded(1, 0, 0);
+        this.localWorld.getChunk(chunk.x + 1, chunk.y, chunk.z, false)?.unmarkSurrounded(-1, 0, 0);
+        this.localWorld.getChunk(chunk.x, chunk.y - 1, chunk.z, false)?.unmarkSurrounded(0, 1, 0);
+        this.localWorld.getChunk(chunk.x, chunk.y + 1, chunk.z, false)?.unmarkSurrounded(0, -1, 0);
+        this.localWorld.getChunk(chunk.x, chunk.y, chunk.z - 1, false)?.unmarkSurrounded(0, 0, 1);
+        this.localWorld.getChunk(chunk.x, chunk.y, chunk.z + 1, false)?.unmarkSurrounded(0, 0, -1);
+
         this.localWorld.deleteChunk(chunk.x, chunk.y, chunk.z);
     }
 
