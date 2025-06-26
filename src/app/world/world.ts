@@ -348,7 +348,14 @@ export class World {
 
     public update(dt: number) {
         for(const entity of this.entities.allEntities.values()) {
+            if(!entity.hasUpdated) {
+                this.server?.broadcastCreateEntity(entity);
+                entity.hasUpdated = true;
+            }
+            entity.updates++;
+            entity.lifeTime += dt;
             entity.update(dt);
+            this.entities.updateEntityLocation(entity);
         }
     }
     public addEntity(entity: BaseEntity) {
@@ -360,7 +367,6 @@ export class World {
         this.addEntity(entity);
         if(this.server != null) {
             entity.server = this.server;
-            this.server.spawnEntity(entity);
         }
         return entity;
     }
@@ -370,7 +376,7 @@ export class World {
         entity.setWorld(null);
         
         if(this.server != null) {
-            this.server.removeEntity(entity);
+            this.server.broadcastRemoveEntity(entity);
         }
     }
     public getEntityByUUID(uuid: string) {

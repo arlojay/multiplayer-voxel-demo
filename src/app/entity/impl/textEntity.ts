@@ -71,5 +71,5 @@ export class RemoteTextEntity extends RemoteEntity<TextEntity> {
     }
 }
 export class LocalTextEntity extends LocalEntity<TextEntity> {
-    
+    protected ignoreGravity = true;
 }

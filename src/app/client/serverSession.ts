@@ -371,6 +371,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.localWorld.addEntity(entity);
         
         entity.remoteLogic.onAdd(this.client.gameRenderer.scene);
+        entity.remoteLogic.renderPosition.copy(entity.position);
         
         const queuedPackets = this.entityPacketQueue.getQueuedPackets(entity);
         if(queuedPackets != null) {
@@ -556,6 +557,10 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.localWorld.getChunk(chunk.x, chunk.y, chunk.z + 1, false)?.unmarkSurrounded(0, 0, -1);
 
         this.localWorld.deleteChunk(chunk.x, chunk.y, chunk.z);
+
+        for(const entity of chunk.entities) {
+            entity.remove();
+        }
     }
 
     public fetchChunk(x: number, y: number, z: number, key?: ChunkFetchingKey) {

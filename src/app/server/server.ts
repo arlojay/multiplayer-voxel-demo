@@ -212,6 +212,10 @@ export class Server extends EventPublisher {
             try {
                 this.emit(tickEvent);
 
+                for(const world of this.worlds.values()) {
+                    world.update(dt);
+                }
+
                 for(const peer of this.peers.values()) {
                     if(!peer.authenticated) continue;
                     peer.update(dt);
@@ -504,15 +508,15 @@ export class Server extends EventPublisher {
         this.broadcastPacket(this.createBlockUpdatePacket(world, x, y, z), world);
     }
 
-    public spawnEntity(entity: BaseEntity) {
+    public broadcastCreateEntity(entity: BaseEntity) {
         const packet = new AddEntityPacket(entity);
         this.broadcastPacket(packet, entity.world);
     }
-    public updateEntity(entity: BaseEntity) {
+    public broadcastUpdateEntity(entity: BaseEntity) {
         const packet = new EntityDataPacket(entity);
         this.broadcastPacket(packet, entity.world);
     }
-    public removeEntity(entity: BaseEntity) {
+    public broadcastRemoveEntity(entity: BaseEntity) {
         const packet = new RemoveEntityPacket(entity);
         this.broadcastPacket(packet, entity.world);
     }

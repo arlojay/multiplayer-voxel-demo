@@ -95,6 +95,9 @@ export abstract class BaseEntity<
     public server: Server = null;
     public world: World = null;
     public uuid: string = crypto.randomUUID();
+    public hasUpdated = false;
+    public updates = 0;
+    public lifeTime = 0;
 
     public readonly localLogic: LocalLogic;
     public readonly remoteLogic: RemoteLogic;
@@ -132,7 +135,7 @@ export abstract class BaseEntity<
 
     public sendNetworkUpdate() {
         if(this.server != null) {
-            this.server.updateEntity(this);
+            this.server.broadcastUpdateEntity(this);
         }
     }
 
