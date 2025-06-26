@@ -1,5 +1,5 @@
 import { uniform } from "three/src/nodes/TSL";
-import { BoxGeometry, BufferGeometry, HemisphereLight, ImageLoader, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
+import { BoxGeometry, BufferGeometry, HemisphereLight, ImageLoader, Mesh, MeshBasicMaterial, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { GameUIControl } from "../game";
 import { dlerp } from "../math";
@@ -29,12 +29,25 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public skybox: Scene = new Scene();
     private frameTimes: number[] = new Array;
 
-    private terrainMaterial: MeshBasicNodeMaterial = null;
+    public maxFps = 3000;
+    public maxUps = 3000;
     private lastRenderTime: number = 0;
+    private lastUpdateTime: number = 0;
     private regainingRendererContext = false;
     public framerate = 0;
     public frametime = 0;
     public gameUIControl: GameUIControl;
+
+    private terrainMaterial: MeshBasicNodeMaterial = null;
+
+    public setWhiteoutEnabled(enabled: boolean) {
+        if(enabled) {
+            this.scene.overrideMaterial = new MeshBasicMaterial({ color: 0xffffff });
+        } else {
+            this.scene.overrideMaterial = null;
+        }
+    }
+    
 
     constructor(gameUIControl: GameUIControl) {
         super();
@@ -102,19 +115,30 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     }
 
     public async render(time: number) {
-        const dt = (time - this.lastRenderTime) / 1000;
+        requestAnimationFrame(time => this.render(time));
 
-        this.frameTimes.push(time);
-        while(time - this.frameTimes[0] > 1000) this.frameTimes.shift();
-        this.framerate = dlerp(this.framerate, this.frameTimes.length, dt, 10);
+        const doRender = time > this.lastRenderTime + 1000 / this.maxFps;
+        const doUpdate = time > this.lastUpdateTime + 1000 / this.maxUps;
+        
+        const deltaRenderTime = (time - this.lastRenderTime) / 1000;
+        const deltaUpdateTime = (time - this.lastUpdateTime) / 1000;
 
-        this.lastRenderTime = time;
+        if(doRender) {
+            this.frameTimes.push(time);
+            while(time - this.frameTimes[0] > 1000) this.frameTimes.shift();
+            this.framerate = dlerp(this.framerate, this.frameTimes.length, deltaRenderTime, 10);
+
+            this.lastRenderTime = time;
+        }
+        if(doUpdate) {
+            this.lastUpdateTime = time;
+        }
 
         
         const t0 = performance.now();
-        this.emit("frame", time, dt);
-        if(this.worldRenderer != null) {
-            this.worldRenderer.update(dt);
+        if(doUpdate) this.emit("frame", time, deltaUpdateTime);
+        if(this.worldRenderer != null && doRender) {
+            this.worldRenderer.update(deltaRenderTime);
 
             const prevPos = this.camera.position.clone();
             this.camera.position.set(0, 0, 0);
@@ -128,9 +152,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         }
         const t1 = performance.now();
 
-        this.frametime = dlerp(this.frametime, (t1 - t0) / 1000, dt, 3);
-
-        requestAnimationFrame(time => this.render(time));
+        if(doUpdate) this.frametime = dlerp(this.frametime, (t1 - t0) / 1000, deltaRenderTime, 3);
     }
     public async exportSnapshot() {
         const canvas = new OffscreenCanvas(this.canvas.width, this.canvas.height);
