@@ -40,11 +40,14 @@ const unpackIvec2 = Fn(([ number = uint(0) ]) => {
     )
 })
 
-export const terrainMap = texture(new Texture);
-export const dataTexture = texture(new Texture);
+const terrainMap = texture(new Texture);
+const dataTexture = texture(new Texture);
 
 
 export async function setTextureAtlas(atlas: TextureAtlas) {
+    terrainMap.value?.dispose();
+    dataTexture.value?.dispose();
+
     const count = atlas.textures.size;
     const data = new Uint32Array(count * 4);
 

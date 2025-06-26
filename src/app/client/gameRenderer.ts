@@ -1,5 +1,5 @@
 import { uniform } from "three/src/nodes/TSL";
-import { BoxGeometry, HemisphereLight, ImageLoader, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
+import { BoxGeometry, BufferGeometry, HemisphereLight, ImageLoader, Mesh, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { GameUIControl } from "../game";
 import { dlerp } from "../math";
@@ -29,7 +29,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public skybox: Scene = new Scene();
     private frameTimes: number[] = new Array;
 
-    private terrainShader: MeshBasicNodeMaterial = null;
+    private terrainMaterial: MeshBasicNodeMaterial = null;
     private lastRenderTime: number = 0;
     private regainingRendererContext = false;
     public framerate = 0;
@@ -51,7 +51,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         this.scene.add(new HemisphereLight(0xffffff, 0x000000));
         
-        await this.initMaterials();        
+        await this.initMaterials();
         await this.initSkybox();
 
         await this.renderer.render(this.scene, this.camera);
@@ -163,7 +163,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         viewDistance.onFrameUpdate(() => Client.instance.gameData.clientOptions.viewDistance * CHUNK_SIZE);
         material.colorNode = terrainColor(viewDistance);
     
-        this.terrainShader = material;
+        this.terrainMaterial = material;
     }
 
     private async initSkybox() {
@@ -176,6 +176,11 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         this.skybox.add(cube);
     }
 
+    public async compileMaterials() {
+        await this.renderer.compileAsync(this.skybox, this.camera);
+        await this.renderer.compileAsync(new Mesh(new BufferGeometry, this.terrainMaterial), this.camera);
+    }
+
     public setWorld(world: World) {
         if(this.world == world) return;
 
@@ -185,7 +190,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
             this.scene.remove(this.worldRenderer.root);
             this.worldRenderer.destroy();
         }
-        this.worldRenderer = new WorldRenderer(this.world, this.terrainShader);
+        this.worldRenderer = new WorldRenderer(this.world, this.terrainMaterial);
         this.scene.add(this.worldRenderer.root);
     }
 

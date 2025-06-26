@@ -264,6 +264,9 @@ export class Client extends TypedEmitter<ClientEvents> {
                     await serverSession.displayBlockRenderer.build(serverSession.registries.blocks);
                     UIGameBlock.setDisplayBlockRenderer(serverSession.displayBlockRenderer);
                     
+                    this.gameUIControl.loadingScreen.setHint("Compiling shaders");
+                    await Client.instance.gameRenderer.compileMaterials();
+                    
                     this.gameUIControl.loadingScreen.setTitle("Joining game");
                     this.gameUIControl.loadingScreen.clearHint();
 
