@@ -6,7 +6,7 @@ import { ClientSounds } from "../../client/clientSounds";
 import { PlayerModel } from "../../client/playerModel";
 import { controls } from "../../controls/controlsMap";
 import { PlayerController } from "../../controls/playerController";
-import { dlerp } from "../../math";
+import { dlerp, iteratedPositionLerp } from "../../math";
 import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
 import { BinaryBuffer, BOOL, VEC3 } from "../../serialization/binaryBuffer";
 import { CHUNK_INC_SCL } from "../../world/voxelGrid";
@@ -161,10 +161,9 @@ export class LocalPlayer extends LocalEntity<Player> {
         let dx = 0;
         let dz = 0;
         let speed = 100 * this.baseSpeedMultiplier;
-        let maxHorizontalSpeed = 4 * this.baseSpeedMultiplier;
         
         if(!onGround && !this.flying && !this.freecam) {
-            speed *= 0.2;
+            speed *= 0.1; // decreased air control
         }
 
         let pointerMoveX = this.controller.pointerMovement.x;
@@ -182,7 +181,6 @@ export class LocalPlayer extends LocalEntity<Player> {
         if(receivingControls && !this.freecam) {
             if(this.controller.controlDown(controls.RUN)) {
                 speed *= 1.5;
-                maxHorizontalSpeed *= 1.5;
                 this.sprinting = true;
             } else {
                 this.sprinting = false;
@@ -199,10 +197,6 @@ export class LocalPlayer extends LocalEntity<Player> {
                 }
             }
 
-            if(!onGround) {
-                maxHorizontalSpeed *= 0.5;
-            }
-
             if(this.controller.controlDown(controls.FORWARD)) dz--;
             if(this.controller.controlDown(controls.BACKWARD)) dz++;
 
@@ -215,7 +209,6 @@ export class LocalPlayer extends LocalEntity<Player> {
 
             if(!this.flying) {
                 speed *= 0.5;
-                maxHorizontalSpeed *= 0.5;
             }
         } else {
             this.base.hitbox.copy(LocalPlayer.hitboxStanding);
@@ -228,8 +221,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         }
 
         if(this.flying) {
-            speed *= 10;
-            maxHorizontalSpeed *= 2;
+            speed *= 2;
             this.ignoreGravity = true;
         } else {
             this.ignoreGravity = false;
@@ -259,6 +251,7 @@ export class LocalPlayer extends LocalEntity<Player> {
                     flyingYChange++;
                 } else if(onGround) {
                     this.base.velocity.y = Math.sqrt(this.baseJumpHeight * 2 * -GRAVITY.y);
+                    this.base.acceleration.y = 0;
                 }
             } else {
                 this.holdingJump = false;
@@ -268,58 +261,52 @@ export class LocalPlayer extends LocalEntity<Player> {
             }
 
             if(this.flying) {
-                let change = flyingYChange * speed * dt;
-                const dampFactor = Math.min(1, maxHorizontalSpeed / Math.abs(this.velocity.y + change));
-                this.base.velocity.y += change * dampFactor;
+                let change = flyingYChange * speed;
+                this.base.acceleration.y = change;
             }
         }
 
-        const zMovement = (Math.cos(this.base.rotation.yaw) * dz + Math.sin(this.base.rotation.yaw) * dx) * dt * speed;
-        const xMovement = -(Math.sin(this.base.rotation.yaw) * dz - Math.cos(this.base.rotation.yaw) * dx) * dt * speed;
+        const zMovement = (Math.cos(this.base.rotation.yaw) * dz + Math.sin(this.base.rotation.yaw) * dx) * speed;
+        const xMovement = -(Math.sin(this.base.rotation.yaw) * dz - Math.cos(this.base.rotation.yaw) * dx) * speed;
 
-        const newSpeed = Math.sqrt((this.base.velocity.x + xMovement) ** 2 + (this.base.velocity.z + zMovement) ** 2);        
-        const dampFactor = Math.min(1, maxHorizontalSpeed / newSpeed);
-
-        this.base.velocity.x += xMovement * dampFactor;
-        this.base.velocity.z += zMovement * dampFactor;
+        this.base.acceleration.x = xMovement;
+        this.base.acceleration.z = zMovement;
 
         if(this.flying) {
-            this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 10);
-            this.base.velocity.y = dlerp(this.base.velocity.y, 0, dt, 10);
-            this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 10);
+            this.drag.set(10, 10, 10);
         } else {
+            this.drag.y = 0.25;
             if(onGround) {
-                this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 25);
-                this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 25);
+                this.drag.x = 20;
+                this.drag.z = 20;
             } else {
-                this.base.velocity.x = dlerp(this.base.velocity.x, 0, dt, 2);
-                this.base.velocity.z = dlerp(this.base.velocity.z, 0, dt, 2);
+                this.drag.x = 2;
+                this.drag.z = 2;
             }
         }
 
 
-        this.panRoll = dlerp(this.panRoll, 0, dt, 50);
+        this.panRoll = dlerp(this.panRoll, 0, dt, 2500);
         if(receivingControls && !this.freecam) {
             this.base.rotation.yaw += pointerMoveX * controlOptions.mouseSensitivity * (Math.PI / 180);
             this.base.rotation.pitch += pointerMoveY * controlOptions.mouseSensitivity * (Math.PI / 180) * (controlOptions.invertY ? -1 : 1);
 
             const panRollVelocity = Math.sqrt(this.base.velocity.x ** 2 + this.base.velocity.z ** 2) + 2;
-            this.panRoll += pointerMoveX * controlOptions.mouseSensitivity / dt * 0.00001 * panRollVelocity;
+            this.panRoll += pointerMoveX * controlOptions.mouseSensitivity / dt * 0.00002 * panRollVelocity;
         }
 
         if(this.base.rotation.pitch > Math.PI * 0.5) this.base.rotation.pitch = Math.PI * 0.5;
         if(this.base.rotation.pitch < Math.PI * -0.5) this.base.rotation.pitch = Math.PI * -0.5;
 
-        this.eyeHeight = dlerp(this.eyeHeight, this.crouching ? LocalPlayer.eyeHeightCrouching : LocalPlayer.eyeHeightStanding, dt, 50);
+        this.eyeHeight = dlerp(this.eyeHeight, this.crouching ? LocalPlayer.eyeHeightCrouching : LocalPlayer.eyeHeightStanding, dt, 1000);
 
         let fovm = 1;
 
         if(this.sprinting) fovm *= 1.1;
         else if(this.crouching) fovm /= 1.3;
 
-        this.fovMultiplier = dlerp(this.fovMultiplier, fovm, dt, 25);
-
-        this.pitchOffset = dlerp(this.pitchOffset, Math.atan(this.base.velocity.y * 0.03) * 0.2, dt, 25);
+        this.fovMultiplier = dlerp(this.fovMultiplier, fovm, dt, 500);
+        this.pitchOffset = dlerp(this.pitchOffset, Math.atan(this.base.velocity.y * 0.03) * 0.2, dt, 500);
 
         this.playerCamera.position.copy(this.base.position);
         this.playerCamera.position.y += this.eyeHeight;
@@ -360,15 +347,15 @@ export class LocalPlayer extends LocalEntity<Player> {
 
 
         if(this.crouching && this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, 0)) {
-            if(!this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, this.base.velocity.z * dt)) {
+            const deltaX = iteratedPositionLerp(dt, this.base.position.x, this.base.velocity.x, this.base.acceleration.x, this.base.drag.x) - this.base.position.x;
+            const deltaZ = iteratedPositionLerp(dt, this.base.position.z, this.base.velocity.z, this.base.acceleration.z, this.base.drag.z) - this.base.position.z;
+            if(!this.collisionChecker.isCollidingWithWorld(0, 0, -0.01, deltaZ)) {
                 this.base.velocity.z = 0;
+                this.base.acceleration.z = 0;
             }
-            if(!this.collisionChecker.isCollidingWithWorld(0, this.base.velocity.x * dt, -0.01, 0)) {
+            if(!this.collisionChecker.isCollidingWithWorld(0, deltaX, -0.01, 0)) {
                 this.base.velocity.x = 0;
-            }
-            if(!this.collisionChecker.isCollidingWithWorld(0, this.base.velocity.x * dt, -0.01, this.base.velocity.z * dt)) {
-                this.base.velocity.z = 0;
-                this.base.velocity.x = 0;
+                this.base.acceleration.x = 0;
             }
         }
 
@@ -471,6 +458,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         this.base.position.y = 16;
         this.base.position.z = 0;
         this.base.velocity.set(0, 0, 0);
+        this.base.acceleration.set(0, 0, 0);
     }
 
     public breakBlock(x: number, y: number, z: number) {

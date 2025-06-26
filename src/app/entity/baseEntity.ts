@@ -87,8 +87,10 @@ export abstract class BaseEntity<
 > extends BufferSerializable {
     public abstract readonly id: number;
 
-    public readonly position = new Vector3;
-    public readonly velocity = new Vector3;
+    public readonly position = new Vector3(0, 0, 0);
+    public readonly velocity = new Vector3(0, 0, 0);
+    public readonly acceleration = new Vector3(0, 0, 0);
+    public readonly drag = new Vector3(0.1, 0.1, 0.1);
     public readonly hitbox: Box3 = new Box3;
     public server: Server = null;
     public world: World = null;
@@ -163,6 +165,24 @@ export abstract class BaseEntity<
     public get vz() {
         return this.velocity.z;
     }
+    public get ax() {
+        return this.acceleration.x;
+    }
+    public get ay() {
+        return this.acceleration.y;
+    }
+    public get az() {
+        return this.acceleration.z;
+    }
+    public get dx() {
+        return this.drag.x;
+    }
+    public get dy() {
+        return this.drag.y;
+    }
+    public get dz() {
+        return this.drag.z;
+    }
 
     public get chunkX() {
         return Math.floor(this.position.x / CHUNK_SIZE);
@@ -181,6 +201,8 @@ export abstract class BaseEntity<
         this.uuid = bin.read_string();
         bin.read_vec3(this.position);
         bin.read_vec3(this.velocity);
+        bin.read_vec3(this.acceleration);
+        bin.read_vec3(this.drag);
         this.deserialize(bin);
     }
     
@@ -189,6 +211,8 @@ export abstract class BaseEntity<
         bin.write_string(this.uuid);
         bin.write_vec3(this.position);
         bin.write_vec3(this.velocity);
+        bin.write_vec3(this.acceleration);
+        bin.write_vec3(this.drag);
         this.serialize(bin);
     }
 

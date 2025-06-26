@@ -15,6 +15,12 @@ export class EntityMovePacket extends Packet implements EntityPacket {
     public vx: number;
     public vy: number;
     public vz: number;
+    public ax: number;
+    public ay: number;
+    public az: number;
+    public dx: number;
+    public dy: number;
+    public dz: number;
 
     public skipInterpolation = false;
 
@@ -27,6 +33,8 @@ export class EntityMovePacket extends Packet implements EntityPacket {
 
         [ this.x, this.y, this.z ] = entity.position.toArray();
         [ this.vx, this.vy, this.vz ] = entity.velocity.toArray();
+        [ this.ax, this.ay, this.az ] = entity.acceleration.toArray();
+        [ this.dx, this.dy, this.dz ] = entity.drag.toArray();
         if(skipInterpolation != null) this.skipInterpolation = skipInterpolation;
     }
 
@@ -49,12 +57,20 @@ export class EntityMovePacket extends Packet implements EntityPacket {
         this.vx = bin.read_f32();
         this.vy = bin.read_f32();
         this.vz = bin.read_f32();
+        this.ax = bin.read_f32();
+        this.ay = bin.read_f32();
+        this.az = bin.read_f32();
+        this.dx = bin.read_f32();
+        this.dy = bin.read_f32();
+        this.dz = bin.read_f32();
         this.skipInterpolation = bin.read_boolean();
     }
 
     protected getExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.uuid) +
+            (F32 * 3) +
+            (F32 * 3) +
             (F32 * 3) +
             (F32 * 3) +
             BOOL

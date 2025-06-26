@@ -313,7 +313,7 @@ export class Client extends TypedEmitter<ClientEvents> {
     }
 
     public update(time: number, dt: number) {
-        if(dt > 0.1) dt = 0.1;
+        if(dt > 2) dt = 2;
         this.time = time;
         
         if(this.serverSession != null) {

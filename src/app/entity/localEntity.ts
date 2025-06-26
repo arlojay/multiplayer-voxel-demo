@@ -3,6 +3,7 @@ import { CHUNK_SIZE } from "../world/voxelGrid";
 import { World } from "../world/world";
 import { BaseEntity } from "./baseEntity";
 import { CollisionChecker, CollisionDescription } from "./collisionChecker";
+import { positionLerp, velocityLerp } from "../math";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);
@@ -18,10 +19,15 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
 
     public readonly position: Vector3;
     public readonly velocity: Vector3;
+    public readonly acceleration: Vector3;
+    public readonly drag: Vector3;
+
     public readonly hitbox: Box3;
 
     private readonly lastPosition = new Vector3();
     private readonly lastVelocity = new Vector3();
+    private readonly lastAcceleration = new Vector3();
+    private readonly lastDrag = new Vector3();
     private lastMoveTime = -1;
 
     /** do NOT override */
@@ -29,6 +35,8 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         this.base = base;
         this.position = base.position;
         this.velocity = base.velocity;
+        this.acceleration = base.acceleration;
+        this.drag = base.drag;
         this.hitbox = base.hitbox;
     }
 
@@ -42,71 +50,93 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
 
     public update(dt: number) {
         if(this.base.world == null) return;
-        
-        if(!this.ignoreGravity) this.base.velocity.add(GRAVITY.clone().multiplyScalar(dt));
-        this.base.velocity.lerp(ZERO, 1 - (0.5 ** (dt * 0.1)));
 
         this.airTime += dt;
 
-        this.moveY(this.base.velocity.y * dt);
-        this.moveX(this.base.velocity.x * dt, this.stepSize);
-        this.moveZ(this.base.velocity.z * dt, this.stepSize);
+        const approximateDeltaTimeStep = 0.01;
+        const stepResolution = 0.002;
+
+        let cumulativeDeltaTime = 0;
+        while(cumulativeDeltaTime < dt) {
+            let partialDeltaTime = (approximateDeltaTimeStep * stepResolution) / Math.sqrt(
+                (positionLerp(approximateDeltaTimeStep, this.position.x, this.velocity.x, this.acceleration.x, this.drag.x) - this.position.x) ** 2 +
+                (positionLerp(approximateDeltaTimeStep, this.position.y, this.velocity.y, this.acceleration.y, this.drag.y) - this.position.y) ** 2 +
+                (positionLerp(approximateDeltaTimeStep, this.position.z, this.velocity.z, this.acceleration.z, this.drag.z) - this.position.z) ** 2
+            );
+            if(cumulativeDeltaTime + partialDeltaTime > dt) partialDeltaTime = dt - cumulativeDeltaTime;
+
+            this.velocity.x = velocityLerp(partialDeltaTime, this.velocity.x, this.acceleration.x, this.drag.x);
+            this.velocity.y = velocityLerp(partialDeltaTime, this.velocity.y, this.acceleration.y, this.drag.y);
+            this.velocity.z = velocityLerp(partialDeltaTime, this.velocity.z, this.acceleration.z, this.drag.z);
+
+            this.moveY(partialDeltaTime);
+            this.moveX(partialDeltaTime, this.stepSize);
+            this.moveZ(partialDeltaTime, this.stepSize);
+
+            cumulativeDeltaTime += partialDeltaTime;
+        }
+        
+        if(!this.ignoreGravity) this.acceleration.copy(GRAVITY);
     }
 
     private tryStep(lastCollision: CollisionDescription, height = 0.6) {
         if(this.airTime > 0) return;
 
-        const stepY = (lastCollision.hitbox.max.y + lastCollision.y) - (this.hitbox.min.y + this.base.position.y);
+        const stepY = (lastCollision.hitbox.max.y + lastCollision.y) - (this.hitbox.min.y + this.position.y);
         if(stepY <= height) {
-            this.base.position.y += stepY;
+            this.position.y += stepY;
             if(!this.collisionChecker.isCollidingWithWorld()) return true;
 
-            this.base.position.y -= stepY;
+            this.position.y -= stepY;
         }
 
         return false;
     }
 
-    public moveX(dx: number, step?: number) {
-        this.base.position.x += dx;
+    public moveX(dt: number, step?: number) {
+        this.position.x = positionLerp(dt, this.position.x, this.velocity.x, this.acceleration.x, this.drag.x);
         if(!this.collisionChecker.isCollidingWithWorld()) return;
         const lastCollision = this.collisionChecker.lastBlockCollision;
 
         if(this.tryStep(lastCollision, step)) return;
-
-        this.base.velocity.x = 0;
-        if(dx < 0) {
-            this.base.position.x += lastCollision.x + (lastCollision.hitbox.max.x + C) - (this.base.position.x + this.base.hitbox.min.x);
-        } else if(dx > 0) {
-            this.base.position.x += lastCollision.x + (lastCollision.hitbox.min.x - C) - (this.base.position.x + this.base.hitbox.max.x);
+        
+        if(this.velocity.x < 0) {
+            this.position.x += lastCollision.x + (lastCollision.hitbox.max.x + C) - (this.position.x + this.hitbox.min.x);
+        } else if(this.velocity.x > 0) {
+            this.position.x += lastCollision.x + (lastCollision.hitbox.min.x - C) - (this.position.x + this.hitbox.max.x);
         }
+        this.velocity.x = 0;
+        this.acceleration.x = 0;
     }
-    public moveY(dy: number) {
-        this.base.position.y += dy;
-        if(!this.collisionChecker.isCollidingWithWorld()) return;
-        const lastCollision = this.collisionChecker.lastBlockCollision;
-
-        this.base.velocity.y = 0;
-        if(dy < 0) {
-            this.base.position.y += lastCollision.y + (lastCollision.hitbox.max.y + C) - (this.base.position.y + this.base.hitbox.min.y);
-            this.airTime = 0;
-        } else if(dy > 0) {
-            this.base.position.y += lastCollision.y + (lastCollision.hitbox.min.y - C) - (this.base.position.y + this.base.hitbox.max.y);
-        }
-    }
-    public moveZ(dz: number, step?: number) {
-        this.base.position.z += dz;
+    public moveY(dt: number) {
+        this.position.y = positionLerp(dt, this.position.y, this.velocity.y, this.acceleration.y, this.drag.y);
         if(!this.collisionChecker.isCollidingWithWorld()) return;
         const lastCollision = this.collisionChecker.lastBlockCollision;
         
-        if(this.tryStep(lastCollision, step)) return;
-
-        this.base.velocity.z = 0;
-        if(dz < 0) {
-            this.base.position.z += lastCollision.z + (lastCollision.hitbox.max.z + C) - (this.base.position.z + this.base.hitbox.min.z);
-        } else if(dz > 0) {
-            this.base.position.z += lastCollision.z + (lastCollision.hitbox.min.z - C) - (this.base.position.z + this.base.hitbox.max.z);
+        if(this.velocity.y < 0) {
+            this.position.y += lastCollision.y + (lastCollision.hitbox.max.y + C) - (this.position.y + this.hitbox.min.y);
+            this.airTime = 0;
+        } else if(this.velocity.y > 0) {
+            this.position.y += lastCollision.y + (lastCollision.hitbox.min.y - C) - (this.position.y + this.hitbox.max.y);
         }
+
+        this.velocity.y = 0;
+        this.acceleration.y = 0;
+    }
+    public moveZ(dt: number, step?: number) {
+        this.position.z = positionLerp(dt, this.position.z, this.velocity.z, this.acceleration.z, this.drag.z);
+        if(!this.collisionChecker.isCollidingWithWorld()) return;
+        const lastCollision = this.collisionChecker.lastBlockCollision;
+
+        if(this.tryStep(lastCollision, step)) return;
+        
+        if(this.velocity.z < 0) {
+            this.position.z += lastCollision.z + (lastCollision.hitbox.max.z + C) - (this.position.z + this.hitbox.min.z);
+        } else if(this.velocity.z > 0) {
+            this.position.z += lastCollision.z + (lastCollision.hitbox.min.z - C) - (this.position.z + this.hitbox.max.z);
+        }
+        this.velocity.z = 0;
+        this.acceleration.z = 0;
     }
 
     public hasMovedSince(time: number) {
@@ -119,6 +149,14 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         }
         if(this.velocity.clone().sub(this.lastVelocity).length() > 0.01 || this.lastMoveTime == -1) {
             this.lastVelocity.copy(this.velocity);
+            moved = true;
+        }
+        if(this.acceleration.clone().sub(this.lastAcceleration).length() > 0.01 || this.lastMoveTime == -1) {
+            this.lastAcceleration.copy(this.acceleration);
+            moved = true;
+        }
+        if(this.drag.clone().sub(this.lastDrag).length() > 0.01 || this.lastMoveTime == -1) {
+            this.lastDrag.copy(this.drag);
             moved = true;
         }
         if(moved) {
@@ -146,6 +184,24 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
     }
     public get vz() {
         return this.velocity.z;
+    }
+    public get ax() {
+        return this.acceleration.x;
+    }
+    public get ay() {
+        return this.acceleration.y;
+    }
+    public get az() {
+        return this.acceleration.z;
+    }
+    public get dx() {
+        return this.drag.x;
+    }
+    public get dy() {
+        return this.drag.y;
+    }
+    public get dz() {
+        return this.drag.z;
     }
     
     public get chunkX() {

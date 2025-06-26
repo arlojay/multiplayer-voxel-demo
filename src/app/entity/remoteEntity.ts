@@ -2,6 +2,7 @@ import { Box3, Scene, Vector3 } from "three";
 import { CHUNK_SIZE } from "../world/voxelGrid";
 import { World } from "../world/world";
 import { BaseEntity } from "./baseEntity";
+import { positionLerp } from "../math";
 
 export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
     protected readonly base: Base;
@@ -10,6 +11,9 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
     
     public readonly position: Vector3;
     public readonly velocity: Vector3;
+    public readonly acceleration: Vector3;
+    public readonly drag: Vector3;
+    
     public readonly hitbox: Box3;
 
     /** do NOT override */
@@ -17,6 +21,8 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
         this.base = base;
         this.position = base.position;
         this.velocity = base.velocity;
+        this.acceleration = base.acceleration;
+        this.drag = base.drag;
         this.hitbox = base.hitbox;
         this.init();
     }
@@ -36,7 +42,9 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
     public update(dt: number) {
         this.timeSinceLastUpdate += dt;
         const newPosition = this.base.position.clone();
-        newPosition.add(this.base.velocity.clone().multiplyScalar(1 - 0.5 ** (this.timeSinceLastUpdate)));
+        newPosition.x = positionLerp(dt, newPosition.x, this.velocity.x, this.acceleration.x, this.drag.x);
+        newPosition.y = positionLerp(dt, newPosition.y, this.velocity.y, this.acceleration.y, this.drag.y);
+        newPosition.z = positionLerp(dt, newPosition.z, this.velocity.z, this.acceleration.z, this.drag.z);
 
         this.renderPosition.lerp(newPosition, 1 - 0.5 ** (dt * 30));
         if(isNaN(this.renderPosition.x)) {
@@ -74,6 +82,24 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
     }
     public get vz() {
         return this.velocity.z;
+    }
+    public get ax() {
+        return this.acceleration.x;
+    }
+    public get ay() {
+        return this.acceleration.y;
+    }
+    public get az() {
+        return this.acceleration.z;
+    }
+    public get dx() {
+        return this.drag.x;
+    }
+    public get dy() {
+        return this.drag.y;
+    }
+    public get dz() {
+        return this.drag.z;
     }
 
     public get chunkX() {
