@@ -41,11 +41,15 @@ export class SplitPacket extends Packet {
 }
 
 export function splitPacket(packet: Packet, maxSize = capabilities.MAX_WEBRTC_PACKET_SIZE): Packet[] {
+    if(packet instanceof SplitPacket) return [ packet ];
+    
     const buffer = packet.allocateBuffer();
     if(buffer.byteLength < maxSize) return [ packet ];
 
     const bin = new BinaryBuffer(buffer);
     packet.write(bin);
+
+    maxSize -= U32 + U16 + U16;
 
     const sections: ArrayBuffer[] = new Array;
     for(let i = 0; i < buffer.byteLength; i += maxSize) {

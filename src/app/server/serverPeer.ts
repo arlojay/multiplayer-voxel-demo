@@ -113,7 +113,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
         if (packet instanceof GetChunkPacket) {
             this.server.loadChunk(this.serverPlayer.world, packet.x, packet.y, packet.z).then(chunk => {
-                this.sendPacket(new ChunkDataPacket(chunk));
+                this.sendPacket(new ChunkDataPacket(chunk), true);
             })
         }
         if (packet instanceof ClientMovePacket && !this.isPacketOld(packet)) {
