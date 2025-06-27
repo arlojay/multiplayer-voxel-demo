@@ -303,7 +303,7 @@ export class Client extends TypedEmitter<ClientEvents> {
                     serverSession.addListener("disconnected", () => {
                         this.playerController.setPointerLocked(false);
                         this.serverSession = null;
-                        this.serverConnectionExists = true;
+                        this.serverConnectionExists = false;
                         dataLibrary?.close();
                     });
                     serverSession.addListener("changeworld", world => {

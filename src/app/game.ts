@@ -193,7 +193,8 @@ export class DebugInfo {
     private memCounter: HTMLDivElement;
     private fpsCounter: HTMLDivElement;
     private frametimeCounter: HTMLDivElement;
-    private networkCounter: HTMLDivElement;
+    private networkCounterUp: HTMLDivElement;
+    private networkCounterDown: HTMLDivElement;
     private drawCallsCounter: HTMLDivElement;
     private memused: number;
     private displayMemused: number;
@@ -203,6 +204,7 @@ export class DebugInfo {
     private lastRecvByteInterval: number;
     private lastDrawCalls: number;
     private drawCalls: number;
+    private lastNetworkUpdate: number;
 
     private cbs: ({ time: number, run: () => void })[];
     private client: Client;
@@ -213,11 +215,13 @@ export class DebugInfo {
         this.memCounter = this.performanceMeter.querySelector(".mem");
         this.fpsCounter = this.performanceMeter.querySelector(".fps");
         this.frametimeCounter = this.performanceMeter.querySelector(".frametime");
-        this.networkCounter = this.performanceMeter.querySelector(".network");
+        this.networkCounterUp = this.performanceMeter.querySelector(".network .up");
+        this.networkCounterDown = this.performanceMeter.querySelector(".network .down");
         this.drawCallsCounter = this.performanceMeter.querySelector(".draw-calls");
 
         this.memused = 0;
         this.displayMemused = 0;
+        this.lastNetworkUpdate = 0;
         this.lastSentBytes = 0;
         this.lastSentByteInterval = 0;
         this.lastRecvBytes = 0;
@@ -244,25 +248,21 @@ export class DebugInfo {
         return whole + "." + frac;
     }
     public update(metric: TimeMetric) {
-        while(this.cbs[0]?.time < metric.time) this.cbs.shift().run();
+        while(this.cbs.length > 0 && (this.cbs[0]?.time < metric.time || isNaN(+this.cbs[0]?.time))) this.cbs.shift()?.run?.();
 
-        if(this.client.serverSession?.serverConnection != null) {
+        if(metric.time - this.lastNetworkUpdate > 1 && this.client.serverSession?.serverConnection != null) {
             getStats(this.client.serverSession.serverConnection).then(stats => {
                 if(stats != null) {
                     const sent = stats.bytesSent - this.lastSentBytes;
                     this.lastSentBytes = stats.bytesSent;
-                    this.lastSentByteInterval += sent;
+                    this.lastSentByteInterval = sent;
 
                     const recv = stats.bytesReceived - this.lastRecvBytes;
                     this.lastRecvBytes = stats.bytesReceived;
-                    this.lastRecvByteInterval += recv;
-
-                    if(sent > 0 || recv > 0) this.cbs.push({ time: metric.time, run() {
-                        this.lastSentByteInterval -= sent;
-                        this.lastRecvByteInterval -= recv;
-                    }})
+                    this.lastRecvByteInterval = recv;
                 }
             });
+            this.lastNetworkUpdate = metric.time;
         }
 
         this.displayMemused = Math.min(this.memused, dlerp(this.displayMemused, this.memused, metric.dt, 5));
@@ -272,18 +272,19 @@ export class DebugInfo {
         this.client.gameRenderer.renderer.info.reset();
     }
     public updateElements() {
-        this.memCounter.textContent = this.decimalToAccuracy(this.displayMemused, 2) + "MB used";
+        this.memCounter.textContent = this.decimalToAccuracy(this.displayMemused, 2) + "MB mem";
         
         if(this.client.gameRenderer != null) {
             this.fpsCounter.textContent = Math.round(this.client.gameRenderer.framerate) + " FPS";
             this.frametimeCounter.textContent = this.decimalToAccuracy(this.client.gameRenderer.frametime, 3) + " ms/f";
-            this.drawCallsCounter.textContent = this.decimalToAccuracy(this.client.lastMetric.budget.msLeft, 3) + " budget ms";
+            this.drawCallsCounter.textContent = this.decimalToAccuracy(this.client.lastMetric.budget.msLeft, 1) + " budget ms";
         }
         if(this.client.peer != null) {
-            this.networkCounter.textContent = (
-                this.decimalToAccuracy(this.lastSentByteInterval / 1024, 2).padStart(10, " ") + "kB/s up" +
-                this.decimalToAccuracy(this.lastRecvByteInterval / 1024, 2).padStart(10, " ") + "kB/s down"
-            );
+            this.networkCounterUp.textContent =
+                "↗ " + this.decimalToAccuracy(this.lastSentByteInterval / 128, 2).padStart(10, " ") + "kbps";
+
+            this.networkCounterDown.textContent =
+                "↘ " + this.decimalToAccuracy(this.lastRecvByteInterval / 128, 2).padStart(10, " ") + "kbps";
         }
     }
 }
@@ -391,7 +392,7 @@ async function main() {
     }
     
     if(Client.instance.gameData.clientOptions.backgroundScreenshots) {
-    await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
+        await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
     }
     setInterval(() => {
         if(Client.instance.serverSession == null) return;
@@ -435,10 +436,10 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
         }
         const returnToMainScreen = async () => {
             loadingScreen.setVisible(false);
-if(Client.instance.gameData.clientOptions.backgroundScreenshots) {
-            await Client.instance.screenshot("last-server");
-            await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
-}
+            if(Client.instance.gameData.clientOptions.backgroundScreenshots) {
+                await Client.instance.screenshot("last-server");
+                await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
+            }
 
             Client.instance.gameUIControl.setGameVisible(false);
             Client.instance.gameUIControl.setTitleScreenVisible(true);
