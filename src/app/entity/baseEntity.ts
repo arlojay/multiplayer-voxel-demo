@@ -7,6 +7,7 @@ import { CHUNK_SIZE } from "../world/voxelGrid";
 import { World } from "../world/world";
 import { LocalEntity } from "./localEntity";
 import { RemoteEntity } from "./remoteEntity";
+import { TimeMetric } from "../client/updateMetric";
 
 export const entityRegistry = new class EntityRegistry extends BufferSerializableRegistry<
     BaseEntity,
@@ -53,8 +54,8 @@ export class EntityRotation implements EntityComponent<EntityRotation> {
         return F32 * 2;
     }
     
-    public hasMovedSince(time: number) {
-        if(time == this.lastMoveTime) return true;
+    public hasMovedSince(metric: TimeMetric) {
+        if(metric.time == this.lastMoveTime) return true;
         
         let moved = false;
         if(this.yaw != this.lastYaw) {
@@ -66,7 +67,7 @@ export class EntityRotation implements EntityComponent<EntityRotation> {
             moved = true;
         }
         if(moved) {
-            this.lastMoveTime = time;
+            this.lastMoveTime = metric.time;
         } else {
             this.lastMoveTime = 0;
         }
@@ -102,7 +103,7 @@ export abstract class BaseEntity<
     public readonly localLogic: LocalLogic;
     public readonly remoteLogic: RemoteLogic;
     public readonly logicType: EntityLogicType;
-    public readonly update: (dt: number) => void = () => {};
+    public readonly update: (metric: TimeMetric) => void = () => {};
 
     protected abstract instanceLogic(local: boolean): LocalLogic | RemoteLogic;
 
@@ -141,7 +142,7 @@ export abstract class BaseEntity<
 
     public sendMovementUpdate(teleport = true) {
         if(this.server != null) {
-            this.server.updateEntityLocation(this, this.server.time, false, teleport);
+            this.server.updateEntityLocation(this, false, teleport);
         }
     }
 

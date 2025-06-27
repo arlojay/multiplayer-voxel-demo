@@ -34,12 +34,15 @@ export class DisplayBlockRenderer {
         return this.images.get(state);
     }
 
-    public async build(blocks: BlockRegistry) {
+    public async build(blocks: BlockRegistry, progressCallback?: (finished: number, total: number) => void) {
         const t0 = performance.now();
         await this.renderer.init();
 
         const scene = new Scene;
         const blockViewSize = 64;
+
+        progressCallback?.(0, 3);
+        await new Promise(requestAnimationFrame);
 
         let totalCount = 0;
         const meshes: Map<string, Mesh> = new Map;
@@ -49,6 +52,9 @@ export class DisplayBlockRenderer {
                 totalCount++;
             }
         }
+
+        progressCallback?.(1, 3);
+        await new Promise(requestAnimationFrame);
         
         console.log("Built " + totalCount + " block meshes in " + Math.round(performance.now() - t0) + "ms");
         const t1 = performance.now();
@@ -77,6 +83,9 @@ export class DisplayBlockRenderer {
             }
         }
 
+        progressCallback?.(2, 3);
+        await new Promise(requestAnimationFrame);
+
         this.camera.left = 0;
         this.camera.right = sizeX * 2;
         this.camera.bottom = 0;
@@ -84,6 +93,9 @@ export class DisplayBlockRenderer {
 
         this.renderer.setSize(sizeX * blockViewSize, sizeY * blockViewSize);
         await this.renderer.renderAsync(scene, this.camera);
+        
+        progressCallback?.(3, 3);
+        await new Promise(requestAnimationFrame);
 
         console.debug("Rendered " + totalCount + " blocks in " + Math.round(performance.now() - t1) + "ms");
         const t2 = performance.now();

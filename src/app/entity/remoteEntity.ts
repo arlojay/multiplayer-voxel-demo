@@ -3,6 +3,7 @@ import { CHUNK_SIZE } from "../world/voxelGrid";
 import { World } from "../world/world";
 import { BaseEntity } from "./baseEntity";
 import { positionLerp } from "../math";
+import { TimeMetric } from "../client/updateMetric";
 
 export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEntity<any>, any>> {
     protected readonly base: Base;
@@ -39,7 +40,9 @@ export abstract class RemoteEntity<Base extends BaseEntity = BaseEntity<RemoteEn
         this.timeSinceLastUpdate = 0;
     }
 
-    public update(dt: number) {
+    public update(metric: TimeMetric) {
+        const dt = metric.dt;
+        
         this.timeSinceLastUpdate += dt;
         const newPosition = this.base.position.clone();
         newPosition.x = positionLerp(dt, newPosition.x, this.velocity.x, this.acceleration.x, this.drag.x);

@@ -1,3 +1,4 @@
+import { TimeMetric } from "../client/updateMetric";
 import { EntityLogicType } from "../entity/baseEntity";
 import { CollisionChecker } from "../entity/collisionChecker";
 import { Player } from "../entity/impl";
@@ -23,7 +24,7 @@ export class ServerPlayer {
         this.collisionChecker = new CollisionChecker(this.base.hitbox, this.base.position, world);
     }
 
-    public update(dt: number): void {
+    public update(metric: TimeMetric): void {
         
     }
 

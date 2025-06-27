@@ -8,6 +8,7 @@ import { EntityGrid, EntityGridChunk } from "./entityGrid";
 import { BLOCK_POSITION_X_BITMASK, BLOCK_POSITION_Y_BITMASK, BLOCK_POSITION_Z_BITMASK, CHUNK_BLOCK_INC_BYTE, CHUNK_INC_SCL, VoxelGrid, VoxelGridChunk } from "./voxelGrid";
 import { WorldGenerator } from "./worldGenerator";
 import { WorldRaycaster } from "./worldRaycaster";
+import { TimeMetric } from "../client/updateMetric";
 
 export type ColorType = Color | number | null;
 
@@ -346,15 +347,15 @@ export class World {
         return this.generator.generateChunk(chunk);
     }
 
-    public update(dt: number) {
+    public update(metric: TimeMetric) {
         for(const entity of this.entities.allEntities.values()) {
             if(!entity.hasUpdated) {
                 this.server?.broadcastCreateEntity(entity);
                 entity.hasUpdated = true;
             }
             entity.updates++;
-            entity.lifeTime += dt;
-            entity.update(dt);
+            entity.lifeTime += metric.dt;
+            entity.update(metric);
             this.entities.updateEntityLocation(entity);
         }
     }

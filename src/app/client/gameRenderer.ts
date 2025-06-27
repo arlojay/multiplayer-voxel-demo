@@ -10,9 +10,11 @@ import { CHUNK_SIZE } from "../world/voxelGrid";
 import { World } from "../world/world";
 import { WorldRenderer } from "../world/worldRenderer";
 import { Client } from "./client";
+import { TimeMetric } from "./updateMetric";
 
 interface GameRendererEvents {
-    "frame": (time: number, dt: number) => void;
+    "update": (metric: TimeMetric) => void;
+    "render": (metric: TimeMetric) => void;
     "resize": () => void;
 }
 
@@ -39,6 +41,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public gameUIControl: GameUIControl;
 
     private terrainMaterial: MeshBasicNodeMaterial = null;
+    public budgetTime = 15;
 
     public setWhiteoutEnabled(enabled: boolean) {
         if(enabled) {
@@ -119,15 +122,25 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         const doRender = time > this.lastRenderTime + 1000 / this.maxFps;
         const doUpdate = time > this.lastUpdateTime + 1000 / this.maxUps;
-        
-        const deltaRenderTime = (time - this.lastRenderTime) / 1000;
-        const deltaUpdateTime = (time - this.lastUpdateTime) / 1000;
+
+        const budget = {
+            msLeft: this.budgetTime
+        };
+
+        const renderMetric: TimeMetric = {
+            timeMs: time, time: time / 1000,
+            dt: (time - this.lastRenderTime) / 1000,
+            dtMs: (time - this.lastRenderTime),
+            budget
+        };
+        const updateMetric: TimeMetric = {
+            timeMs: time, time: time / 1000,
+            dt: (time - this.lastUpdateTime) / 1000,
+            dtMs: (time - this.lastUpdateTime),
+            budget
+        };
 
         if(doRender) {
-            this.frameTimes.push(time);
-            while(time - this.frameTimes[0] > 1000) this.frameTimes.shift();
-            this.framerate = dlerp(this.framerate, this.frameTimes.length, deltaRenderTime, 10);
-
             this.lastRenderTime = time;
         }
         if(doUpdate) {
@@ -136,23 +149,36 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
 
         
         const t0 = performance.now();
-        if(doUpdate) this.emit("frame", time, deltaUpdateTime);
-        if(this.worldRenderer != null && doRender) {
-            this.worldRenderer.update(deltaRenderTime);
+        if(doUpdate) this.emit("update", renderMetric);
+        if(doRender) this.emit("render", renderMetric);
 
-            const prevPos = this.camera.position.clone();
-            this.camera.position.set(0, 0, 0);
+        if(this.worldRenderer != null) {
+            if(doUpdate) {
+                this.worldRenderer.update(updateMetric);
+            }
 
-            await this.renderer.clearDepth();
-            await this.renderer.clearStencil();
-            await this.renderer.render(this.skybox, this.camera);
-            await this.renderer.clearDepth();
-            this.camera.position.copy(prevPos);
-            await this.renderer.render(this.scene, this.camera);
+            if(doRender) {
+                const prevPos = this.camera.position.clone();
+                this.camera.position.set(0, 0, 0);
+
+                await this.renderer.clearDepth();
+                await this.renderer.clearStencil();
+                await this.renderer.renderAsync(this.skybox, this.camera);
+                await this.renderer.clearDepth();
+                this.camera.position.copy(prevPos);
+                await this.renderer.renderAsync(this.scene, this.camera);
+            }
         }
         const t1 = performance.now();
 
-        if(doUpdate) this.frametime = dlerp(this.frametime, (t1 - t0) / 1000, deltaRenderTime, 3);
+        if(doRender) {
+            this.frameTimes.push(renderMetric.time);
+            while(renderMetric.time - this.frameTimes[0] > 1) this.frameTimes.shift();
+            this.framerate = dlerp(this.framerate, this.frameTimes.length, renderMetric.dt, 10);
+        }
+        if(doUpdate) {
+            this.frametime = dlerp(this.frametime, t1 - t0, renderMetric.dt, 3);
+        }
     }
     public async exportSnapshot() {
         const canvas = new OffscreenCanvas(this.canvas.width, this.canvas.height);
@@ -182,7 +208,7 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         const material = new MeshBasicNodeMaterial();
     
         const viewDistance = uniform(1);
-        viewDistance.onFrameUpdate(() => Client.instance.gameData.clientOptions.viewDistance * CHUNK_SIZE);
+        viewDistance.onFrameUpdate(() => Math.floor(Client.instance.gameData.clientOptions.viewDistance) * CHUNK_SIZE);
         material.colorNode = terrainColor(viewDistance);
     
         this.terrainMaterial = material;

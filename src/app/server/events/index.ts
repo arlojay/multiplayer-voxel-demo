@@ -63,6 +63,8 @@ export class EventPublisher {
         const handlerMap = (subscriber.constructor as any)[EVENT_HANDLER_MAP] as EventHandlerMap ?? new Map;
         const eventMap: Map<string, EventHandlerSignature> = new Map;
 
+        (subscriber.constructor as any)[EVENT_HANDLER_MAP] = handlerMap;
+
         for(const [eventName, descriptor] of handlerMap.entries()) {
             let eventHandlerList = this.events.get(eventName);
             if(eventHandlerList == null) {

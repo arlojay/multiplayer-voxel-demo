@@ -3,6 +3,7 @@ import { BufferGeometry, Group, MaterialNode, MeshBasicNodeMaterial, Object3D } 
 import { CHUNK_BLOCK_INC_BYTE } from "./voxelGrid";
 import { VoxelMesher } from "./voxelMesher";
 import { Chunk, World } from "./world";
+import { TimeMetric } from "../client/updateMetric";
 
 export class WorldRenderer {
     public world: World;
@@ -38,19 +39,23 @@ export class WorldRenderer {
         }
     }
 
-    public update(dt: number) {
+    public update(metric: TimeMetric) {
         const dirtyChunkQueue = this.world.dirtyChunkQueue;
 
         const t = performance.now();
+        
+        const timeAllocation = metric.budget.msLeft * 0.9;
         
         for(const chunk of dirtyChunkQueue.keys()) {
             dirtyChunkQueue.delete(chunk);
 
             this.renderChunk(chunk);
-            if(performance.now() - t > 7) {
+            if(performance.now() - t > timeAllocation) {
                 break;
             }
         }
+
+        metric.budget.msLeft -= performance.now() - t;
     }
 
     public destroy() {

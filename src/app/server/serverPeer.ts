@@ -11,6 +11,7 @@ import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { ServerUI } from "./serverUI";
 import { DataConnectionLike } from "../turn";
+import { TimeMetric } from "../client/updateMetric";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -54,7 +55,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
         connection.addListener("open", () => {
             this.connected = true;
-            this.lastPacketTime = this.server.time;
+            this.lastPacketTime = this.server.lastMetric.time;
             this.initPingLoop();
         });
         connection.addListener("close", () => {
@@ -102,7 +103,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
     public handlePacket(data: ArrayBuffer | Packet) {
         if (!this.connected) return;
-        this.lastPacketTime = this.server.time;
+        this.lastPacketTime = this.server.lastMetric.time;
 
         let packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
         if (data instanceof SplitPacket) {
@@ -297,11 +298,11 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         console.log("Kicked " + this.id + " for: " + reason);
     }
 
-    public update(dt: number) {
-        this.serverPlayer.update(dt);
+    public update(metric: TimeMetric) {
+        this.serverPlayer.update(metric);
 
         if (!this.connected) return;
-        if (this.lastPacketTime + 5000 < this.server.time) {
+        if (this.lastPacketTime + 5 < metric.time) {
             this.kick("Timed out");
         }
     }

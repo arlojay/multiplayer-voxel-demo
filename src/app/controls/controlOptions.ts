@@ -14,4 +14,6 @@ export class ClientOptions {
     customization = new ClientCustomizationOptions;
     viewDistance: number = 4;
     warnBeforeLeave: boolean = true;
+    maxFPS: number = 60;
+    budgetUpdateTime: number = 15;
 }

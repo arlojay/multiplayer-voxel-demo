@@ -13,6 +13,7 @@ import { CHUNK_INC_SCL } from "../../world/voxelGrid";
 import { BaseEntity, EntityComponent, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
 import { GRAVITY, LocalEntity } from "../localEntity";
 import { RemoteEntity } from "../remoteEntity";
+import { TimeMetric } from "src/app/client/updateMetric";
 
 export class PlayerCapabilities implements EntityComponent<PlayerCapabilities> {
     public canFly = false;
@@ -138,10 +139,10 @@ export class LocalPlayer extends LocalEntity<Player> {
         return this.freecam ? this.freeCamera : this.playerCamera;
     }
 
-    public update(dt: number) {
-        this.updateControls(dt);
+    public update(metric: TimeMetric) {
+        this.updateControls(metric);
 
-        if(!this.waitingForChunk) super.update(dt);
+        if(!this.waitingForChunk) super.update(metric);
 
         if(!this.base.world.blocks.chunkExists(this.base.chunkX, this.base.chunkY, this.base.chunkZ)) {
             if(!this.waitingForChunk) this.waitingForChunk = true;
@@ -151,7 +152,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         }
     }
 
-    private updateControls(dt: number) {
+    private updateControls(metric: TimeMetric) {
         const client = getClient();
         const receivingControls = this.controller.pointerCurrentlyLocked || !capabilities.REQUEST_POINTER_LOCK;
         const controlOptions = client.gameData.clientOptions.controls;
@@ -161,6 +162,8 @@ export class LocalPlayer extends LocalEntity<Player> {
         let dx = 0;
         let dz = 0;
         let speed = 100 * this.baseSpeedMultiplier;
+
+        const dt = metric.dt;
         
         if(!onGround && !this.flying && !this.freecam) {
             speed *= 0.1; // decreased air control
@@ -450,7 +453,7 @@ export class LocalPlayer extends LocalEntity<Player> {
         this.model.position.copy(this.base.position);
         this.model.username = this.base.username;
         this.model.color = this.base.color;
-        this.model.update(dt);
+        this.model.update(metric);
     }
 
     public respawn() {
@@ -520,18 +523,18 @@ export class RemotePlayer extends RemoteEntity<Player> {
         return this.model.mesh;
     }
 
-    public update(dt: number): void {
-        super.update(dt);
+    public update(metric: TimeMetric): void {
+        super.update(metric);
 
-        this.renderPitch = dlerp(this.renderPitch, this.base.rotation.pitch, dt, 50);
-        this.renderYaw = dlerp(this.renderYaw, this.base.rotation.yaw, dt, 50);
+        this.renderPitch = dlerp(this.renderPitch, this.base.rotation.pitch, metric.dt, 50);
+        this.renderYaw = dlerp(this.renderYaw, this.base.rotation.yaw, metric.dt, 50);
 
         this.model.pitch = this.renderPitch;
         this.model.yaw = this.renderYaw;
         this.model.position.copy(this.renderPosition);
         this.model.username = this.base.username;
         this.model.color = this.base.color;
-        this.model.update(dt);
+        this.model.update(metric);
     }
 
     public onAdd(scene: Scene): void {

@@ -16,6 +16,7 @@ import { makeServerListUI } from "./client/ui/serverListUI";
 import { ServerDescriptor } from "./client/gameData";
 import { DataLibraryManager } from "./datalibrary/dataLibrary";
 import { ImageLoader } from "three";
+import { TimeMetric } from "./client/updateMetric";
 
 const gameRoot = document.querySelector("#game") as HTMLElement;
 let serverListUI: UISection;
@@ -105,21 +106,30 @@ export class LoadingScreen {
         this.showProgress = false;
         this.progressElement.hidden = true;
     }
-    public setProgress(progress: { min?: number, max?: number, value?: number }) {
+    public setProgress(progress: { min?: number, max?: number, value?: number, undefined?: boolean }) {
         this.showProgress = true;
         this.progressElement.hidden = false;
 
         if(progress.min != null) this.progressMin = progress.min;
         if(progress.max != null) this.progressMax = progress.max;
         if(progress.value != null) this.progressValue = progress.value;
-
-        this.progressBarElement.setAttribute("min", this.progressMin.toString());
-        this.progressBarElement.setAttribute("max", this.progressMax.toString());
-        this.progressBarElement.setAttribute("value", this.progressValue.toString());
         
-        const percent = Math.round(map(this.progressValue, this.progressMin, this.progressMax, 0, 100)) + "%";
-        this.progressBarElement.textContent = percent;
-        this.progressTextElement.textContent = percent;
+        if(progress.undefined === true) {
+            this.progressBarElement.removeAttribute("min");
+            this.progressBarElement.removeAttribute("max");
+            this.progressBarElement.removeAttribute("value");
+            
+            this.progressBarElement.textContent = "";
+            this.progressTextElement.textContent = "";
+        } else {
+            this.progressBarElement.setAttribute("min", this.progressMin.toString());
+            this.progressBarElement.setAttribute("max", this.progressMax.toString());
+            this.progressBarElement.setAttribute("value", this.progressValue.toString());
+        
+            const percent = Math.round(map(this.progressValue, this.progressMin, this.progressMax, 0, 100)) + "%";
+            this.progressBarElement.textContent = percent;
+            this.progressTextElement.textContent = percent;
+        }
     }
 }
 
@@ -191,7 +201,6 @@ export class DebugInfo {
     private lastSentByteInterval: number;
     private lastRecvBytes: number;
     private lastRecvByteInterval: number;
-    private lastTime: number;
     private lastDrawCalls: number;
     private drawCalls: number;
 
@@ -215,7 +224,6 @@ export class DebugInfo {
         this.lastRecvByteInterval = 0;
 
         this.cbs = new Array;
-        this.lastTime = 0;
         this.lastDrawCalls = 0;
 
         setInterval(() => {
@@ -235,8 +243,8 @@ export class DebugInfo {
 
         return whole + "." + frac;
     }
-    public update(time: number) {
-        while(this.cbs[0]?.time < time) this.cbs.shift().run();
+    public update(metric: TimeMetric) {
+        while(this.cbs[0]?.time < metric.time) this.cbs.shift().run();
 
         if(this.client.serverSession?.serverConnection != null) {
             getStats(this.client.serverSession.serverConnection).then(stats => {
@@ -249,7 +257,7 @@ export class DebugInfo {
                     this.lastRecvBytes = stats.bytesReceived;
                     this.lastRecvByteInterval += recv;
 
-                    if(sent > 0 || recv > 0) this.cbs.push({ time, run() {
+                    if(sent > 0 || recv > 0) this.cbs.push({ time: metric.time, run() {
                         this.lastSentByteInterval -= sent;
                         this.lastRecvByteInterval -= recv;
                     }})
@@ -257,11 +265,7 @@ export class DebugInfo {
             });
         }
 
-
-        const dt = (time - this.lastTime);
-        this.lastTime = time;
-
-        this.displayMemused = Math.min(this.memused, dlerp(this.displayMemused, this.memused, dt, 5));
+        this.displayMemused = Math.min(this.memused, dlerp(this.displayMemused, this.memused, metric.dt, 5));
             
         this.drawCalls = this.client.gameRenderer.renderer.info.calls - this.lastDrawCalls;
         this.lastDrawCalls = this.client.gameRenderer.renderer.info.calls;
@@ -272,8 +276,8 @@ export class DebugInfo {
         
         if(this.client.gameRenderer != null) {
             this.fpsCounter.textContent = Math.round(this.client.gameRenderer.framerate) + " FPS";
-            this.frametimeCounter.textContent = this.decimalToAccuracy(this.client.gameRenderer.frametime * 1000, 3) + " ms/f";
-            this.drawCallsCounter.textContent = this.drawCalls + " calls/f";
+            this.frametimeCounter.textContent = this.decimalToAccuracy(this.client.gameRenderer.frametime, 3) + " ms/f";
+            this.drawCallsCounter.textContent = this.decimalToAccuracy(this.client.lastMetric.budget.msLeft, 3) + " budget ms";
         }
         if(this.client.peer != null) {
             this.networkCounter.textContent = (

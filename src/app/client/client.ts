@@ -18,6 +18,7 @@ import { ClientSounds } from "./clientSounds";
 import { GameData } from "./gameData";
 import { GameRenderer } from "./gameRenderer";
 import { ServerSession } from "./serverSession";
+import { TimeMetric } from "./updateMetric";
 
 interface ClientEvents {
     "login": () => void;
@@ -47,7 +48,13 @@ export class Client extends TypedEmitter<ClientEvents> {
     public gameData = new GameData;
     public audioManager = new AudioManager;
     public dataLibraryManager = new DataLibraryManager("client");
-    public time: number;
+    public lastMetric: TimeMetric = {
+        time: 0,
+        timeMs: 0,
+        dt: 0,
+        dtMs: 0,
+        budget: { msLeft: 0 }
+    };
     public gameUIControl: GameUIControl;
     public debugInfo: DebugInfo;
     public serverConnectionExists = false;
@@ -60,9 +67,9 @@ export class Client extends TypedEmitter<ClientEvents> {
         this.gameRenderer = new GameRenderer(gameUIControl);
         this.playerController = new PlayerController(gameUIControl.getCanvas());
         
-        this.gameRenderer.addListener("frame", (time, dt) => {
-            this.update(time, dt);
-            this.debugInfo.update(time);
+        this.gameRenderer.addListener("update", (metric) => {
+            this.update(metric);
+            this.debugInfo.update(metric);
         });
 
         let lastForcedUpdate = 0;
@@ -71,18 +78,26 @@ export class Client extends TypedEmitter<ClientEvents> {
 
         setInterval(() => {
             if(this.gameUIControl.isOnTab()) {
-                lastRealUpdate = this.time;
+                lastRealUpdate = this.lastMetric.timeMs;
                 lastForcedUpdate = firstForcedUpdate = performance.now();
                 return;
             }
 
-            const lastTime = this.time;
-            this.time = (lastForcedUpdate - firstForcedUpdate) + lastRealUpdate;
+            const lastTime = this.lastMetric.timeMs;
+            const time = (lastForcedUpdate - firstForcedUpdate) + lastRealUpdate;
             lastForcedUpdate = performance.now();
 
-            const dt = this.time - lastTime;
+            const dt = time - lastTime;
 
-            this.update(this.time, dt / 1000);
+            this.update({
+                time: time / 1000,
+                timeMs: time,
+                dt: dt / 1000,
+                dtMs: dt,
+                budget: {
+                    msLeft: 10
+                }
+            });
         }, 200);
     }
     
@@ -172,6 +187,7 @@ export class Client extends TypedEmitter<ClientEvents> {
 
                 try {
                     this.gameUIControl.loadingScreen.setHint("Connecting to server");
+                    this.gameUIControl.loadingScreen.setProgress({});
                     const negotiationChannel = await serverSession.connect();
                     this.serverConnectionExists = true;
                     
@@ -179,6 +195,8 @@ export class Client extends TypedEmitter<ClientEvents> {
 
                     this.gameUIControl.loadingScreen.setHint("Opening negotiation channel");
                     await negotiationChannel.open();
+                    
+                    this.gameUIControl.loadingScreen.clearProgress();
 
                     this.gameUIControl.loadingScreen.setHint("Requesting server identity");
                     const serverIdentity = await negotiationChannel.request<ServerIdentity>("identity");
@@ -261,7 +279,10 @@ export class Client extends TypedEmitter<ClientEvents> {
                     await serverSession.blockDataMemoizer.memoize(textureAtlas);
 
                     this.gameUIControl.loadingScreen.setHint("Building block previews");
-                    await serverSession.displayBlockRenderer.build(serverSession.registries.blocks);
+                    await serverSession.displayBlockRenderer.build(serverSession.registries.blocks, (finished, total) => {
+                        this.gameUIControl.loadingScreen.setProgress({ max: total, value: finished });
+                    });
+                    this.gameUIControl.loadingScreen.clearProgress();
                     UIGameBlock.setDisplayBlockRenderer(serverSession.displayBlockRenderer);
                     
                     this.gameUIControl.loadingScreen.setHint("Compiling shaders");
@@ -312,13 +333,17 @@ export class Client extends TypedEmitter<ClientEvents> {
         return controller;
     }
 
-    public update(time: number, dt: number) {
-        if(dt > 2) dt = 2;
-        this.time = time;
+    public update(metric: TimeMetric) {
+        this.lastMetric = metric;
         
         if(this.serverSession != null) {
-            this.serverSession.update(time, dt);
+            this.serverSession.update(metric);
         }
+
+        this.gameRenderer.maxFps = this.gameData.clientOptions.maxFPS;
+        this.gameRenderer.maxUps = this.gameData.clientOptions.maxFPS;
+
+        this.gameRenderer.budgetTime = this.gameData.clientOptions.budgetUpdateTime;
     }
 }
 

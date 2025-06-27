@@ -27,6 +27,7 @@ import { ServerPlugin } from "./serverPlugin";
 import { serverCrash } from "./thread";
 import { DatabaseChunk, WorldSaver } from "./worldSaver";
 import { DataConnectionLike } from "../turn";
+import { TimeMetric } from "../client/updateMetric";
 
 export interface ServerLaunchOptions {
     id: string;
@@ -46,7 +47,13 @@ export class Server extends EventPublisher {
     public launchOptions: ServerLaunchOptions;
     public data: ServerData;
     public plugins: Set<ServerPlugin> = new Set;
-    public time: number;
+    public lastMetric: TimeMetric = {
+        time: 0,
+        timeMs: 0,
+        dt: 0,
+        dtMs: 0,
+        budget: { msLeft: 0 }
+    };
 
     public dataLibraryManager: DataLibraryManager;
     public dataLibrary: DataLibrary;
@@ -173,7 +180,7 @@ export class Server extends EventPublisher {
         }, 1000 * 5);
 
         this.packetFlushInterval = setInterval(() => {
-            const time = this.time;
+            const time = this.lastMetric.time;
 
             const worldsWithPeers: Set<World> = new Set;
 
@@ -186,7 +193,7 @@ export class Server extends EventPublisher {
                 if(!worldsWithPeers.has(world)) continue;
 
                 for(const entity of world.entities.allEntities.values()) {
-                    this.updateEntityLocation(entity, time, false);
+                    this.updateEntityLocation(entity, false);
                 }
             }
             
@@ -202,24 +209,37 @@ export class Server extends EventPublisher {
         }, 1000 / 10);
 
         let lastTick = 0;
+        let preciseTime = 0;
         this.tickingInterval = setInterval(() => {
-            const time = this.time;
-            const dt = Math.min(time - lastTick, 100) * 0.001;
+            const time = preciseTime;
+            const dt = Math.min(time - lastTick, 100);
             lastTick = time;
 
+            const metric: TimeMetric = {
+                time: time / 1000,
+                timeMs: time,
+                dt: dt / 1000,
+                dtMs: dt,
+
+                budget: {
+                    msLeft: 100
+                }
+            }
+            this.lastMetric = metric;
+
             const tickEvent = new ServerTickEvent(this);
-            tickEvent.dt = dt;
+            tickEvent.metric = metric;
 
             try {
                 this.emit(tickEvent);
 
                 for(const world of this.worlds.values()) {
-                    world.update(dt);
+                    world.update(metric);
                 }
 
                 for(const peer of this.peers.values()) {
                     if(!peer.authenticated) continue;
-                    peer.update(dt);
+                    peer.update(metric);
                 }
             } catch(e) {
                 serverCrash(new Error("Internal error whilst ticking", { cause: e }));
@@ -228,13 +248,13 @@ export class Server extends EventPublisher {
 
 
         const animate = (time: number) => {
-            this.time = time;
+            preciseTime = time;
             requestAnimationFrame(animate);
         }
         requestAnimationFrame(animate);
     }
 
-    public updateEntityLocation(entity: BaseEntity, time: number, instant = true, teleport = false) {
+    public updateEntityLocation(entity: BaseEntity, instant = true, teleport = false) {
         if(entity.logicType != EntityLogicType.LOCAL_LOGIC) return;
         if(entity instanceof Player) {
             // don't send automatic updates for player entities
@@ -242,10 +262,10 @@ export class Server extends EventPublisher {
             return;
         }
 
-        if(!entity.localLogic.hasMovedSince(time)) return;
+        if(!entity.localLogic.hasMovedSince(this.lastMetric)) return;
 
-        const movedLocation = entity.localLogic.hasMovedSince(time);
-        const movedRotation = instanceof_RotatingEntity(entity) && entity.rotation.hasMovedSince(time);
+        const movedLocation = entity.localLogic.hasMovedSince(this.lastMetric);
+        const movedRotation = instanceof_RotatingEntity(entity) && entity.rotation.hasMovedSince(this.lastMetric);
         const packet = combinePackets(
             movedLocation ? new EntityMovePacket(entity, teleport): null,
             movedRotation ? new EntityLookPacket(entity): null

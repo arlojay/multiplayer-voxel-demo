@@ -4,6 +4,7 @@ import { BinaryBuffer, F32, U8 } from "../../serialization/binaryBuffer";
 import { BaseEntity, entityRegistry } from "../baseEntity";
 import { LocalEntity } from "../localEntity";
 import { RemoteEntity } from "../remoteEntity";
+import { TimeMetric } from "src/app/client/updateMetric";
 
 export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
     public static readonly id = entityRegistry.register(this);
@@ -49,8 +50,8 @@ export class RemoteTextEntity extends RemoteEntity<TextEntity> {
     public dispose() {
         this.model.dispose();
     }
-    public update(dt: number): void {
-        super.update(dt);
+    public update(metric: TimeMetric): void {
+        super.update(metric);
         
         this.model.mesh.position.copy(this.renderPosition);
     }

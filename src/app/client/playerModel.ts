@@ -5,6 +5,7 @@ import { Color, MeshBasicNodeMaterial, Vector3 } from "three/src/Three.WebGPU";
 import { dlerp } from "../math";
 import { sunPos } from "../shaders/sky";
 import { FloatingText } from "./floatingText";
+import { TimeMetric } from "./updateMetric";
 
 const loader = new GLTFLoader();
 
@@ -53,13 +54,13 @@ export class PlayerModel {
         this.skin.skeleton.dispose();
     }
 
-    public update(dt: number): void {
+    public update(metric: TimeMetric): void {
         this.colorNode.copy(new Color("#" + this.color));
         this.nametag.text = this.username;
 
         if(this.mesh != null) {
             this.mesh.position.copy(this.position);
-            this.mesh.rotation.y = -dlerp(-this.mesh.rotation.y, this.yaw, dt, 24);
+            this.mesh.rotation.y = -dlerp(-this.mesh.rotation.y, this.yaw, metric.dt, 24);
         }
 
         if(this.skin != null) {

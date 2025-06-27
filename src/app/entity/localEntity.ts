@@ -4,6 +4,7 @@ import { World } from "../world/world";
 import { BaseEntity } from "./baseEntity";
 import { CollisionChecker, CollisionDescription } from "./collisionChecker";
 import { positionLerp, velocityLerp } from "../math";
+import { TimeMetric } from "../client/updateMetric";
 
 export const GRAVITY = new Vector3(0, -25, 0);
 export const ZERO = new Vector3(0);
@@ -48,9 +49,10 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         }
     }
 
-    public update(dt: number) {
+    public update(metric: TimeMetric) {
         if(this.base.world == null) return;
 
+        const dt = metric.dt;
         this.airTime += dt;
 
         const approximateDeltaTimeStep = 0.01;
@@ -139,8 +141,8 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
         this.acceleration.z = 0;
     }
 
-    public hasMovedSince(time: number) {
-        if(time == this.lastMoveTime) return true;
+    public hasMovedSince(metric: TimeMetric) {
+        if(metric.time == this.lastMoveTime) return true;
 
         let moved = false;
         if(this.position.clone().sub(this.lastPosition).length() > 0.01 || this.lastMoveTime == -1) {
@@ -160,7 +162,7 @@ export abstract class LocalEntity<Base extends BaseEntity = BaseEntity<any, Loca
             moved = true;
         }
         if(moved) {
-            this.lastMoveTime = time;
+            this.lastMoveTime = metric.time;
         } else {
             this.lastMoveTime = 0;
         }

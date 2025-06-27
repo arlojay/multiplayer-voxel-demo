@@ -38,7 +38,7 @@ export function makeSettingsUI(gameData: GameData) {
             default: 4,
             min: 1,
             max: 12,
-            step: 0.1,
+            step: 1,
             set: (value: number) => gameData.clientOptions.viewDistance = value,
             get: () => gameData.clientOptions.viewDistance
         } as SettingsOption<number>,
@@ -55,7 +55,27 @@ export function makeSettingsUI(gameData: GameData) {
             default: true,
             set: (value: boolean) => gameData.clientOptions.warnBeforeLeave = value,
             get: () => gameData.clientOptions.warnBeforeLeave
-        } as SettingsOption<boolean>
+        } as SettingsOption<boolean>,
+        {
+            name: "Max FPS",
+            type: "number",
+            default: 60,
+            min: 5,
+            max: 300,
+            step: 5,
+            set: (value: number) => gameData.clientOptions.maxFPS = value,
+            get: () => gameData.clientOptions.maxFPS
+        } as SettingsOption<number>,
+        {
+            name: "Budget Update Time",
+            type: "number",
+            default: 15,
+            min: 0.2,
+            max: 30,
+            step: 0.2,
+            set: (value: number) => gameData.clientOptions.budgetUpdateTime = value,
+            get: () => gameData.clientOptions.budgetUpdateTime
+        } as SettingsOption<number>,
     ];
 
     for(const option of options) {

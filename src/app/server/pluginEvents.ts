@@ -1,4 +1,5 @@
 import { BlockState } from "../block/blockState";
+import { TimeMetric } from "../client/updateMetric";
 import { Player } from "../entity/impl";
 import { World } from "../world/world";
 import { EmittedEvent } from "./events";
@@ -107,7 +108,7 @@ export class ServerTickEvent extends ServerPluginEvent {
     public readonly name = PluginEvents.SERVER_TICK;
     public readonly cancellable = false;
     
-    public dt: number;
+    public metric: TimeMetric;
 }
 
 export class FlushPacketQueueEvent extends ServerPluginEvent {

@@ -22,6 +22,7 @@ import { DisplayBlockRenderer } from "../ui/displayBlockRenderer";
 import { CHUNK_INC_SCL } from "../world/voxelGrid";
 import { Chunk, World } from "../world/world";
 import { Client } from "./client";
+import { TimeMetric } from "./updateMetric";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -203,7 +204,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     
     // TODO: make this less cancerous
     public handlePacket(data: ArrayBuffer | Packet) {
-        this.lastPacketTime = this.client.time;
+        this.lastPacketTime = this.client.lastMetric.time;
         
         let packet = data instanceof Packet ? data : packetRegistry.createFromBinary(data);
         this.lastPacketReceived.set(packet.id, packet.timestamp);
@@ -473,49 +474,67 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     private updateViewDistanceCooldown = 0;
-    public updateChunkFetchQueue(dt: number) {
-        this.updateViewDistanceCooldown -= dt;
+    public updateChunkLoader(metric: TimeMetric) {
+
+        this.updateViewDistanceCooldown -= metric.dt;
         if(this.updateViewDistanceCooldown <= 0) {
             this.updateViewDistance();
             this.updateViewDistanceCooldown = 0.1;
         }
         
-        this.updateChunksToCheckForLoading(dt);
+        this.updateChunksToCheckForLoading(metric);
 
         // Add 2 to allow all chunks within the radius to be meshed
         const loadSize = Math.sqrt((this.client.gameData.clientOptions.viewDistance * 2 + 2) ** 2);
         const unloadSizeSquare = (this.client.gameData.clientOptions.viewDistance + 2) ** 2;
 
-        for(let i = 0; i < 24; i++) {
+        this.updateChunkFetchQueue(metric, loadSize);
+        this.updateUnloadQueue(metric, unloadSizeSquare);
+    }
+
+    private updateUnloadQueue(metric: TimeMetric, unloadSizeSquare: number) {
+        const t = performance.now();
+        const allocation = metric.budget.msLeft * 0.2;
+
+        const chunkBufferPrimary = this.usingChunkBufferB ? this.loadedChunksB : this.loadedChunksA;
+        const chunkBufferSecondary = this.usingChunkBufferB ? this.loadedChunksA : this.loadedChunksB;
+
+        while(performance.now() - t < allocation) {
+            if(chunkBufferPrimary.length === 0) {
+                this.usingChunkBufferB = !this.usingChunkBufferB;
+                break;
+            }
+            this.popUnloadQueue(unloadSizeSquare, chunkBufferPrimary, chunkBufferSecondary);
+        }
+
+        metric.budget.msLeft -= performance.now() - t;
+    }
+
+    private updateChunkFetchQueue(metric: TimeMetric, loadSize: number) {
+        const t = performance.now();
+        const allocation = metric.budget.msLeft * 0.2;
+        
+        while(performance.now() - t < allocation) {
             const queuedPacket = this.chunkFetchingQueue.poll();
             if(queuedPacket == null) break;
 
             if(queuedPacket.distance > loadSize) {
-                i--;
                 continue;
             }
 
             this.sendPacket(queuedPacket.packet);
         }
+        metric.budget.msLeft -= performance.now() - t;
+        
         this.chunkFetchingQueue.trim();
-
-        const chunkBufferPrimary = this.usingChunkBufferB ? this.loadedChunksB : this.loadedChunksA;
-        const chunkBufferSecondary = this.usingChunkBufferB ? this.loadedChunksA : this.loadedChunksB;
-        const count = Math.max(4, Math.min(32, chunkBufferPrimary.length / 4));
-
-        for(let i = 0; i < count; i++) {
-            if(chunkBufferPrimary.length === 0) {
-                this.usingChunkBufferB = !this.usingChunkBufferB;
-                break;
-            }
-            this.updateUnloadQueue(unloadSizeSquare, chunkBufferPrimary, chunkBufferSecondary);
-        }
     }
 
-    private updateChunksToCheckForLoading(dt: number) {
+    private updateChunksToCheckForLoading(metric: TimeMetric) {
         let pos: [ number, number, number ];
+
+        const timeAllocation = metric.budget.msLeft * 0.3;
+
         const t = performance.now();
-        
         for(const key of this.chunksToCheckForLoading.entries()) {
             pos = key[1];
             this.chunksToCheckForLoading.delete(key[0]);
@@ -523,11 +542,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             if(this.localWorld.chunkExists(pos[0], pos[1], pos[2])) continue;
             this.fetchChunk(pos[0], pos[1], pos[2], key[0] as ChunkFetchingKey);
 
-            if(performance.now() - t > 5) break;
+            if(performance.now() - t > timeAllocation) break;
         }
+
+        metric.budget.msLeft -= performance.now() - t;
     }
 
-    public updateUnloadQueue(removeSizeSquare: number, chunkBufferPrimary: Chunk[], chunkBufferSecondary: Chunk[]) {
+    public popUnloadQueue(removeSizeSquare: number, chunkBufferPrimary: Chunk[], chunkBufferSecondary: Chunk[]) {
         const chunk = chunkBufferPrimary.pop();
         if(chunk == null) return;
 
@@ -678,8 +699,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         return promise;
     }
-    public update(time: number, dt: number) {
-        this.player.update(dt);
+    public update(metric: TimeMetric) {
+        this.player.update(metric);
 
         const playerCamera = this.player.localLogic.camera;
         const rendererCamera = this.client.gameRenderer.camera;
@@ -689,26 +710,26 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         rendererCamera.fov = playerCamera.fov;
         rendererCamera.updateProjectionMatrix();
 
-        if(this.player.localLogic.hasMovedSince(time) || this.player.rotation.hasMovedSince(time)) {
+        if(this.player.localLogic.hasMovedSince(metric) || this.player.rotation.hasMovedSince(metric)) {
             const movementPacket = new ClientMovePacket(this.player);
             this.sendPacket(movementPacket);
         }
 
-        this.localWorld.update(dt);
+        this.localWorld.update(metric);
 
-        this.updateChunkFetchQueue(dt);
+        this.updateChunkLoader(metric);
 
         if(this.serverConnection?.open) {
-            if(this.lastPacketTime + 5000 < time) {
+            if(this.lastPacketTime + 5 < metric.time) {
                 this.close("Server not responding");
             }
         } else {
-            this.lastPacketTime = this.client.time;
+            this.lastPacketTime = metric.time;
         }
     }
 
     private onConnected() {
-        this.lastPacketTime = this.client.time;
+        this.lastPacketTime = this.client.lastMetric.time;
 
         this.player = new Player(EntityLogicType.LOCAL_LOGIC);
         this.player.setWorld(this.localWorld);
