@@ -1,4 +1,4 @@
-import { BlockStateType } from "src/app/block/blockStateType";
+import { BlockStateType } from "../../block/blockStateType";
 import { Block } from "../../block/block";
 import { BlockModel, BlockModelCuboid } from "../../block/blockModel";
 import { DataLibrary } from "../../datalibrary/dataLibrary";
