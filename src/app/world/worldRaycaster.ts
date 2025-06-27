@@ -4,7 +4,7 @@ import { BlockState, BlockStateSaveKey } from "../block/blockState";
 import { BASIC_COLLIDER, CompiledCustomVoxelCollider } from "../entity/collisionChecker";
 import { World } from "./world";
 
-interface IntersectionResult {
+export interface IntersectionResult {
     intersected: boolean,
     x: number, y: number, z: number,
     block: BlockState,

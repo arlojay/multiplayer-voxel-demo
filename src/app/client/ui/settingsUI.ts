@@ -231,7 +231,8 @@ export function makeSettingsUI(gameData: GameData) {
     keybindsSection.addChild(makeControlCategory(
         "WORLD",
         controls.PLACE_BLOCK,
-        controls.BREAK_BLOCK
+        controls.BREAK_BLOCK,
+        controls.INTERACT_BLOCK
     ));
 
     keybindsSection.addChild(makeControlCategory(

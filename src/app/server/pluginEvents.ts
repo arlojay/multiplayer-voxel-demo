@@ -1,3 +1,4 @@
+import { BlockFace } from "../block/block";
 import { BlockState } from "../block/blockState";
 import { TimeMetric } from "../client/updateMetric";
 import { Player } from "../entity/impl";
@@ -16,7 +17,8 @@ export enum PluginEvents {
     SERVER_PREINIT = "serverPreinit",
     SERVER_LOADED = "serverLoaded",
     SERVER_TICK = "serverTick",
-    FLUSH_PACKET_QUEUE = "flushPacketQueue"
+    FLUSH_PACKET_QUEUE = "flushPacketQueue",
+    INTERACT_BLOCK = "interactBlock"
 }
 
 abstract class ServerPluginEvent extends EmittedEvent {
@@ -68,6 +70,20 @@ export class BreakBlockEvent extends ServerPluginPeerEvent {
     public x: number;
     public y: number;
     public z: number;
+}
+
+export class InteractBlockEvent extends ServerPluginPeerEvent {
+    public readonly name = PluginEvents.INTERACT_BLOCK;
+    public readonly cancellable = true;
+
+    public x: number;
+    public y: number;
+    public z: number;
+    public pointX: number;
+    public pointY: number;
+    public pointZ: number;
+    public face: BlockFace;
+    public block: BlockState;
 }
 
 export class PeerMoveEvent extends ServerPluginPeerEvent {

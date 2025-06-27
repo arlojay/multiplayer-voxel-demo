@@ -51,6 +51,7 @@ export const controls = {
 
     BREAK_BLOCK: register("Remove Block", "r"),
     PLACE_BLOCK: register("Place Block", "e"),
+    INTERACT_BLOCK: register("Interact", "f"),
 
     FREECAM: register("Toggle Freecam", "u"),
     FREECAM_UP: register("Freecam Up", "e"),

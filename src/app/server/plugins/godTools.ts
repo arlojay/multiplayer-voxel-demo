@@ -1,7 +1,8 @@
+import { TextEntity } from "../../entity/impl";
 import { SetSelectedBlockPacket } from "../../packet";
 import { UIButton, UIFieldset, UIGameBlock, UISection, UIText } from "../../ui";
 import { Subscribe } from "../events";
-import { PeerJoinEvent, PluginEvents } from "../pluginEvents";
+import { InteractBlockEvent, PeerJoinEvent, PluginEvents } from "../pluginEvents";
 import { ServerPeer } from "../serverPeer";
 import { ServerPlugin } from "../serverPlugin";
 
@@ -87,5 +88,12 @@ export class GodToolsPlugin extends ServerPlugin {
         });
         
         const session = peer.showUI(ui);
+    }
+    
+    @Subscribe(PluginEvents.INTERACT_BLOCK)
+    public onInteractBlock(event: InteractBlockEvent) {
+        const textEntity = event.world.spawnEntity(TextEntity);
+        textEntity.position.set(event.x + event.pointX, event.y + event.pointY, event.z + event.pointZ);
+        textEntity.text = "O";
     }
 }

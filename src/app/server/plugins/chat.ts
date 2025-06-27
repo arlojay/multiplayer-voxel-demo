@@ -85,7 +85,6 @@ export class ChatPlugin extends ServerPlugin {
         this.sendMessage({ text: event.peer.username + " left the game" });
     }
 
-
     private createTextElement(message: ChatMessage) {
         let text = message.text;
         if(message.peer != null) text = message.peer.username + ": " + text;

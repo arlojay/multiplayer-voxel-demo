@@ -34,3 +34,5 @@
 
 /*26*/ export * from "./setLocalPlayerCapabilitiesPacket";
 /*27*/ export * from "./setSelectedBlockPacket";
+
+/*28*/ export * from "./interactBlockPacket";

@@ -7,13 +7,15 @@ import { PlayerModel } from "../../client/playerModel";
 import { controls } from "../../controls/controlsMap";
 import { PlayerController } from "../../controls/playerController";
 import { dlerp, iteratedPositionLerp } from "../../math";
-import { BreakBlockPacket, PlaceBlockPacket } from "../../packet";
+import { InteractBlockPacket, BreakBlockPacket, PlaceBlockPacket } from "../../packet";
 import { BinaryBuffer, BOOL, VEC3 } from "../../serialization/binaryBuffer";
 import { CHUNK_INC_SCL } from "../../world/voxelGrid";
 import { BaseEntity, EntityComponent, EntityLogicType, entityRegistry, EntityRotation, RotatingEntity } from "../baseEntity";
 import { GRAVITY, LocalEntity } from "../localEntity";
 import { RemoteEntity } from "../remoteEntity";
-import { TimeMetric } from "src/app/client/updateMetric";
+import { TimeMetric } from "../../client/updateMetric";
+import { IntersectionResult } from "../../world/worldRaycaster";
+import { normalToBlockFace } from "../../block/block";
 
 export class PlayerCapabilities implements EntityComponent<PlayerCapabilities> {
     public canFly = false;
@@ -103,6 +105,8 @@ export class LocalPlayer extends LocalEntity<Player> {
     private controller: PlayerController;
 
     public placeBlockCooldown: number;
+    public breakBlockCooldown: number;
+    public interactBlockCooldown: number;
     public visionRay: Ray;
     public playerCamera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 100);
     public freeCamera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 100);
@@ -382,9 +386,14 @@ export class LocalPlayer extends LocalEntity<Player> {
                     );
                 }
             }
-        } else if(this.controller.controlDown(controls.BREAK_BLOCK) && receivingControls && !this.freecam) {
-            if(this.placeBlockCooldown <= 0) {
-                this.placeBlockCooldown = 0.25;
+        } else {
+            this.placeBlockCooldown = 0;
+        }
+        
+        this.breakBlockCooldown -= dt;
+        if(this.controller.controlDown(controls.BREAK_BLOCK) && receivingControls && !this.freecam) {
+            if(this.breakBlockCooldown <= 0) {
+                this.breakBlockCooldown = 0.25;
                 if(raycastResult.intersected) {
                     this.breakBlock(
                         raycastResult.x,
@@ -394,7 +403,19 @@ export class LocalPlayer extends LocalEntity<Player> {
                 }
             }
         } else {
-            this.placeBlockCooldown = 0;
+            this.breakBlockCooldown = 0;
+        }
+        
+        this.interactBlockCooldown -= dt;
+        if(this.controller.controlDown(controls.INTERACT_BLOCK) && receivingControls && !this.freecam) {
+            if(this.interactBlockCooldown <= 0) {
+                this.interactBlockCooldown = 0.25;
+                if(raycastResult.intersected) {
+                    this.interactBlock(raycastResult);
+                }
+            }
+        } else {
+            this.interactBlockCooldown = 0;
         }
 
         if(raycastResult.intersected) {
@@ -464,6 +485,22 @@ export class LocalPlayer extends LocalEntity<Player> {
         this.base.acceleration.set(0, 0, 0);
     }
 
+    public interactBlock(raycastResult: IntersectionResult) {
+        const packet = new InteractBlockPacket;
+        packet.face = normalToBlockFace(
+            raycastResult.normalX,
+            raycastResult.normalY,
+            raycastResult.normalZ
+        );
+        packet.pointX = raycastResult.hitboxX;
+        packet.pointY = raycastResult.hitboxY;
+        packet.pointZ = raycastResult.hitboxZ;
+        packet.x = raycastResult.x;
+        packet.y = raycastResult.y;
+        packet.z = raycastResult.z;
+        Client.instance.serverSession.sendPacket(packet);
+    }
+
     public breakBlock(x: number, y: number, z: number) {
         if(!this.base.world.blocks.chunkExists(x >> CHUNK_INC_SCL, y >> CHUNK_INC_SCL, z >> CHUNK_INC_SCL)) return;
 
@@ -474,7 +511,6 @@ export class LocalPlayer extends LocalEntity<Player> {
         packet.y = y;
         packet.z = z;
 
-        // TODO: Make specific to the session the player belongs to
         Client.instance.serverSession.sendPacket(packet);
 
         ClientSounds.blockBreak().play().then(sound => {
@@ -500,7 +536,6 @@ export class LocalPlayer extends LocalEntity<Player> {
         packet.z = z;
         packet.block = stateKey;
 
-        // TODO: Make specific to the session the player belongs to
         Client.instance.serverSession.sendPacket(packet);
 
         ClientSounds.blockPlace().play().then(sound => {

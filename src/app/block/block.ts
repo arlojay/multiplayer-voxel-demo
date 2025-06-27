@@ -51,3 +51,24 @@ export function createDeserializedBlockClass(serializedBlock: SerializedBlock) {
         }
     }
 }
+
+export enum BlockFace {
+    NORTH, SOUTH, EAST, WEST, UP, DOWN
+}
+export function normalToBlockFace(normalX: number, normalY: number, normalZ: number) {
+    const lengthX = Math.abs(normalX);
+    const lengthY = Math.abs(normalY);
+    const lengthZ = Math.abs(normalZ);
+
+    if(lengthZ >= lengthX && lengthZ >= lengthY) {
+        return normalZ > 0 ? BlockFace.SOUTH : BlockFace.NORTH;
+    }
+    if(lengthY >= lengthX && lengthY >= lengthZ) {
+        return normalY > 0 ? BlockFace.UP : BlockFace.DOWN;
+    }
+    if(lengthX >= lengthY && lengthX >= lengthZ) {
+        return normalX > 0 ? BlockFace.EAST : BlockFace.WEST;
+    }
+
+    return BlockFace.NORTH;
+}
