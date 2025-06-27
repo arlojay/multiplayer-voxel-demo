@@ -452,22 +452,34 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         const centerY = this.player.chunkY;
         const centerZ = this.player.chunkZ;
 
-        if(this.chunksToCheckForLoading.size != 0) return;
+        if(this.chunksToCheckForLoading.size !== 0) return;
 
-        let chunkX = 0, chunkY = 0, chunkZ = 0;
+        const minX = Math.floor(centerX - r);
+        const maxX = Math.floor(centerX + r);
+        const minY = Math.floor(centerY - r);
+        const maxY = Math.floor(centerY + r);
+        const minZ = Math.floor(centerZ - r);
+        const maxZ = Math.floor(centerZ + r);
 
-        chunkX = Math.floor(centerX - r);
-        for(let x = Math.floor(-r); x <= Math.floor(r); x++, chunkX++) {
-            chunkY = Math.floor(centerY - r);
-            for(let y = Math.floor(-r); y <= Math.floor(r); y++, chunkY++) {
-                chunkZ = Math.floor(centerZ - r);
-                for(let z = Math.floor(-r); z <= Math.floor(r); z++, chunkZ++) {
-                    if(x * x + y * y + z * z > rsq) continue;
-                    const key = chunkX + ";" + chunkY + ";" + chunkZ as ChunkFetchingKey;
-                    if(this.allLoadedChunksByKey.has(key)) continue;
-                    if(this.chunksToCheckForLoading.has(key)) continue;
+        for(let x = minX; x <= maxX; x++) {
+            const dx = x - centerX;
+            const dx2 = dx * dx;
+            if(dx2 > rsq) continue;
 
-                    this.chunksToCheckForLoading.set(key, [ chunkX, chunkY, chunkZ ]);
+            for(let y = minY; y <= maxY; y++) {
+                const dy = y - centerY;
+                const dxy2 = dx2 + dy * dy;
+                if(dxy2 > rsq) continue;
+
+                for(let z = minZ; z <= maxZ; z++) {
+                    const dz = z - centerZ;
+                    if(dxy2 + dz * dz > rsq) continue;
+
+                    const key = `${x};${y};${z}` as ChunkFetchingKey;
+                    if (this.allLoadedChunksByKey.has(key)) continue;
+                    if (this.chunksToCheckForLoading.has(key)) continue;
+
+                    this.chunksToCheckForLoading.set(key, [ x, y, z ]);
                 }
             }
         }
