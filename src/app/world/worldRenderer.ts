@@ -44,13 +44,11 @@ export class WorldRenderer {
 
         const t = performance.now();
         
-        const timeAllocation = metric.budget.msLeft * 0.9;
-        
         for(const chunk of dirtyChunkQueue.keys()) {
             dirtyChunkQueue.delete(chunk);
 
             this.renderChunk(chunk);
-            if(performance.now() - t > timeAllocation) {
+            if(performance.now() - t > 100) {
                 break;
             }
         }
