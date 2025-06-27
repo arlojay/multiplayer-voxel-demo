@@ -76,6 +76,13 @@ export function makeSettingsUI(gameData: GameData) {
             set: (value: number) => gameData.clientOptions.budgetUpdateTime = value,
             get: () => gameData.clientOptions.budgetUpdateTime
         } as SettingsOption<number>,
+        {
+            name: "Background screenshots",
+            type: "boolean",
+            default: true,
+            set: (value: boolean) => gameData.clientOptions.backgroundScreenshots = value,
+            get: () => gameData.clientOptions.backgroundScreenshots
+        } as SettingsOption<boolean>,
     ];
 
     for(const option of options) {

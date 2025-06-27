@@ -16,4 +16,5 @@ export class ClientOptions {
     warnBeforeLeave: boolean = true;
     maxFPS: number = 60;
     budgetUpdateTime: number = 15;
+    backgroundScreenshots: boolean = true;
 }

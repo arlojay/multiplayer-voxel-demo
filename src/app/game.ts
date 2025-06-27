@@ -385,13 +385,17 @@ async function main() {
         
         if(Client.instance.serverConnectionExists) {
             event.preventDefault();
+            if(!Client.instance.gameData.clientOptions.backgroundScreenshots) return;
             Client.instance.screenshot("last-server");
         }
     }
     
+    if(Client.instance.gameData.clientOptions.backgroundScreenshots) {
     await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
+    }
     setInterval(() => {
         if(Client.instance.serverSession == null) return;
+        if(!Client.instance.gameData.clientOptions.backgroundScreenshots) return;
         Client.instance.screenshot("last-server");
     }, 60000);
 }
@@ -431,8 +435,10 @@ async function connectToServer(id: string, connectionOptions: ClientCustomizatio
         }
         const returnToMainScreen = async () => {
             loadingScreen.setVisible(false);
+if(Client.instance.gameData.clientOptions.backgroundScreenshots) {
             await Client.instance.screenshot("last-server");
             await Client.instance.gameUIControl.loadLastServerScreenshot(Client.instance.dataLibraryManager);
+}
 
             Client.instance.gameUIControl.setGameVisible(false);
             Client.instance.gameUIControl.setTitleScreenVisible(true);
