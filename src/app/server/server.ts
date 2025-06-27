@@ -24,8 +24,9 @@ import { PluginLoader } from "./pluginLoader";
 import { ServerData, ServerOptions } from "./serverData";
 import { ServerPeer } from "./serverPeer";
 import { ServerPlugin } from "./serverPlugin";
-import { MessagePortConnection, serverCrash } from "./thread";
+import { serverCrash } from "./thread";
 import { DatabaseChunk, WorldSaver } from "./worldSaver";
+import { DataConnectionLike } from "../turn";
 
 export interface ServerLaunchOptions {
     id: string;
@@ -267,7 +268,7 @@ export class Server extends EventPublisher {
         }
     }
 
-    public async handleConnection(connection: MessagePortConnection) {
+    public async handleConnection(connection: DataConnectionLike) {
         console.debug("New connection from " + connection.peer + " (label " + connection.label + ")");
         if(connection.label == "negotiation") {
             const peer = new ServerPeer(connection.peer, this);

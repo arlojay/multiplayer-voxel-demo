@@ -10,7 +10,7 @@ import { BreakBlockEvent, PlaceBlockEvent } from "./pluginEvents";
 import { Server } from "./server";
 import { ServerPlayer } from "./serverPlayer";
 import { ServerUI } from "./serverUI";
-import { MessagePortConnection } from "./thread";
+import { DataConnectionLike } from "../turn";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -23,7 +23,7 @@ export class TimedOutError extends Error {
 }
 
 export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
-    public connection: MessagePortConnection;
+    public connection: DataConnectionLike;
     public connected: boolean = false;
     public id: string;
     public server: Server;
@@ -49,7 +49,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
 
         this.serverPlayer = new ServerPlayer(this);
     }
-    public onRealtimeCreated(connection: MessagePortConnection) {
+    public onRealtimeCreated(connection: DataConnectionLike) {
         this.connection = connection;
 
         connection.addListener("open", () => {

@@ -3,6 +3,7 @@ import { serializeError } from "serialize-error";
 import { TypedEmitter } from "tiny-typed-emitter";
 import { Server, ServerLaunchOptions } from "./server";
 import { getTransferableObjects } from "./transferableUtils";
+import { DataConnectionLike } from "../turn";
 
 let server: Server;
 let crashMessages: Error[] = new Array;
@@ -37,7 +38,7 @@ interface MessagePortConnectionEvents {
     "error": (error: PeerError<any>) => void;
     "data": (data: any) => void;
 }
-export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEvents> {
+export class MessagePortConnection extends TypedEmitter<MessagePortConnectionEvents> implements DataConnectionLike {
     public peer: string;
 
     private dataPort: MessagePort;

@@ -84,3 +84,15 @@ export async function getStats(connection: DataConnection): Promise<RTCDataChann
     const stats: Map<string, RTCDataChannelStats | any> = new Map(await connection.peerConnection.getStats().then(v => (v as any).entries()));
     return stats.values().find(conn => conn?.label == connection.label);
 }
+
+export interface DataConnectionLike {
+    peer: string;
+    label: string;
+    open: boolean;
+    close(options?: { flush?: boolean }): void;
+    send(data: any, chunked?: boolean): void;
+
+    addListener(event: string, callback: (...params: any[]) => any): void;
+    removeListener(event: string, callback?: (...params: any[]) => any): void;
+    once(event: string, callback: (...params: any[]) => any): void;
+}

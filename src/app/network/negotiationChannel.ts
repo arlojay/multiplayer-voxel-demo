@@ -1,6 +1,7 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 import { capabilities } from "../capability";
 import { TimedOutError } from "../server/serverPeer";
+import { DataConnectionLike } from "../turn";
 
 enum MessageType {
     REQUEST,
@@ -11,16 +12,6 @@ enum MessageType {
 }
 
 type MessageStructure = [string, MessageType, ...any[]];
-
-interface DataConnectionLike {
-    open: boolean;
-    close(options?: { flush?: boolean }): void;
-    send(data: any, chunked?: boolean): void;
-
-    addListener(event: string, callback: (...params: any[]) => any): void;
-    removeListener(event: string, callback?: (...params: any[]) => any): void;
-    once(event: string, callback: (...params: any[]) => any): void;
-}
 
 interface StreamMessageDescriptor {
     size: number;
