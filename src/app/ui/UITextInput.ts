@@ -1,21 +1,22 @@
-import { SerializedUIElement, UIElement, UIElementRegistry, UIEvent } from "./UIElement";
+import { BinaryBuffer, BOOL, U8 } from "../serialization/binaryBuffer";
+import { UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 import { UIFormContributor } from "./UIForm";
 
-export interface SerializedUITextInput extends SerializedUIElement {
-    placeholder: string;
-    value: string;
-    inputType: "number" | "text" | "password";
-    clearOnSubmit: boolean;
+export enum UITextInputType {
+    NUMBER,
+    TEXT,
+    PASSWORD
 }
-export class UITextInput extends UIElement<SerializedUITextInput> implements UIFormContributor {
-    public static readonly type = UIElementRegistry.register("itxt", this);;
-    public readonly type = UITextInput.type;
+
+export class UITextInput extends UIElement implements UIFormContributor {
+    public static readonly id = UIElementRegistry.register(this);
+    public readonly id = UITextInput.id;
 
     
     public name: string = "";
     public placeholder: string = "";
     public value: string = "";
-    public inputType: "number" | "text" | "password" = "text";
+    public inputType: UITextInputType = UITextInputType.TEXT;
     public clearOnSubmit = false;
 
     public constructor(placeholder?: string, value?: string) {
@@ -23,10 +24,10 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
         if(placeholder != null) this.placeholder = placeholder;
         if(value != null) this.value = value;
     }
-    getFormContributionValue(): string {
+    public getFormContributionValue(): string {
         return (this.element as HTMLInputElement)?.value ?? this.value;
     }
-    setFormContributionValue(value: string): void {
+    public setFormContributionValue(value: string): void {
         this.value = value;
         if(this.element != null) {
             (this.element as HTMLInputElement).value = value;
@@ -36,7 +37,20 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
     protected async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("input");
         element.value = this.value;
-        element.type = this.inputType;
+        switch (this.inputType) {
+            case UITextInputType.NUMBER:
+                element.type = "number";
+            break;
+
+            case UITextInputType.PASSWORD:
+                element.type = "password";
+            break;
+
+            case UITextInputType.TEXT:
+            default:
+                element.type = "text";
+            break;
+        }
         element.placeholder = this.placeholder;
 
         element.addEventListener("input", () => {
@@ -73,19 +87,26 @@ export class UITextInput extends UIElement<SerializedUITextInput> implements UIF
             }
         }
     }
-    public serialize() {
-        const data = super.serialize();
-        data.placeholder = this.placeholder;
-        data.value = this.value;
-        data.inputType = this.inputType;
-        data.clearOnSubmit = this.clearOnSubmit;
-        return data;
+    public serialize(bin: BinaryBuffer) {
+        super.serialize(bin);
+        bin.write_string(this.placeholder);
+        bin.write_string(this.value);
+        bin.write_u8(this.inputType);
+        bin.write_boolean(this.clearOnSubmit);
     }
-    public deserialize(data: SerializedUITextInput): void {
+    public deserialize(data: BinaryBuffer): void {
         super.deserialize(data);
-        this.placeholder = data.placeholder;
-        this.value = data.value;
-        this.inputType = data.inputType;
-        this.clearOnSubmit = data.clearOnSubmit;
+        this.placeholder = data.read_string();
+        this.value = data.read_string();
+        this.inputType = data.read_u8();
+        this.clearOnSubmit = data.read_boolean();
+    }
+    protected getOwnExpectedSize(): number {
+        return super.getOwnExpectedSize() + (
+            BinaryBuffer.stringByteCount(this.placeholder) +
+            BinaryBuffer.stringByteCount(this.value) +
+            U8 +
+            BOOL
+        );
     }
 }

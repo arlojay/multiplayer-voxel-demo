@@ -1,12 +1,10 @@
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { UIContainer } from "./UIContainer";
-import { SerializedUIElement, UIElement, UIElementRegistry } from "./UIElement";
+import { UIElement, UIElementRegistry } from "./UIElement";
 
-interface SerializedUILegend extends SerializedUIElement {
-    text: string;
-}
-class UILegend extends UIElement<SerializedUILegend> {
-    public static readonly type = UIElementRegistry.register("lgnd", this);
-    public readonly type = UILegend.type;
+class UILegend extends UIElement {
+    public static readonly id = UIElementRegistry.register(this);
+    public readonly id = UILegend.id;
 
     public text: string = "";
 
@@ -21,14 +19,16 @@ class UILegend extends UIElement<SerializedUILegend> {
 
         return element;
     }
-    public serialize() {
-        const data = super.serialize();
-        data.text = this.text;
-        return data;
+    public serialize(bin: BinaryBuffer) {
+        super.serialize(bin);
+        bin.write_string(this.text);
     }
-    public deserialize(data: SerializedUILegend): void {
-        super.deserialize(data);
-        this.text = data.text;
+    public deserialize(bin: BinaryBuffer) {
+        super.deserialize(bin);
+        this.text = bin.read_string();
+    }
+    protected getOwnExpectedSize(): number {
+        return super.getOwnExpectedSize() + BinaryBuffer.stringByteCount(this.text);
     }
     public async setText(text: string) {
         this.text = text;
@@ -37,8 +37,8 @@ class UILegend extends UIElement<SerializedUILegend> {
 }
 
 export class UIFieldset extends UIContainer {
-    public static readonly type = UIElementRegistry.register("fldt", this);
-    public readonly type = UIFieldset.type;
+    public static readonly id = UIElementRegistry.register(this);
+    public readonly id = UIFieldset.id;
 
     public readonly legend: UIElement;
     public constructor(legend?: string) {

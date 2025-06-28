@@ -13,7 +13,7 @@ import { Player } from "../entity/impl";
 import { NegotiationChannel } from "../network/negotiationChannel";
 import { AddEntityPacket, combinePackets, EntityDataPacket, EntityMovePacket, Packet, RemoveEntityPacket, SetBlockPacket, SetSelectedBlockPacket } from "../packet";
 import { EntityLookPacket } from "../packet/entityLookPacket";
-import { BaseRegistries } from "../synchronization/baseRegistries";
+import { BaseRegistries, setCurrentBaseRegistries } from "../synchronization/baseRegistries";
 import { ClientIdentity, ServerIdentity } from "../synchronization/serverIdentity";
 import { CHUNK_INC_SCL } from "../world/voxelGrid";
 import { Chunk, World } from "../world/world";
@@ -155,6 +155,7 @@ export class Server extends EventPublisher {
         const registries: BaseRegistries = {
             blocks: new BlockRegistry
         }
+        setCurrentBaseRegistries(registries);
 
         registries.blocks.register("air", AirBlock);
         registries.blocks.register("color", ColorBlock);

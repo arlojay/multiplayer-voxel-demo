@@ -1,15 +1,10 @@
-import { SerializedUIElement, UIElement, UIElementRegistry } from "./UIElement";
+import { BinaryBuffer, F32 } from "../serialization/binaryBuffer";
+import { UIElement, UIElementRegistry } from "./UIElement";
 import { UIFormContributor } from "./UIForm";
 
-export interface SerializedUISliderInput extends SerializedUIElement {
-    value: number;
-    min: number;
-    max: number;
-    step: number;
-}
-export class UISliderInput extends UIElement<SerializedUISliderInput> implements UIFormContributor {
-    public static readonly type = UIElementRegistry.register("sldr", this);
-    public readonly type = UISliderInput.type;
+export class UISliderInput extends UIElement implements UIFormContributor {
+    public static readonly id = UIElementRegistry.register(this);
+    public readonly id = UISliderInput.id;
 
     public value: number = 0;
     public min: number = 0;
@@ -23,12 +18,12 @@ export class UISliderInput extends UIElement<SerializedUISliderInput> implements
         if(max != null) this.max = max;
         if(step != null) this.step = step;
     }
-    getFormContributionValue(): number {
+    public getFormContributionValue(): number {
         const value = +(this.element as HTMLInputElement)?.value;
         if(isNaN(value)) return this.value;
         return value;
     }
-    setFormContributionValue(value: any): void {
+    public setFormContributionValue(value: any): void {
         value = +value;
         if(isNaN(value)) return;
 
@@ -65,19 +60,28 @@ export class UISliderInput extends UIElement<SerializedUISliderInput> implements
             callback();
         });
     }
-    public serialize() {
-        const data = super.serialize();
-        data.value = this.value;
-        data.min = this.min;
-        data.max = this.max;
-        data.step = this.step;
-        return data;
+
+    public serialize(bin: BinaryBuffer) {
+        super.serialize(bin);
+        bin.write_f32(this.value);
+        bin.write_f32(this.min);
+        bin.write_f32(this.max);
+        bin.write_f32(this.step);
     }
-    public deserialize(data: SerializedUISliderInput): void {
-        super.deserialize(data);
-        this.value = data.value;
-        this.min = data.min;
-        this.max = data.max;
-        this.step = data.step;
+    public deserialize(bin: BinaryBuffer): void {
+        super.deserialize(bin);
+        this.value = bin.read_f32();
+        this.min = bin.read_f32();
+        this.max = bin.read_f32();
+        this.step = bin.read_f32();
+    }
+    protected getOwnExpectedSize(): number {
+        return (
+            super.getOwnExpectedSize() +
+            F32 +
+            F32 +
+            F32 +
+            F32
+        )
     }
 }

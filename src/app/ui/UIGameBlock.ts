@@ -1,17 +1,11 @@
 import { BlockStateSaveKey } from "../block/blockState";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { DisplayBlockRenderer } from "./displayBlockRenderer";
-import { SerializedUIElement, UIElement, UIElementRegistry, UIEvent } from "./UIElement";
+import { UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 
-export interface SerializedUIGameBlock extends SerializedUIElement {
-    state: BlockStateSaveKey;
-}
-export class UIGameBlock extends UIElement<SerializedUIGameBlock> {
-    public static setDisplayBlockRenderer(renderer: DisplayBlockRenderer) {
-        this.displayBlockRenderer = renderer;
-    };
-    protected static displayBlockRenderer: DisplayBlockRenderer;
-    public static readonly type = UIElementRegistry.register("game-block", this);
-    public readonly type = UIGameBlock.type;
+export class UIGameBlock extends UIElement {
+    public static readonly id = UIElementRegistry.register(this);
+    public readonly id = UIGameBlock.id;
 
     public state: BlockStateSaveKey;
 
@@ -28,7 +22,7 @@ export class UIGameBlock extends UIElement<SerializedUIGameBlock> {
         element.style.height = element.height / devicePixelRatio + "px";
 
         const ctx = element.getContext("2d");
-        ctx.putImageData(UIGameBlock.displayBlockRenderer.getImage(this.state), 0, 0);
+        ctx.putImageData(DisplayBlockRenderer.instance.getImage(this.state), 0, 0);
 
         return element;
     }
@@ -47,18 +41,20 @@ export class UIGameBlock extends UIElement<SerializedUIGameBlock> {
             callback();
         })
     }
-    
-    public serialize() {
-        const data = super.serialize();
-        data.state = this.state;
-        return data;
-    }
-    public deserialize(data: SerializedUIGameBlock): void {
-        super.deserialize(data);
-        this.state = data.state;
-    }
     public async setRenderBlock(state: BlockStateSaveKey) {
         this.state = state;
         await this.update();
+    }
+    
+    public serialize(bin: BinaryBuffer) {
+        super.serialize(bin);
+        bin.write_string(this.state);
+    }
+    public deserialize(bin: BinaryBuffer): void {
+        super.deserialize(bin);
+        this.state = bin.read_string() as BlockStateSaveKey;
+    }
+    protected getOwnExpectedSize(): number {
+        return super.getOwnExpectedSize() + BinaryBuffer.stringByteCount(this.state);
     }
 }

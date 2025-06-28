@@ -1,8 +1,8 @@
 import { UIElement, UIElementRegistry } from "./UIElement";
 
 export class UISpacer extends UIElement {
-    public static readonly type = UIElementRegistry.register("br", this);
-    public readonly type = UISpacer.type;
+    public static readonly id = UIElementRegistry.register(this);
+    public readonly id = UISpacer.id;
 
     protected async buildElement(): Promise<HTMLElement> {
         const element = document.createElement("div");

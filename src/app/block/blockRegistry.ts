@@ -12,7 +12,10 @@ export class BlockRegistry extends HashedInstanceRegistry<Block, string> {
     public getStateType(stateKey: BlockStateSaveKey | BlockStateSaveKeyPair) {
         if(typeof stateKey == "string") stateKey = blockStateSaveKeyToPair(stateKey);
 
-        return this.get(stateKey[0]).states.get(stateKey[1]);
+        const type = this.get(stateKey[0])?.states.get(stateKey[1]);
+        if(type == null) throw new ReferenceError("Cannot find state for " + stateKey.join("#"));
+
+        return type;
     }
     public size() {
         return this.instances.size;

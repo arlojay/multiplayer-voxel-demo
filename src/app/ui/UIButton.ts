@@ -1,11 +1,9 @@
-import { SerializedUIElement, UIElement, UIElementRegistry, UIEvent } from "./UIElement";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
+import { UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 
-export interface SerializedUIButton extends SerializedUIElement {
-    text: string;
-}
-export class UIButton extends UIElement<SerializedUIButton> {
-    public static readonly type = UIElementRegistry.register("btn", this);
-    public readonly type = UIButton.type;
+export class UIButton extends UIElement {
+    public static readonly id = UIElementRegistry.register(this);
+    public readonly id = UIButton.id;
 
     public text: string = "";
 
@@ -35,14 +33,16 @@ export class UIButton extends UIElement<SerializedUIButton> {
             callback();
         })
     }
-    public serialize() {
-        const data = super.serialize();
-        data.text = this.text;
-        return data;
+    public serialize(bin: BinaryBuffer) {
+        super.serialize(bin);
+        bin.write_string(this.text);
     }
-    public deserialize(data: SerializedUIButton): void {
-        super.deserialize(data);
-        this.text = data.text;
+    public deserialize(bin: BinaryBuffer): void {
+        super.deserialize(bin);
+        this.text = bin.read_string();
+    }
+    protected getOwnExpectedSize(): number {
+        return super.getOwnExpectedSize() + BinaryBuffer.stringByteCount(this.text);
     }
     public async setText(text: string) {
         this.text = text;

@@ -9,7 +9,7 @@ import { ServerData, ServerOptions } from "./server/serverData";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
 import { getStats } from "./turn";
 import { UIButton, UIFieldset, UIForm, UISection, UIText } from "./ui";
-import { UIFormField, UIFormFieldInputSide } from "./ui/UIFormField";
+import { FormFieldInputType, UIFormField, UIFormFieldInputSide } from "./ui/UIFormField";
 import { UISpacer } from "./ui/UISpacer";
 import { makeSettingsUI } from "./client/ui/settingsUI";
 import { makeServerListUI } from "./client/ui/serverListUI";
@@ -619,7 +619,7 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
         root.addChild(title);
 
         const generalSection = new UIFieldset("General");
-        const serverName = new UIFormField("text", "Server Name", serverOptions.name);
+        const serverName = new UIFormField(FormFieldInputType.TEXT, "Server Name", serverOptions.name);
         serverName.onChange(() => serverOptions.name = serverName.value);
         generalSection.addChild(serverName);
 
@@ -630,7 +630,7 @@ async function editServerConfig(launchOptions: ServerLaunchOptions, updating = f
         pluginList.style.textAlign = "left";
 
         for(const pluginName of PluginLoader.getPluginList()) {
-            const pluginCheckbox = new UIFormField("checkbox", pluginName, serverOptions.plugins.includes(pluginName) ? "on" : "off");
+            const pluginCheckbox = new UIFormField(FormFieldInputType.CHECKBOX, pluginName, serverOptions.plugins.includes(pluginName) ? "on" : "off");
             pluginCheckbox.alignment = UIFormFieldInputSide.LEFT;
             pluginCheckbox.style.width = "100%";
             pluginList.addChild(pluginCheckbox);

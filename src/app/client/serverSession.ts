@@ -15,7 +15,7 @@ import { UpdateUIElementPacket } from "../packet/updateUIElementPacket";
 import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { TimedOutError } from "../server/serverPeer";
 import { LoopingMusic } from "../sound/loopingMusic";
-import { BaseRegistries } from "../synchronization/baseRegistries";
+import { BaseRegistries, setCurrentBaseRegistries } from "../synchronization/baseRegistries";
 import { ServerIdentity } from "../synchronization/serverIdentity";
 import { UIElement } from "../ui";
 import { DisplayBlockRenderer } from "../ui/displayBlockRenderer";
@@ -117,6 +117,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         super();
         this.client = client;
         this.serverPeerId = serverPeerId;
+
+        setCurrentBaseRegistries(this.registries);
 
         const clip = client.audioManager.loadSound("assets/sounds/foxslit.mp3");
         this.music = new LoopingMusic(clip, 60 / 163 * 4 * 40);
@@ -355,11 +357,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof InsertUIElementPacket) {
             const ui = this.interfaces.get(packet.interfaceId);
-            ui?.insertElement(packet.path, UIElement.deserialize(packet.element));
+            ui?.insertElement(packet.path, packet.element);
         }
         if(packet instanceof UpdateUIElementPacket) {
             const ui = this.interfaces.get(packet.interfaceId);
-            ui?.updateElement(packet.path, packet.serializedElementData);
+            ui?.updateElement(packet.path, packet.elementData);
         }
         if(packet instanceof ChangeWorldPacket) {
             this.resetLocalWorld();

@@ -1,5 +1,6 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { SerializedUIElement, UIButton, UIContainer, UIElement, UIForm, UIGameBlock } from "../ui";
+import { UIButton, UIContainer, UIElement, UIForm, UIGameBlock } from "../ui";
+import { BinaryBuffer } from "../serialization/binaryBuffer";
 
 export enum UIInteractions {
     CLICK,
@@ -12,13 +13,12 @@ export class NetworkUI extends TypedEmitter<{
     public root: UIContainer;
     public id: string;
 
-    public constructor(data: SerializedUIElement, interfaceId: string) {
+    public constructor(root: UIElement, interfaceId: string) {
         super();
 
-        const deserialized = UIElement.deserialize(data);
-        if(!(deserialized instanceof UIContainer)) throw new TypeError("UI root must be a UIContainer");
+        if(!(root instanceof UIContainer)) throw new TypeError("UI root must be a UIContainer");
 
-        this.root = deserialized as UIContainer;
+        this.root = root as UIContainer;
         this.id = interfaceId;
 
         this.setupUIEvents();
@@ -51,9 +51,9 @@ export class NetworkUI extends TypedEmitter<{
     public insertElement(path: number[], element: UIElement) {
         this.root.addElementAtPath(path, element);
     }
-    public updateElement(path: number[], serializedElementData: SerializedUIElement) {
+    public updateElement(path: number[], bin: ArrayBuffer) {
         const element = this.root.getElementByPath(path);
-        element.deserialize(serializedElementData);
+        element.deserialize(new BinaryBuffer(bin));
         element.update();
     }
 }

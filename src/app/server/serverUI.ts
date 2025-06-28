@@ -21,7 +21,7 @@ export class ServerUI {
     }
 
     public open() {
-        const packet = new OpenUIPacket(this.root.serialize(), this.interfaceId);
+        const packet = new OpenUIPacket(this.root, this.interfaceId);
         this.peer.sendPacket(packet, true);
     }
 

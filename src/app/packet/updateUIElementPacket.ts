@@ -1,5 +1,5 @@
 import { BinaryBuffer } from "../serialization/binaryBuffer";
-import { SerializedUIElement, UIElement } from "../ui";
+import { UIElement, UIElementRegistry } from "../ui";
 import { Packet, packetRegistry } from "./packet";
 
 export class UpdateUIElementPacket extends Packet {
@@ -8,30 +8,33 @@ export class UpdateUIElementPacket extends Packet {
 
     public path: number[];
     public interfaceId: string;
-    public serializedElementData: SerializedUIElement;
+    public elementData: ArrayBuffer;
 
     public constructor(interfaceId?: string, path?: number[], element?: UIElement) {
         super();
         if(interfaceId != null) this.interfaceId = interfaceId;
         if(path != null) this.path = path;
-        if(element != null) this.serializedElementData = element.serialize();
+        if(element != null) {
+            this.elementData = element.allocateBuffer();
+            element.serialize(new BinaryBuffer(this.elementData));
+        }
     }
     
     protected serialize(bin: BinaryBuffer): void {
         bin.write_string(this.interfaceId);
         bin.write_buffer(new Uint32Array(this.path).buffer);
-        bin.write_json(this.serializedElementData);
+        bin.write_buffer(this.elementData);
     }
     protected deserialize(bin: BinaryBuffer): void {
         this.interfaceId = bin.read_string();
         this.path = Array.from(new Uint32Array(bin.read_buffer()));
-        this.serializedElementData = bin.read_json();
+        this.elementData = bin.read_buffer();
     }
     protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.interfaceId) +
             BinaryBuffer.bufferByteCount(new Uint32Array(this.path).buffer) +
-            BinaryBuffer.jsonByteCount(this.serializedElementData)
+            BinaryBuffer.bufferByteCount(this.elementData)
         );
     }
 }

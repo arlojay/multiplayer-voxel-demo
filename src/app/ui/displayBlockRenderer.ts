@@ -7,12 +7,15 @@ import { BlockStateType } from "../block/blockStateType";
 
 
 export class DisplayBlockRenderer {
+    public static instance: DisplayBlockRenderer;
+
     public renderer: WebGPURenderer;
     private canvas: HTMLCanvasElement;
 
     public camera = new OrthographicCamera;
     public models: Map<string, Mesh> = new Map;
     public images: Map<string, ImageData> = new Map;
+    public meshes: Map<string, Mesh> = new Map;
     private materials: Map<Texture, MeshBasicNodeMaterial> = new Map;
 
     constructor() {
@@ -22,6 +25,8 @@ export class DisplayBlockRenderer {
         this.camera.position.set(0, 0, 3);
         this.camera.near = 1;
         this.camera.far = 5;
+        
+        DisplayBlockRenderer.instance = this;
     }
 
     public getImage(state: BlockStateSaveKey | BlockStateType | BlockState) {
@@ -45,10 +50,10 @@ export class DisplayBlockRenderer {
         await new Promise(requestAnimationFrame);
 
         let totalCount = 0;
-        const meshes: Map<string, Mesh> = new Map;
+        this.meshes.clear();
         for(const block of blocks.values()) {
             for(const state of block.states.values()) {
-                meshes.set(state.saveKey, this.buildModelMesh(state));
+                this.meshes.set(state.saveKey, this.buildModelMesh(state));
                 totalCount++;
             }
         }
@@ -69,7 +74,7 @@ export class DisplayBlockRenderer {
                 const x = index % sizeX;
                 const y = Math.floor(index / sizeX);
 
-                const mesh = meshes.get(state.saveKey);
+                const mesh = this.meshes.get(state.saveKey);
 
                 const scl = 1.27083333;
                 mesh.scale.set(scl, scl, scl);

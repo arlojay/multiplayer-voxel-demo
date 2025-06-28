@@ -1,5 +1,5 @@
 import { KeyControl, MouseKey, controls } from "../../controls/controlsMap";
-import { UIButton, UIFieldset, UIFormField, UISection, UIText } from "../../ui";
+import { FormFieldInputType, UIButton, UIFieldset, UIFormField, UISection, UIText } from "../../ui";
 import { $enum } from "ts-enum-util";
 import { GameData } from "../gameData";
 
@@ -90,7 +90,7 @@ export function makeSettingsUI(gameData: GameData) {
 
         if(option.type == "number") {
             if("min" in option || "max" in option) {
-                const slider = new UIFormField("slider", option.name, option.get());
+                const slider = new UIFormField(FormFieldInputType.SLIDER, option.name, option.get());
                 slider.min = option.min ?? 0;
                 slider.max = option.max ?? 1000;
                 slider.step = option.step ?? 1;
@@ -103,7 +103,7 @@ export function makeSettingsUI(gameData: GameData) {
 
                 element.addChild(slider);
             } else {
-                const number = new UIFormField("number", option.name, option.get().toString());
+                const number = new UIFormField(FormFieldInputType.NUMBER, option.name, option.get().toString());
                 number.displayValue = true;
 
                 number.placeholder = option.default.toString();
@@ -115,7 +115,7 @@ export function makeSettingsUI(gameData: GameData) {
                 element.addChild(number);
             }
         } else if(option.type == "boolean") {
-            const checkbox = new UIFormField("checkbox", option.name);
+            const checkbox = new UIFormField(FormFieldInputType.CHECKBOX, option.name);
             checkbox.displayValue = true;
             checkbox.checked = option.get();
 

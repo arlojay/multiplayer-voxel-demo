@@ -1,9 +1,7 @@
-import { SerializedUIElement, UIElement, UIEvent } from "./UIElement";
+import { BinaryBuffer, U16 } from "../serialization/binaryBuffer";
+import { UIElement, UIElementRegistry, UIEvent } from "./UIElement";
 
-export interface SerializedUIContainer extends SerializedUIElement {
-    elements: SerializedUIElement[];
-}
-export abstract class UIContainer<SerializedData extends SerializedUIContainer = SerializedUIContainer> extends UIElement<SerializedData> {
+export abstract class UIContainer extends UIElement {
     public elements: UIElement[] = new Array;
 
     protected async appendContainerElements(element: HTMLElement) {
@@ -64,20 +62,29 @@ export abstract class UIContainer<SerializedData extends SerializedUIContainer =
         return this.elements.indexOf(child);
     }
 
-    public serialize() {
-        const data = super.serialize();
-        data.elements = this.elements.values().map(el => el.serialize()).toArray();
-        return data;
-    }
-    public deserialize(data: SerializedData): void {
-        super.deserialize(data);
-        while(this.elements.length > 0) this.elements.pop();
-
-        for(const element of data.elements) {
-            const instance = UIElement.deserialize(element);
-            instance.parent = this;
-            this.elements.push(instance);
+    public serialize(bin: BinaryBuffer) {
+        super.serialize(bin);
+        bin.write_u16(this.elements.length);
+        for(const element of this.elements) {
+            element.write(bin);
         }
+    }
+    public deserialize(bin: BinaryBuffer): void {
+        super.deserialize(bin);
+        this.elements.splice(0);
+
+        const elementCount = bin.read_u16();
+        for(let i = 0; i < elementCount; i++) {
+            const element = UIElementRegistry.createFromBinary(bin);
+            element.parent = this;
+            this.elements.push(element);
+        }
+    }
+    protected getOwnExpectedSize(): number {
+        return super.getOwnExpectedSize() + (
+            U16 +
+            this.elements.reduce((size, element) => size + element.getExpectedSize(), 0)
+        );
     }
     public getElement(index: number) {
         return this.elements.values().find((_, i) => i == index);

@@ -1,13 +1,8 @@
 import { UIContainer } from ".";
 import { capabilities } from "../capability";
-import { HashedFactoryRegistry } from "../synchronization/registry";
+import { BinaryBuffer, BOOL } from "../serialization/binaryBuffer";
+import { BufferSerializable, BufferSerializableRegistry } from "../serialization/bufferSerializable";
 import { UIEventBinder } from "./UIEventBinder";
-
-export interface SerializedUIElement {
-    type: string;
-    visible: boolean;
-    style: Partial<CSSStyleDeclaration>;
-}
 
 export class UIEvent {
     public name: string;
@@ -25,20 +20,11 @@ export class UIEvent {
     }
 }
 
-export const UIElementRegistry: HashedFactoryRegistry<UIElement, string> = new HashedFactoryRegistry;
+export const UIElementRegistry = new class UIElementRegistry extends BufferSerializableRegistry<UIElement, ConstructorParameters<typeof UIElement>> {
 
-export abstract class UIElement<SerializedData extends SerializedUIElement = SerializedUIElement> {
-    public static deserialize(data: SerializedUIElement) {
-        const ElementClass = UIElementRegistry.getFactory(data.type);
-        if(ElementClass == null) throw new ReferenceError("UI element " + data.type + " is not registered");
-        
-        const element = new ElementClass;
-        element.deserialize(data);
-        return element;
-    }
-    
-    
-    public abstract readonly type: string;
+}
+
+export abstract class UIElement extends BufferSerializable {
     public element: HTMLElement;
     public visible = true;
     public style: CSSStyleDeclaration = {} as CSSStyleDeclaration;
@@ -105,16 +91,6 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
         this._eventBinder = null;
     }
 
-    public serialize(): SerializedData {
-        return {
-            type: this.type,
-            style: this.style,
-            visible: this.visible
-        } as any; // 🤫
-    }
-    public deserialize(data: SerializedData) {
-        Object.assign(this.style, data.style);
-    }
     public bubbleEvent(event: UIEvent) {
         if(this.externalEventHandlers.get(event.name)?.(event)) return;
         this.parent?.bubbleEvent(event);
@@ -142,5 +118,17 @@ export abstract class UIElement<SerializedData extends SerializedUIElement = Ser
         }
         
         return null;
+    }
+
+    public serialize(bin: BinaryBuffer) {
+        bin.write_json(this.style);
+        bin.write_boolean(this.visible);
+    }
+    public deserialize(bin: BinaryBuffer) {
+        Object.assign(this.style, bin.read_json());
+        this.visible = bin.read_boolean();
+    }
+    protected getOwnExpectedSize(): number {
+        return BinaryBuffer.jsonByteCount(this.style) + BOOL;
     }
 }

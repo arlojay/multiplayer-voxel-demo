@@ -283,7 +283,6 @@ export class Client extends TypedEmitter<ClientEvents> {
                         this.gameUIControl.loadingScreen.setProgress({ max: total, value: finished });
                     });
                     this.gameUIControl.loadingScreen.clearProgress();
-                    UIGameBlock.setDisplayBlockRenderer(serverSession.displayBlockRenderer);
                     
                     this.gameUIControl.loadingScreen.setHint("Compiling shaders");
                     await Client.instance.gameRenderer.compileMaterials();
