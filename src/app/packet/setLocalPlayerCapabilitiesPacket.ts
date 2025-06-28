@@ -22,7 +22,7 @@ export class SetLocalPlayerCapabilitiesPacket extends Packet {
     protected deserialize(bin: BinaryBuffer): void {
         this.capabilities.deserialize(bin);
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return this.capabilities.getExpectedSize();
     }
 }

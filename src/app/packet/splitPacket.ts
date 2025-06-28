@@ -32,7 +32,7 @@ export class SplitPacket extends Packet {
         this.packetCount = bin.read_u16();
         this.packetData = bin.read_buffer();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             U32 + U16 + U16 +
             BinaryBuffer.bufferByteCount(this.packetData)

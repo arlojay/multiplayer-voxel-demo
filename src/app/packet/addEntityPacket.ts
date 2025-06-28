@@ -29,7 +29,7 @@ export class AddEntityPacket extends Packet {
         this.type = bin.read_u32();
         this.entityData = bin.read_buffer();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             U32 +
             BinaryBuffer.bufferByteCount(this.entityData)

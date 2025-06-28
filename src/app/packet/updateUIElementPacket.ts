@@ -27,7 +27,7 @@ export class UpdateUIElementPacket extends Packet {
         this.path = Array.from(new Uint32Array(bin.read_buffer()));
         this.serializedElementData = bin.read_json();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.interfaceId) +
             BinaryBuffer.bufferByteCount(new Uint32Array(this.path).buffer) +

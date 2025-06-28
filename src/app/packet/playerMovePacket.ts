@@ -19,7 +19,7 @@ export class PlayerMovePacket extends PlayerInfo {
         this.player = bin.read_string();
     }
 
-    protected getExpectedSize(): number {
-        return super.getExpectedSize() + BinaryBuffer.stringByteCount(this.player);
+    protected getOwnExpectedSize(): number {
+        return super.getOwnExpectedSize() + BinaryBuffer.stringByteCount(this.player);
     }
 }

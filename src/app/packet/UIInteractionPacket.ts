@@ -22,7 +22,7 @@ export class UIInteractionPacket extends Packet {
         this.interaction = bin.read_i32();
         this.data = bin.read_json();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.interfaceId) +
             BinaryBuffer.bufferByteCount(new Uint32Array(this.path).buffer) +

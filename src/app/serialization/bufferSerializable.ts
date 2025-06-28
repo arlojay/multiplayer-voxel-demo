@@ -1,5 +1,6 @@
 import { IndexedFactoryRegistry } from "../synchronization/registry";
 import { BinaryBuffer, U16 } from "./binaryBuffer";
+import { Serializable } from "./serializable";
 
 export abstract class BufferSerializableRegistry<
     SerializableType extends BufferSerializable,
@@ -31,11 +32,9 @@ export abstract class BufferSerializableRegistry<
     }
 }
 
-export abstract class BufferSerializable {
+export abstract class BufferSerializable extends Serializable {
     public abstract readonly id: number;
-    protected abstract serialize(bin: BinaryBuffer): void;
-    protected abstract deserialize(bin: BinaryBuffer): void;
-
+    
     public read(bin: BinaryBuffer) {
         this.deserialize(bin);
     }
@@ -45,13 +44,9 @@ export abstract class BufferSerializable {
         this.serialize(bin);
     }
 
-    public allocateBuffer() {
-        return new ArrayBuffer(this.getBufferSize());
+    public getExpectedSize() {
+        return U16 + this.getOwnExpectedSize();
     }
 
-    protected getBufferSize() {
-        return U16 + this.getExpectedSize();
-    }
-
-    protected abstract getExpectedSize(): number;
+    protected abstract getOwnExpectedSize(): number;
 }

@@ -18,7 +18,7 @@ export class CloseUIPacket extends Packet {
     protected deserialize(bin: BinaryBuffer): void {
         this.interfaceId = bin.read_string();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.interfaceId)
         );

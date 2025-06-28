@@ -87,7 +87,7 @@ export class ChunkDataPacket extends Packet {
         }
     }
 
-    protected getExpectedSize() {
+    protected getOwnExpectedSize() {
         let paletteBytes = 0;
         for(const paletteItem of this.palette) paletteBytes += BinaryBuffer.stringByteCount(paletteItem);
 

@@ -30,7 +30,7 @@ export class CombinedPacket extends Packet {
         }
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         let size = U16;
 
         for(const packet of this.packets) {

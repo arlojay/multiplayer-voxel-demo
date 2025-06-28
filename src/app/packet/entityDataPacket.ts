@@ -30,7 +30,7 @@ export class EntityDataPacket extends Packet implements EntityPacket {
         this.uuid = bin.read_string();
         this.data = bin.read_buffer();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.uuid) +
             BinaryBuffer.bufferByteCount(this.data)

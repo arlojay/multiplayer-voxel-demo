@@ -23,7 +23,7 @@ export class RemoveEntityPacket extends Packet implements EntityPacket {
     protected deserialize(bin: BinaryBuffer): void {
         this.uuid = bin.read_string();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.uuid)
         )

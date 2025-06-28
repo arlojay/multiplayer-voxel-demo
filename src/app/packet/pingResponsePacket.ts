@@ -11,7 +11,7 @@ export class PingResponsePacket extends Packet {
     protected deserialize(bin: BinaryBuffer): void {
         
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return 0;
     }
 }

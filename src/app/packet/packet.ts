@@ -21,7 +21,7 @@ export abstract class Packet extends BufferSerializable {
         bin.write_u32(this.timestamp = makeAdvancingTimestamp());
     }
 
-    public getBufferSize() {
-        return super.getBufferSize() + U32;
+    public getExpectedSize() {
+        return super.getExpectedSize() + U32;
     }
 }

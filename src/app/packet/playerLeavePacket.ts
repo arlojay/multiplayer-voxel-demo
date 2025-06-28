@@ -16,7 +16,7 @@ export class PlayerLeavePacket extends Packet {
         this.player = bin.read_string();
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return BinaryBuffer.stringByteCount(this.player);
     }
 }

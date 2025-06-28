@@ -23,7 +23,7 @@ export class OpenUIPacket extends Packet {
         this.ui = bin.read_json();
         this.interfaceId = bin.read_string();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.jsonByteCount(this.ui) +
             BinaryBuffer.stringByteCount(this.interfaceId)

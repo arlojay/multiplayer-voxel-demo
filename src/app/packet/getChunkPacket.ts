@@ -21,7 +21,7 @@ export class GetChunkPacket extends Packet {
         bin.write_i32(this.z);
     }
 
-    protected getExpectedSize() {
+    protected getOwnExpectedSize() {
         return I32 * 3;
     }
 }

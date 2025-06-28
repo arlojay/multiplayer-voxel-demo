@@ -27,7 +27,7 @@ export class PlaceBlockPacket extends Packet {
         bin.write_string(this.block);
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return I32 * 3 + BinaryBuffer.stringByteCount(this.block)
     }
 }

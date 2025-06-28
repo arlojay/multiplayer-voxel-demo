@@ -26,7 +26,7 @@ export class SetBlockPacket extends Packet {
         bin.write_u32(this.block);
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return I32 * 3 + U32;
     }
 }

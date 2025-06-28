@@ -75,7 +75,7 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements Rot
         this.rotation.deserialize(bin);
         this.capabilities.deserialize(bin);
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.uuid) +
             BinaryBuffer.stringByteCount(this.username) +

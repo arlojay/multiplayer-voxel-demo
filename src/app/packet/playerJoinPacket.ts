@@ -34,9 +34,9 @@ export class PlayerJoinPacket extends PlayerInfo {
         this.color = bin.read_charseq(6);
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
-            super.getExpectedSize() +
+            super.getOwnExpectedSize() +
             BinaryBuffer.stringByteCount(this.player) +
             BinaryBuffer.stringByteCount(this.username) +
             CHAR * 6

@@ -35,7 +35,7 @@ export abstract class PlayerInfo extends Packet {
         this.yaw = bin.read_f16();
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return VEC3 + VEC3 + F16 * 2;
     }
 }

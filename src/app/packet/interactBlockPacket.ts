@@ -33,7 +33,7 @@ export class InteractBlockPacket extends Packet {
         this.pointZ = bin.read_f32();
         this.face = $enum(BlockFace).asValueOrThrow(bin.read_u8());
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return I32 * 3 + F32 * 3 + U8;
     }
 }

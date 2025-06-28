@@ -30,7 +30,7 @@ export class TextEntity extends BaseEntity<RemoteTextEntity, LocalTextEntity> {
         this.background.set(bin.read_u8(), bin.read_u8(), bin.read_u8(), bin.read_u8());
         this.size = bin.read_f32();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.text) +
             U8 * 4 +

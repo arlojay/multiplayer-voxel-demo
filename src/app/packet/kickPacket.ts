@@ -13,7 +13,7 @@ export class KickPacket extends Packet {
     protected deserialize(bin: BinaryBuffer): void {
         this.reason = bin.read_string();
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return BinaryBuffer.stringByteCount(this.reason);
     }
 }

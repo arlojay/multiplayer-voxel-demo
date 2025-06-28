@@ -21,7 +21,7 @@ export class BreakBlockPacket extends Packet {
         this.z = bin.read_i32();
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return I32 * 3;
     }
 }

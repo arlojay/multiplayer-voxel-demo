@@ -35,7 +35,7 @@ export class EntityLookPacket extends Packet implements EntityPacket {
         this.yaw = bin.read_f32();
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.uuid) +
             (F32 * 2)

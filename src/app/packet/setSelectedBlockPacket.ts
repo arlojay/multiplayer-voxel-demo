@@ -20,7 +20,7 @@ export class SetSelectedBlockPacket extends Packet {
     protected deserialize(bin: BinaryBuffer): void {
         this.state = bin.read_string() as BlockStateSaveKey;
     }
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return BinaryBuffer.stringByteCount(this.state);
     }
 }

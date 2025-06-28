@@ -221,7 +221,7 @@ export abstract class BaseEntity<
     }
 
     public allocateExtraDataBuffer() {
-        return new ArrayBuffer(this.getExpectedSize());
+        return new ArrayBuffer(this.getOwnExpectedSize());
     }
     public writeExtraData(bin: BinaryBuffer) {
         this.serialize(bin);
@@ -230,9 +230,9 @@ export abstract class BaseEntity<
         this.deserialize(bin);
     }
 
-    public getBufferSize() {
-        return super.getBufferSize() + BinaryBuffer.stringByteCount(this.uuid) + VEC3 + VEC3 + VEC3 + VEC3 + U16;
+    public getExpectedSize() {
+        return super.getExpectedSize() + BinaryBuffer.stringByteCount(this.uuid) + VEC3 + VEC3 + VEC3 + VEC3 + U16;
     }
 
-    protected abstract getExpectedSize(): number;
+    protected abstract getOwnExpectedSize(): number;
 }

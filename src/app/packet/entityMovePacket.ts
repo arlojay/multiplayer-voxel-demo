@@ -66,7 +66,7 @@ export class EntityMovePacket extends Packet implements EntityPacket {
         this.skipInterpolation = bin.read_boolean();
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return (
             BinaryBuffer.stringByteCount(this.uuid) +
             (F32 * 3) +

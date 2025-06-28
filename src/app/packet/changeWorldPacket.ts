@@ -20,7 +20,7 @@ export class ChangeWorldPacket extends Packet {
         this.world = bin.read_string();
     }
 
-    protected getExpectedSize(): number {
+    protected getOwnExpectedSize(): number {
         return BinaryBuffer.stringByteCount(this.world);
     }
 }
