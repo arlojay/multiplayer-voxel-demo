@@ -162,7 +162,7 @@ body {
 }
 
 #perf-meters {
-    z-index: 2;
+    z-index: 5;
     position: fixed;
     top: 0;
     left: 0;
@@ -274,10 +274,14 @@ body {
         align-self: center;
         justify-self: center;
     }
+
+    .spotlight {
+        z-index: 3;
+    }
 }
 
 #settings, .modal[data-name="create-server"] {
-    z-index: 2;
+    z-index: 3;
 
     position: fixed;
     top: 0;
@@ -304,5 +308,99 @@ body {
     li {
         display: grid;
         grid-template-columns: max-content 1fr;
+    }
+}
+
+.ui-storage-root {
+    width: max-content;
+    height: max-content;
+    --cellSize: 64px;
+
+    .ui-storage {
+        backdrop-filter: blur(2px) brightness(0.5);
+
+        padding: 0.5rem;
+        border: 1px solid currentColor;
+        
+        .ui-title {
+            width: 100%;
+            text-align: center;
+            font-size: 2rem;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            &::after {
+                content: "";
+                display: block;
+                width: 75%;
+                height: 1px;
+                background: currentColor;
+
+                margin: 0.5rem;
+            }
+        }
+
+        .ui-contents {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+
+            .ui-slot {
+                grid-area: 1 / 1 / 2 / 2;
+                position: relative;
+                border: 1px solid currentColor;
+                width: var(--cellSize);
+                height: var(--cellSize);
+            }
+        }
+    }
+    .ui-slot, .moving-item {
+        display: grid;
+
+        align-items: center;
+        justify-content: center;
+
+        canvas {
+            grid-area: 1 / 1 / 2 / 2;
+        }
+        span {
+            grid-area: 1 / 1 / 2 / 2;
+            align-self: flex-end;
+            text-align: right;
+            padding: 0 0.5ch;
+        }
+    }
+    .moving-item {
+        position: fixed;
+        transform: translateX(-50%) translateY(-50%);
+        z-index: 4;
+    }
+    .ui-tooltip {
+        position: fixed;
+        transform: translateY(-100%);
+        z-index: 4;
+    }
+    .moving-item, .ui-tooltip {
+        &, & * {
+            pointer-events: none !important;
+        }
+    }
+}
+
+#spotlight-background {
+    z-index: 2;
+    backdrop-filter: blur(2px) brightness(0.5);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    pointer-events: all !important;
+
+    &.hidden {
+        display: none;
     }
 }

@@ -28,6 +28,9 @@ import { serverCrash } from "./thread";
 import { DatabaseChunk, WorldSaver } from "./worldSaver";
 import { DataConnectionLike } from "../turn";
 import { TimeMetric } from "../client/updateMetric";
+import { StorageLayout } from "../storage/storageLayout";
+import { InventoryMap, StorageLayoutMap } from "../storage/inventoryMap";
+import { Inventory } from "../storage/inventory";
 
 export interface ServerLaunchOptions {
     id: string;
@@ -63,6 +66,9 @@ export class Server extends EventPublisher {
     private tickingInterval: number | any;
     public registries: BaseRegistries;
     public blockDataMemoizer: BlockDataMemoizer;
+
+    public inventoryMap: InventoryMap;
+    public storageLayoutMap: StorageLayoutMap;
 
     public constructor(launchOptions: ServerLaunchOptions) {
         super();
@@ -113,6 +119,11 @@ export class Server extends EventPublisher {
 
         this.loadPlugins();
 
+        this.inventoryMap = new InventoryMap;
+        this.storageLayoutMap = new StorageLayoutMap;
+
+        this.inventoryMap.becomeActiveInstance();
+        this.storageLayoutMap.becomeActiveInstance();
 
         this.emit(new ServerPreinitEvent(this));
 
@@ -255,6 +266,18 @@ export class Server extends EventPublisher {
         requestAnimationFrame(animate);
     }
 
+    public createStorageLayout() {
+        const storageLayout = new StorageLayout;
+        this.storageLayoutMap.add(storageLayout);
+        return storageLayout;
+    }
+
+    public createInventory() {
+        const inventory = new Inventory(this.registries);
+        this.inventoryMap.add(inventory);
+        return inventory;
+    }
+
     public updateEntityLocation(entity: BaseEntity, instant = true, teleport = false) {
         if(entity.logicType != EntityLogicType.LOCAL_LOGIC) return;
         if(entity instanceof Player) {
@@ -379,8 +402,10 @@ export class Server extends EventPublisher {
 
             // Send join messages
             peer.sendToWorld(world);
-
             peer.sendPacket(new SetSelectedBlockPacket("color#" + ColorBlock.getClosestColor("#" + peer.color) as BlockStateSaveKey));
+            peer.serverPlayer.syncCapabilities();
+            peer.serverPlayer.syncInventory();
+            peer.serverPlayer.syncInventoryLayout();
 
             peer.addListener("disconnected", (cause) => {
                 this.handleDisconnection(peer, cause);

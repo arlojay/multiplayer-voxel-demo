@@ -1,38 +1,40 @@
-/*00*/ export * from "./packet";
-/*01*/ export * from "./combinedPacket";
+export * from "./packet";
+export * from "./combinedPacket";
 
-/*02*/ export * from "./getChunkPacket";
-/*03*/ export * from "./chunkDataPacket";
+export * from "./getChunkPacket";
+export * from "./chunkDataPacket";
 
-/*04*/ export * from "./setBlockPacket";
-/*05*/ export * from "./placeBlockPacket";
-/*06*/ export * from "./breakBlockPacket";
+export * from "./placeBlockPacket";
+export * from "./breakBlockPacket";
+export * from "./interactBlockPacket";
+export * from "./inventoryInteractionPacket"
 
-/*07*/ export * from "./clientMovePacket";
-/*08*/ export * from "./playerJoinPacket";
-/*09*/ export * from "./playerLeavePacket";
-/*10*/ export * from "./playerMovePacket";
-/*11*/ export * from "./setLocalPlayerPositionPacket";
-/*12*/ export * from "./changeWorldPacket";
+export * from "./setBlockPacket";
+export * from "./clientMovePacket";
+export * from "./playerJoinPacket";
+export * from "./playerLeavePacket";
+export * from "./playerMovePacket";
 
-/*13*/ export * from "./pingPacket";
-/*14*/ export * from "./pingResponsePacket";
-/*15*/ export * from "./kickPacket";
+export * from "./changeWorldPacket";
+export * from "./setLocalPlayerPositionPacket";
+export * from "./setLocalPlayerCapabilitiesPacket";
+export * from "./setSelectedBlockPacket";
+export * from "./updateInventoryPacket";
+export * from "./updateStorageLayoutPacket";
 
-/*16*/ export * from "./openUIPacket";
-/*17*/ export * from "./closeUIPacket";
-/*18*/ export * from "./UIInteractionPacket";
-/*19*/ export * from "./removeUIElementPacket";
-/*20*/ export * from "./addUIElementPacket";
+export * from "./pingPacket";
+export * from "./pingResponsePacket";
+export * from "./kickPacket";
 
-/*21*/ export * from "./addEntityPacket";
-/*22*/ export * from "./entityMovePacket";
-/*23*/ export * from "./removeEntityPacket";
-/*24*/ export * from "./entityDataPacket";
+export * from "./openUIPacket";
+export * from "./closeUIPacket";
+export * from "./UIInteractionPacket";
+export * from "./removeUIElementPacket";
+export * from "./addUIElementPacket";
 
-/*25*/ export * from "./splitPacket";
+export * from "./addEntityPacket";
+export * from "./entityMovePacket";
+export * from "./removeEntityPacket";
+export * from "./entityDataPacket";
 
-/*26*/ export * from "./setLocalPlayerCapabilitiesPacket";
-/*27*/ export * from "./setSelectedBlockPacket";
-
-/*28*/ export * from "./interactBlockPacket";
+export * from "./splitPacket";

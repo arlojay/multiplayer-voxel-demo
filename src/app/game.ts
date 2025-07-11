@@ -1,22 +1,19 @@
 import { Client, getClient } from "./client/client";
 import { ServerSession } from "./client/serverSession";
 import { ClientCustomizationOptions } from "./controls/controlOptions";
-import { dlerp, map } from "./math";
 import { cloneDb, dbExists } from "./serialization/dbUtils";
 import { PluginLoader } from "./server/pluginLoader";
 import { ServerLaunchOptions } from "./server/server";
 import { ServerData, ServerOptions } from "./server/serverData";
 import { ServerManager, ServerPeerError } from "./server/serverManager";
-import { getStats } from "./turn";
 import { UIButton, UIFieldset, UIForm, UISection, UIText } from "./ui";
 import { FormFieldInputType, UIFormField, UIFormFieldInputSide } from "./ui/UIFormField";
 import { UISpacer } from "./ui/UISpacer";
 import { makeSettingsUI } from "./client/ui/settingsUI";
 import { makeServerListUI } from "./client/ui/serverListUI";
 import { ServerDescriptor } from "./client/gameData";
-import { DataLibraryManager } from "./datalibrary/dataLibrary";
-import { ImageLoader } from "three";
-import { TimeMetric } from "./client/updateMetric";
+import { GameUIControl } from "./gameUIControl";
+import { DebugInfo } from "./debugInfo";
 
 const gameRoot = document.querySelector("#game") as HTMLElement;
 let serverListUI: UISection;
@@ -31,268 +28,10 @@ function createRandomServerGameCode() {
     return str;
 }
 
-export class LoadingScreen {
-    public element: HTMLDivElement;
-    public visible: boolean;
-    
-    private titleElement: HTMLHeadingElement;
-    private hintElement: HTMLDivElement;
-    private stateElement: HTMLParagraphElement;
-    private progressElement: HTMLDivElement;
-    private progressBarElement: HTMLProgressElement;
-    private progressTextElement: HTMLSpanElement;
-    private cancelButton: HTMLButtonElement;
-
-    public showHint = false;
-    public showProgress = false;
-    
-    public title = "Loading";
-    public hint: string = "";
-    public progressMin = 0;
-    public progressMax = 100;
-    public progressValue = 0;
-
-    public cancellable = true;
-    private onCancelCallback: () => void;
-
-    constructor(element: HTMLDivElement) {
-        this.element = element;
-
-        this.titleElement = this.element.querySelector("h1");
-        this.hintElement = this.element.querySelector(".hint");
-        this.stateElement = this.hintElement.querySelector(".state");
-        this.progressElement = this.element.querySelector(".progress");
-        this.progressBarElement = this.progressElement.querySelector("progress");
-        this.progressTextElement = this.progressElement.querySelector("span");
-        this.cancelButton = this.element.querySelector(".cancel");
-
-        this.cancelButton.addEventListener("click", () => {
-            if(!this.cancellable) return;
-
-            this.onCancelCallback?.();
-        });
-    }
-    public setVisible(visible: boolean) {
-        if(visible) this.element.classList.add("visible");
-        else this.element.classList.remove("visible");
-
-        this.visible = visible;
-    }
-
-    public onCancel(callback: () => void) {
-        this.onCancelCallback = callback;
-    }
-
-    public setTitle(title: string) {
-        this.title = title;
-        this.titleElement.textContent = this.title;
-    }
-    public setCancellable(cancellable: boolean) {
-        this.cancellable = cancellable;
-        this.cancelButton.hidden = !cancellable;
-    }
-    public clearHint() {
-        this.showHint = false;
-        this.stateElement.hidden = true;
-    }
-    public setHint(text: string) {
-        this.showHint = true;
-        this.stateElement.hidden = false;
-        this.hint = text;
-
-        this.stateElement.textContent = this.hint;
-    }
-    public clearProgress() {
-        this.showProgress = false;
-        this.progressElement.hidden = true;
-    }
-    public setProgress(progress: { min?: number, max?: number, value?: number, undefined?: boolean }) {
-        this.showProgress = true;
-        this.progressElement.hidden = false;
-
-        if(progress.min != null) this.progressMin = progress.min;
-        if(progress.max != null) this.progressMax = progress.max;
-        if(progress.value != null) this.progressValue = progress.value;
-        
-        if(progress.undefined === true) {
-            this.progressBarElement.removeAttribute("min");
-            this.progressBarElement.removeAttribute("max");
-            this.progressBarElement.removeAttribute("value");
-            
-            this.progressBarElement.textContent = "";
-            this.progressTextElement.textContent = "";
-        } else {
-            this.progressBarElement.setAttribute("min", this.progressMin.toString());
-            this.progressBarElement.setAttribute("max", this.progressMax.toString());
-            this.progressBarElement.setAttribute("value", this.progressValue.toString());
-        
-            const percent = Math.round(map(this.progressValue, this.progressMin, this.progressMax, 0, 100)) + "%";
-            this.progressBarElement.textContent = percent;
-            this.progressTextElement.textContent = percent;
-        }
-    }
-}
-
-export class GameUIControl {
-    public loadingScreen = new LoadingScreen(document.querySelector("#loading-screen"));
-    
-    public getRoot() {
-        return gameRoot;
-    }
-    public getCanvas() {
-        return gameRoot.querySelector("canvas") as HTMLCanvasElement;
-    }
-    public getUI() {
-        return gameRoot.querySelector("#game-ui") as HTMLDivElement;
-    }
-    public isOnTab() {
-        return document.visibilityState == "visible";
-    }
-    public isNotFocusedOnAnything() {
-        return document.activeElement == document.body;
-    }
-    public waitForRepaint() {
-        return new Promise<number>(requestAnimationFrame);
-    }
-    public setTitleScreenVisible(visible: boolean) {
-        const element = document.querySelector("#title-screen");
-        if(visible) {
-            element.classList.add("visible");
-        } else {
-            element.classList.remove("visible");
-        }
-    }
-    public setGameVisible(visible: boolean) {
-        const element = document.querySelector("#game");
-        if(visible) {
-            element.classList.add("visible");
-        } else {
-            element.classList.remove("visible");
-        }
-    }
-    public setServerConnectionError(error: string) {
-        document.querySelector("#join-game .connect-error").textContent = error;
-    }
-    public async loadLastServerScreenshot(dataLibraryManager: DataLibraryManager) {
-        const library = await dataLibraryManager.getLibrary("screenshots");
-        await library.open(null);
-        return await library.getAsset("last-server").then(async asset => {
-            const titleBackground = document.querySelector("#title-background") as HTMLDivElement;
-            titleBackground.replaceChildren();
-
-            const image = await new ImageLoader().loadAsync(URL.createObjectURL(asset.item.blob));;
-            titleBackground.append(image);
-        }).catch((error) => {
-            console.warn("Cannot open last server screenshot", error);
-        });
-    }
-}
-
-export class DebugInfo {
-    private performanceMeter: HTMLDivElement;
-    private memCounter: HTMLDivElement;
-    private fpsCounter: HTMLDivElement;
-    private frametimeCounter: HTMLDivElement;
-    private networkCounterUp: HTMLDivElement;
-    private networkCounterDown: HTMLDivElement;
-    private drawCallsCounter: HTMLDivElement;
-    private memused: number;
-    private displayMemused: number;
-    private lastSentBytes: number;
-    private lastSentByteInterval: number;
-    private lastRecvBytes: number;
-    private lastRecvByteInterval: number;
-    private lastDrawCalls: number;
-    private drawCalls: number;
-    private lastNetworkUpdate: number;
-
-    private cbs: ({ time: number, run: () => void })[];
-    private client: Client;
-
-    constructor(client: Client) {
-        this.client = client;
-        this.performanceMeter = document.querySelector("#perf-meters");
-        this.memCounter = this.performanceMeter.querySelector(".mem");
-        this.fpsCounter = this.performanceMeter.querySelector(".fps");
-        this.frametimeCounter = this.performanceMeter.querySelector(".frametime");
-        this.networkCounterUp = this.performanceMeter.querySelector(".network .up");
-        this.networkCounterDown = this.performanceMeter.querySelector(".network .down");
-        this.drawCallsCounter = this.performanceMeter.querySelector(".draw-calls");
-
-        this.memused = 0;
-        this.displayMemused = 0;
-        this.lastNetworkUpdate = 0;
-        this.lastSentBytes = 0;
-        this.lastSentByteInterval = 0;
-        this.lastRecvBytes = 0;
-        this.lastRecvByteInterval = 0;
-
-        this.cbs = new Array;
-        this.lastDrawCalls = 0;
-
-        setInterval(() => {
-            const memory = (performance as any).memory;
-            if(memory != null) {
-                this.memused = memory.usedJSHeapSize / 1024 / 1024;
-            }
-            this.updateElements();
-        }, 100)
-    }
-    public decimalToAccuracy(value: number, places: number) {
-        const n = 10 ** places;
-        const count = (Math.round(value * n) / n).toString();
-        let [ whole, frac ] = count.split(".");
-        if(frac == null) frac = "";
-        frac = frac.padEnd(places, "0");
-
-        return whole + "." + frac;
-    }
-    public update(metric: TimeMetric) {
-        while(this.cbs.length > 0 && (this.cbs[0]?.time < metric.time || isNaN(+this.cbs[0]?.time))) this.cbs.shift()?.run?.();
-
-        if(metric.time - this.lastNetworkUpdate > 1 && this.client.serverSession?.serverConnection != null) {
-            getStats(this.client.serverSession.serverConnection).then(stats => {
-                if(stats != null) {
-                    const sent = stats.bytesSent - this.lastSentBytes;
-                    this.lastSentBytes = stats.bytesSent;
-                    this.lastSentByteInterval = sent;
-
-                    const recv = stats.bytesReceived - this.lastRecvBytes;
-                    this.lastRecvBytes = stats.bytesReceived;
-                    this.lastRecvByteInterval = recv;
-                }
-            });
-            this.lastNetworkUpdate = metric.time;
-        }
-
-        this.displayMemused = Math.min(this.memused, dlerp(this.displayMemused, this.memused, metric.dt, 5));
-            
-        this.drawCalls = this.client.gameRenderer.renderer.info.calls - this.lastDrawCalls;
-        this.lastDrawCalls = this.client.gameRenderer.renderer.info.calls;
-        this.client.gameRenderer.renderer.info.reset();
-    }
-    public updateElements() {
-        this.memCounter.textContent = this.decimalToAccuracy(this.displayMemused, 2) + "MB mem";
-        
-        if(this.client.gameRenderer != null) {
-            this.fpsCounter.textContent = Math.round(this.client.gameRenderer.framerate) + " FPS";
-            this.frametimeCounter.textContent = this.decimalToAccuracy(this.client.gameRenderer.frametime, 3) + " ms/f";
-            this.drawCallsCounter.textContent = this.decimalToAccuracy(this.client.lastMetric.budget.msLeft, 1) + " budget ms";
-        }
-        if(this.client.peer != null) {
-            this.networkCounterUp.textContent =
-                "↗ " + this.decimalToAccuracy(this.lastSentByteInterval / 128, 2).padStart(10, " ") + "kbps";
-
-            this.networkCounterDown.textContent =
-                "↘ " + this.decimalToAccuracy(this.lastRecvByteInterval / 128, 2).padStart(10, " ") + "kbps";
-        }
-    }
-}
-
 main();
 
 async function main() {
-    const client = new Client(new GameUIControl);
+    const client = new Client(new GameUIControl(gameRoot));
     await client.init();
     (window as any).client = client;
 
@@ -300,7 +39,7 @@ async function main() {
     
     if("navigator" in window && "keyboard" in window.navigator) {
         (window.navigator as any).keyboard.lock([
-            "KeyW", "KeyA", "KeyS", "KeyD", "Space"
+            "KeyW", "KeyA", "KeyS", "KeyD", "Space", "Escape"
         ]).then(() => {
             console.log("Locked keyboard events!");
         }).catch((e: any) => {

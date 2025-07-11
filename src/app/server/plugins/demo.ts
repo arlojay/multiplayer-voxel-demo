@@ -54,7 +54,7 @@ export class DemoPlugin extends ServerPlugin {
         
         const text = new UIText("");
         ui.addChild(text);
-        let session: ServerUI = null;
+        const session = event.peer.createUISession(ui);
 
         const updateClicks = () => {
             text.setText(entry.data.clicks + " clicks");
@@ -77,7 +77,7 @@ export class DemoPlugin extends ServerPlugin {
         });
         ui.addChild(kickButton);
         
-        session = event.peer.showUI(ui);
+        session.open();
     }
 
     public async addContent(registries: BaseRegistries, dataLibrary: DataLibrary) {

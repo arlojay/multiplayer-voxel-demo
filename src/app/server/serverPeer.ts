@@ -1,5 +1,5 @@
 import { TypedEmitter } from "tiny-typed-emitter";
-import { AddEntityPacket, InteractBlockPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, splitPacket, SplitPacket, SplitPacketAssembler } from "../packet";
+import { AddEntityPacket, InteractBlockPacket, BreakBlockPacket, ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CombinedPacket, EntityMovePacket, GetChunkPacket, KickPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, PlaceBlockPacket, RemoveEntityPacket, splitPacket, SplitPacket, SplitPacketAssembler, InventoryInteractionPacket, UpdateInventoryPacket } from "../packet";
 import { EntityLookPacket } from "../packet/entityLookPacket";
 import { BinaryBuffer } from "../serialization/binaryBuffer";
 import { ClientIdentity } from "../synchronization/serverIdentity";
@@ -12,6 +12,11 @@ import { ServerPlayer } from "./serverPlayer";
 import { ServerUI } from "./serverUI";
 import { DataConnectionLike } from "../turn";
 import { TimeMetric } from "../client/updateMetric";
+import { InventoryInteractionType, StorageInterface } from "../storage/storageInterface";
+import { InventoryMap } from "../storage/inventoryMap";
+import { Inventory } from "../storage/inventory";
+import { StorageLayout } from "../storage/storageLayout";
+import { UpdateStorageLayoutPacket } from "../packet/updateStorageLayoutPacket";
 
 interface ServerPeerEvents {
     "chunkrequest": (packet: GetChunkPacket) => void;
@@ -41,6 +46,7 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
     public color = "ffffff";
     public lastPacketTime = 0;
     public identity: ClientIdentity;
+    private storageInterfaces: Map<Inventory, StorageInterface> = new Map;
 
 
     constructor(id: string, server: Server) {
@@ -49,6 +55,19 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         this.server = server;
 
         this.serverPlayer = new ServerPlayer(this);
+
+        const inventory = this.server.createInventory();
+        inventory.setSize(30);
+        
+        const layout = this.server.createStorageLayout();
+        for(let x = 0, i = 0; x < 10; x++) {
+            for(let y = 0; y < 3; y++, i++) {
+                layout.setSlotPosition(i, x, y);
+            }
+        }
+
+        this.serverPlayer.base.inventory = inventory;
+        this.serverPlayer.base.inventoryLayout = layout;
     }
     public onRealtimeCreated(connection: DataConnectionLike) {
         this.connection = connection;
@@ -192,6 +211,40 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         if(packet instanceof PingResponsePacket && !this.isPacketOld(packet)) {
             if(this.onPingResponse != null) this.onPingResponse();
         }
+        if(packet instanceof InventoryInteractionPacket) {
+            const inventory = this.server.inventoryMap.get(packet.inventoryId);
+            console.log(inventory, packet.inventoryId);
+            let storageInterface = this.storageInterfaces.get(inventory);
+            if(storageInterface == null) {
+                storageInterface = inventory.createInterface(this.serverPlayer.base.movingSlot);
+                this.storageInterfaces.set(inventory, storageInterface);
+            }
+            try {
+                switch(packet.interactionType) {
+                    case InventoryInteractionType.PICK_UP_STACK:
+                        storageInterface.pickUpStack(packet.slotIndex);
+                        break;
+                    case InventoryInteractionType.DROP_STACK:
+                        storageInterface.dropStack(packet.slotIndex);
+                        break;
+                    case InventoryInteractionType.SPLIT_STACK:
+                        storageInterface.splitStack(packet.slotIndex);
+                        break;
+                    case InventoryInteractionType.DROP_ONE:
+                        storageInterface.dropOne(packet.slotIndex);
+                        break;
+                    case InventoryInteractionType.MERGE_STACK:
+                        storageInterface.mergeStack(packet.slotIndex);
+                        break;
+                    case InventoryInteractionType.SWAP_STACK:
+                        storageInterface.swapStack(packet.slotIndex);
+                        break;
+                }
+            } catch(e) {
+                console.debug(e.message);
+                this.updateInventory(inventory);
+            }
+        }
 
 
         this.emit("packet", packet);
@@ -227,6 +280,13 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
             }
             this.packetQueue.add(buffer);
         }
+    }
+
+    public updateInventory(inventory: Inventory) {
+        this.sendPacket(new UpdateInventoryPacket(inventory));
+    }
+    public updateStorageLayout(storageLayout: StorageLayout) {
+        this.sendPacket(new UpdateStorageLayoutPacket(storageLayout));
     }
 
     public updateBlock(x: number, y: number, z: number) {
@@ -273,10 +333,8 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
         }
     }
 
-    public showUI(ui: UIContainer): ServerUI {
+    public createUISession(ui: UIContainer): ServerUI {
         const uiInstance = new ServerUI(this, ui);
-        uiInstance.open();
-
         return uiInstance;
     }
 

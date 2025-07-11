@@ -16,6 +16,9 @@ import { RemoteEntity } from "../remoteEntity";
 import { TimeMetric } from "../../client/updateMetric";
 import { IntersectionResult } from "../../world/worldRaycaster";
 import { normalToBlockFace } from "../../block/block";
+import { Inventory, StorageSlot } from "../../storage/inventory";
+import { getCurrentBaseRegistries } from "../../synchronization/baseRegistries";
+import { StorageLayout } from "src/app/storage/storageLayout";
 
 export class PlayerCapabilities implements EntityComponent<PlayerCapabilities> {
     public canFly = false;
@@ -47,6 +50,9 @@ export class Player extends BaseEntity<RemotePlayer, LocalPlayer> implements Rot
     public username = "anonymous";
     public color = "ffffff";
     public selectedBlock: BlockStateSaveKey = "color#ffffff";
+    public movingSlot = new StorageSlot(getCurrentBaseRegistries());
+    public inventory: Inventory;
+    public inventoryLayout: StorageLayout;
 
     constructor(logicType: EntityLogicType) {
         super(logicType);
@@ -158,7 +164,22 @@ export class LocalPlayer extends LocalEntity<Player> {
 
     private updateControls(metric: TimeMetric) {
         const client = getClient();
-        const receivingControls = this.controller.pointerCurrentlyLocked || !capabilities.REQUEST_POINTER_LOCK;
+        
+        let receivingControls = (
+            this.controller.pointerCurrentlyLocked ||
+            !capabilities.REQUEST_POINTER_LOCK
+        );
+
+        if(this.controller.gameUIControl.someBlockingUIOpen()) {
+            receivingControls = false;
+            this.controller.setPointerLocked(false);
+        } else {
+            if(this.controller.gameUIControl.isNotFocusedOnAnything()) {
+                this.controller.setPointerLocked(true);
+            }
+        }
+
+
         const controlOptions = client.gameData.clientOptions.controls;
 
         const onGround = this.airTime < 0.01;
@@ -475,6 +496,8 @@ export class LocalPlayer extends LocalEntity<Player> {
         this.model.username = this.base.username;
         this.model.color = this.base.color;
         this.model.update(metric);
+
+        this.controller.resetWheelScrolling();
     }
 
     public respawn() {

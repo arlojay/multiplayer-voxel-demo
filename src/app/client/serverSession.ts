@@ -7,7 +7,7 @@ import { NetworkUI } from "../client/networkUI";
 import { BaseEntity, EntityLogicType, entityRegistry, instanceof_RotatingEntity } from "../entity/baseEntity";
 import { Player } from "../entity/impl";
 import { NegotiationChannel } from "../network/negotiationChannel";
-import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, SetLocalPlayerCapabilitiesPacket, SetLocalPlayerPositionPacket, SetSelectedBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket } from "../packet";
+import { ChangeWorldPacket, ChunkDataPacket, ClientMovePacket, CloseUIPacket, CombinedPacket, EntityDataPacket, EntityMovePacket, GetChunkPacket, InsertUIElementPacket, KickPacket, OpenUIPacket, Packet, packetRegistry, PingPacket, PingResponsePacket, RemoveEntityPacket, RemoveUIElementPacket, SetBlockPacket, UpdateInventoryPacket, SetLocalPlayerCapabilitiesPacket, SetLocalPlayerPositionPacket, SetSelectedBlockPacket, splitPacket, SplitPacket, SplitPacketAssembler, UIInteractionPacket, UpdateStorageLayoutPacket } from "../packet";
 import { AddEntityPacket } from "../packet/addEntityPacket";
 import { EntityLookPacket } from "../packet/entityLookPacket";
 import { EntityPacket } from "../packet/entityPacket";
@@ -17,12 +17,15 @@ import { TimedOutError } from "../server/serverPeer";
 import { LoopingMusic } from "../sound/loopingMusic";
 import { BaseRegistries, setCurrentBaseRegistries } from "../synchronization/baseRegistries";
 import { ServerIdentity } from "../synchronization/serverIdentity";
-import { UIElement } from "../ui";
+import { UIElement, UIStorageInterface } from "../ui";
 import { DisplayBlockRenderer } from "../ui/displayBlockRenderer";
 import { CHUNK_INC_SCL } from "../world/voxelGrid";
 import { Chunk, World } from "../world/world";
 import { Client } from "./client";
 import { TimeMetric } from "./updateMetric";
+import { Inventory } from "../storage/inventory";
+import { InventoryMap, StorageLayoutMap } from "../storage/inventoryMap";
+import { StorageLayout } from "../storage/storageLayout";
 
 interface ServerSessionEvents {
     "disconnected": (reason: string) => void;
@@ -81,6 +84,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     public localWorld: World;
     // public players: Map<string, RemotePlayer> = new Map;
     public interfaces: Map<string, NetworkUI> = new Map;
+    public inventories: InventoryMap;
+    public storageLayouts: StorageLayoutMap;
     
     private lastPacketReceived: Map<number, number> = new Map;
     private lastEntityPacketReceived: Map<string, number>[] = new Array;
@@ -145,6 +150,14 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
     public setServerIdentity(identity: ServerIdentity) {
         this.serverIdentity = identity;
+    }
+
+    public initLocalDataMaps() {
+        this.inventories = new InventoryMap;
+        this.storageLayouts = new StorageLayoutMap;
+
+        this.inventories.becomeActiveInstance();
+        this.storageLayouts.becomeActiveInstance();
     }
 
     public async openRealtime() {
@@ -344,9 +357,34 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
         if(packet instanceof OpenUIPacket) {
             const ui = new NetworkUI(packet.ui, packet.interfaceId);
+            ui.setBlocking(packet.blocking);
+            ui.setSpotlight(packet.spotlight);
+            ui.setClosable(packet.closable);
             this.interfaces.set(packet.interfaceId, ui);
 
-            this.showUI(ui);
+            let promises: Promise<void>[] = null;
+            
+            // where tf else am i putting this
+            for(const storageInterface of ui.root.getAllElementsOfType(UIStorageInterface)) {
+                promises ??= new Array;
+                promises.push(
+                    this.waitFor(() => this.inventories.has(storageInterface.inventoryId))
+                    .then(() => this.waitFor(() => this.storageLayouts.has(storageInterface.layoutId)))
+                    .then(() => {
+                        storageInterface.loadStorageInterface(
+                            this.inventories,
+                            this.storageLayouts,
+                            this.player.movingSlot
+                        );
+                    })
+                );
+            }
+
+            if(promises == null) {
+                this.showUI(ui);
+            } else {
+                Promise.all(promises).then(() => this.showUI(ui));
+            }
         }
         if(packet instanceof CloseUIPacket) {
             this.hideUI(packet.interfaceId);
@@ -369,6 +407,43 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         if(packet instanceof SetSelectedBlockPacket) {
             this.player.selectedBlock = packet.state;
         }
+        if(packet instanceof UpdateInventoryPacket) {
+            let inventory = this.inventories.get(packet.inventoryId);
+            if(inventory == null) {
+                inventory = new Inventory(this.registries);
+                this.inventories.set(packet.inventoryId, inventory);
+            }
+            inventory.read(new BinaryBuffer(packet.inventoryData));
+            for(const openInterface of inventory.getOpenInterfaces()) {
+                openInterface.updateAllSlots();
+            }
+        }
+        if(packet instanceof UpdateStorageLayoutPacket) {
+            let layout = this.storageLayouts.get(packet.layoutId);
+            if(layout == null) {
+                layout = new StorageLayout();
+                this.storageLayouts.set(packet.layoutId, layout);
+            }
+            layout.read(new BinaryBuffer(packet.layoutData));
+        }
+    }
+    private async waitFor(condition: () => boolean) {
+        if(condition()) return;
+        const { resolve, reject, promise } = Promise.withResolvers<void>();
+
+        const interval = setInterval(() => {
+            if(!condition()) return;
+
+            clearInterval(interval);
+            clearTimeout(timeout);
+            resolve();
+        });
+        const timeout = setTimeout(() => {
+            clearInterval(interval);
+            reject(new TimedOutError);
+        }, 5000);
+
+        await promise;
     }
     public handleAddEntity(entity: BaseEntity) {
         this.localWorld.addEntity(entity);
@@ -416,7 +491,11 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     }
 
     private showUI(ui: NetworkUI) {
-        this.client.gameRenderer.showUI(ui.root);
+        this.client.gameUIControl.showUI(ui.root, {
+            blocking: ui.blocking,
+            spotlight: ui.spotlight,
+            closable: ui.closable
+        });
         ui.addListener("interaction", (path, interaction, data) => {
             const packet = new UIInteractionPacket();
             packet.interfaceId = ui.id;
@@ -425,10 +504,13 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             packet.data = data ?? {};
             this.sendPacket(packet);
         });
+        ui.addListener("packet", (packet) => {
+            this.sendPacket(packet);
+        });
     }
     private hideUI(ui: NetworkUI | string) {
         if(ui instanceof NetworkUI) {
-            this.client.gameRenderer.hideUI(ui.root);
+            this.client.gameUIControl.closeUI(ui.root);
         } else if(typeof ui == "string") {
             this.hideUI(this.interfaces.get(ui));
         }

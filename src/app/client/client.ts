@@ -6,7 +6,6 @@ import { ClientCustomizationOptions } from "../controls/controlOptions";
 import { PlayerController } from "../controls/playerController";
 import { DataLibrary, DataLibraryManager } from "../datalibrary/dataLibrary";
 import { LibraryDataNegotiationLocator } from "../datalibrary/libraryDataNegotiationLocator";
-import { DebugInfo, GameUIControl } from "../game";
 import { GameContentPackage } from "../network/gameContentPackage";
 import { setTextureAtlas as setTerrainTextureAtlas } from "../shaders/terrain";
 import { AudioManager } from "../sound/soundManager";
@@ -19,6 +18,8 @@ import { GameData } from "./gameData";
 import { GameRenderer } from "./gameRenderer";
 import { ServerSession } from "./serverSession";
 import { TimeMetric } from "./updateMetric";
+import { GameUIControl } from "../gameUIControl";
+import { DebugInfo } from "../debugInfo";
 
 interface ClientEvents {
     "login": () => void;
@@ -65,7 +66,7 @@ export class Client extends TypedEmitter<ClientEvents> {
         this.gameUIControl = gameUIControl;
 
         this.gameRenderer = new GameRenderer(gameUIControl);
-        this.playerController = new PlayerController(gameUIControl.getCanvas());
+        this.playerController = new PlayerController(gameUIControl);
         
         this.gameRenderer.addListener("update", (metric) => {
             this.update(metric);
@@ -286,6 +287,10 @@ export class Client extends TypedEmitter<ClientEvents> {
                     
                     this.gameUIControl.loadingScreen.setHint("Compiling shaders");
                     await Client.instance.gameRenderer.compileMaterials();
+
+                    this.gameUIControl.loadingScreen.setHint("Initializing local data maps");
+                    await this.gameUIControl.waitForRepaint();
+                    serverSession.initLocalDataMaps();
                     
                     this.gameUIControl.loadingScreen.setTitle("Joining game");
                     this.gameUIControl.loadingScreen.clearHint();

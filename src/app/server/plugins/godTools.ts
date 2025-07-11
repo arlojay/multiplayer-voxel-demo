@@ -44,7 +44,7 @@ export class GodToolsPlugin extends ServerPlugin {
             this.showItemShelf(event.peer);
         })
         
-        event.peer.showUI(ui);
+        event.peer.createUISession(ui).open();
     }
     private showItemShelf(peer: ServerPeer) {
         const ui = new UISection;
@@ -87,7 +87,11 @@ export class GodToolsPlugin extends ServerPlugin {
             session.close();
         });
         
-        const session = peer.showUI(ui);
+        const session = peer.createUISession(ui);
+        session.blocking = true;
+        session.spotlight = true;
+        session.closable = true;
+        session.open();
     }
     
     @Subscribe(PluginEvents.INTERACT_BLOCK)

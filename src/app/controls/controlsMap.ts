@@ -4,6 +4,13 @@ export enum MouseKey {
     RIGHT_CLICK = "mouse2",
     NAV_BACK = "mouse3",
     NAV_FORWARD = "mouse4",
+
+    SCROLL_PX = "scroll_right",
+    SCROLL_NX = "scroll_left",
+    SCROLL_PY = "scroll_up",
+    SCROLL_NY = "scroll_down",
+    SCROLL_PZ = "scroll_out",
+    SCROLL_NZ = "scroll_in",
 }
 
 function translateKey(key: string) {
@@ -56,6 +63,8 @@ export const controls = {
     FREECAM: register("Toggle Freecam", "u"),
     FREECAM_UP: register("Freecam Up", "e"),
     FREECAM_DOWN: register("Freecam Down", "q"),
+
+    CLOSE_MENU: register("Close Menu", "escape")
 }
 
 function register(name: string, defaultKey: string) {

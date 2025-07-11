@@ -50,6 +50,6 @@ export class FreebuildPlugin extends ServerPlugin {
         ui.addChild(tempWorldButton);
         ui.addChild(mainWorldButton);
 
-        const session = peer.showUI(ui);
+        peer.createUISession(ui).open();
     }
 }

@@ -16,6 +16,6 @@ export class BannerPlugin extends ServerPlugin {
         ui.addChild(text);
         text.style.fontSize = "2rem";
 
-        let session = event.peer.showUI(ui);
+        event.peer.createUISession(ui).open();
     }
 }

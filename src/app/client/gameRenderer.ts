@@ -1,16 +1,15 @@
 import { uniform } from "three/src/nodes/TSL";
 import { BoxGeometry, BufferGeometry, HemisphereLight, ImageLoader, Mesh, MeshBasicMaterial, MeshBasicNodeMaterial, PerspectiveCamera, Scene, WebGPURenderer } from "three/src/Three.WebGPU";
 import { TypedEmitter } from "tiny-typed-emitter";
-import { GameUIControl } from "../game";
 import { dlerp } from "../math";
 import { skyColor } from "../shaders/sky";
 import { terrainColor } from "../shaders/terrain";
-import { UIContainer } from "../ui";
 import { CHUNK_SIZE } from "../world/voxelGrid";
 import { World } from "../world/world";
 import { WorldRenderer } from "../world/worldRenderer";
 import { Client } from "./client";
 import { TimeMetric } from "./updateMetric";
+import { GameUIControl } from "../gameUIControl";
 
 interface GameRendererEvents {
     "update": (metric: TimeMetric) => void;
@@ -23,8 +22,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
     public worldRenderer: WorldRenderer = null;
 
     public canvas: HTMLCanvasElement;
-    public UIRoot: HTMLDivElement;
-    public showingUIs: Set<UIContainer> = new Set;
     public renderer: WebGPURenderer = null;
     public camera: PerspectiveCamera = new PerspectiveCamera(90, 1, 0.01, 3000);
     public scene: Scene = new Scene();
@@ -57,7 +54,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         
         this.gameUIControl = gameUIControl;
         this.canvas = gameUIControl.getCanvas();
-        this.UIRoot = gameUIControl.getUI();
     }
     public async init() {
         await this.initRenderer();
@@ -242,18 +238,6 @@ export class GameRenderer extends TypedEmitter<GameRendererEvents> {
         this.scene.add(this.worldRenderer.root);
     }
 
-    public async showUI(container: UIContainer) {
-        this.showingUIs.add(container);
-        this.UIRoot.appendChild(await container.update());
-    }
-    public hideUI(container: UIContainer) {
-        this.showingUIs.delete(container);
-        if(this.UIRoot.contains(container.element)) this.UIRoot.removeChild(container.element);
-        
-        if(this.gameUIControl.isNotFocusedOnAnything()) {
-            Client.instance.playerController.setPointerLocked(true);
-        }
-    }
     public destroyWorldRenderer() {
         console.trace("destroy world renderer");
         this.worldRenderer.destroy();

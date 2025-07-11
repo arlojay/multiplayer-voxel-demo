@@ -5,14 +5,6 @@ import { GameData } from "../gameData";
 
 export function makeSettingsUI(gameData: GameData) {
     const root = new UIFieldset("Settings");
-    
-    root.onUpdate(() => {
-        root.element.addEventListener("keydown", event => {
-            if(event.key.toLowerCase() == "escape") {
-                closeButton.click();
-            }
-        });
-    })
 
     root.legend.style.fontSize = "2rem";
     root.legend.style.fontWeight = "bold";
@@ -141,6 +133,7 @@ export function makeSettingsUI(gameData: GameData) {
         const resetKeybindButton = new UIButton();
         resetKeybindButton.onClick(() => {
             binding.reset();
+            gameData.saveClientOptions();
             updateAll();
         });
         element.addChild(resetKeybindButton);
@@ -153,11 +146,24 @@ export function makeSettingsUI(gameData: GameData) {
         changeKeybindButton.onClick(async () => {
             await changeKeybindButton.setText("<Press>");
 
+            let cancelled = false;
+            const pointerLockChangeCb = () => {
+                if(document.pointerLockElement == changeKeybindButton.element) return;
+
+                document.removeEventListener("pointerlockchange", pointerLockChangeCb);
+                cancelled = true;
+                gameData.saveClientOptions();
+                updateAll();
+            };
+
+            document.addEventListener("pointerlockchange", pointerLockChangeCb);
+
             changeKeybindButton.element.tabIndex = 0;
             changeKeybindButton.element.focus();
-            changeKeybindButton.element.requestPointerLock();
+            changeKeybindButton.element.requestPointerLock().catch(pointerLockChangeCb);
             
             changeKeybindButton.element.addEventListener("keydown", event => {
+                if(cancelled) return;
                 event.preventDefault();
                 binding.set(event.key);
                 document.exitPointerLock();
@@ -165,6 +171,7 @@ export function makeSettingsUI(gameData: GameData) {
                 updateAll();
             });
             changeKeybindButton.element.addEventListener("mousedown", event => {
+                if(cancelled) return;
                 event.preventDefault();
                 const mouseButton = $enum(MouseKey).asValueOrThrow("mouse" + event.button);
                 
@@ -173,9 +180,22 @@ export function makeSettingsUI(gameData: GameData) {
                 gameData.saveClientOptions();
                 updateAll();
             });
-            changeKeybindButton.element.addEventListener("focusout", () => {
+            changeKeybindButton.element.addEventListener("wheel", event => {
+                if(cancelled) return;
+                event.preventDefault();
+                let mouseButton = "";
+                if(event.deltaX < 0) mouseButton = MouseKey.SCROLL_PX;
+                if(event.deltaX > 0) mouseButton = MouseKey.SCROLL_NX;
+                if(event.deltaY < 0) mouseButton = MouseKey.SCROLL_PY;
+                if(event.deltaY > 0) mouseButton = MouseKey.SCROLL_NY;
+                if(event.deltaZ < 0) mouseButton = MouseKey.SCROLL_PZ;
+                if(event.deltaZ > 0) mouseButton = MouseKey.SCROLL_NZ;
+                
+                binding.set(mouseButton);
+                document.exitPointerLock();
+                gameData.saveClientOptions();
                 updateAll();
-            })
+            });
         })
         element.addChild(changeKeybindButton);
 
@@ -236,7 +256,8 @@ export function makeSettingsUI(gameData: GameData) {
     ));
 
     keybindsSection.addChild(makeControlCategory(
-        "FREECAM",
+        "GENERAL",
+        controls.CLOSE_MENU,
         controls.FREECAM,
         controls.FREECAM_DOWN,
         controls.FREECAM_UP

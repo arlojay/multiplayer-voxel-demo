@@ -2,7 +2,7 @@ import { TimeMetric } from "../client/updateMetric";
 import { EntityLogicType } from "../entity/baseEntity";
 import { CollisionChecker } from "../entity/collisionChecker";
 import { Player } from "../entity/impl";
-import { ClientMovePacket, SetLocalPlayerPositionPacket } from "../packet";
+import { ClientMovePacket, UpdateInventoryPacket, SetLocalPlayerPositionPacket, UpdateStorageLayoutPacket } from "../packet";
 import { SetLocalPlayerCapabilitiesPacket } from "../packet/setLocalPlayerCapabilitiesPacket";
 import { CHUNK_INC_SCL } from "../world/voxelGrid";
 import { World } from "../world/world";
@@ -75,6 +75,14 @@ export class ServerPlayer {
     }
     public syncCapabilities() {
         const packet = new SetLocalPlayerCapabilitiesPacket(this.base);
+        this.peer.sendPacket(packet, true);
+    }
+    public syncInventoryLayout() {
+        const packet = new UpdateStorageLayoutPacket(this.base.inventoryLayout);
+        this.peer.sendPacket(packet, true);
+    }
+    public syncInventory() {
+        const packet = new UpdateInventoryPacket(this.base.inventory);
         this.peer.sendPacket(packet, true);
     }
     public get world() {

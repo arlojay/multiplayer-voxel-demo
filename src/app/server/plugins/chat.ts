@@ -77,7 +77,7 @@ export class ChatPlugin extends ServerPlugin {
             input: chatInput,
             logs: chatLogs
         });
-        event.peer.showUI(chatUI);
+        event.peer.createUISession(chatUI).open();
     }
     
     @Subscribe(PluginEvents.PEER_LEAVE)
