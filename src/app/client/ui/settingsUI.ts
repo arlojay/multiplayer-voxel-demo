@@ -89,7 +89,7 @@ export function makeSettingsUI(gameData: GameData) {
                 slider.displayValue = true;
                 
                 slider.onChange(() => {
-                    option.set(slider.value);
+                    option.set(+slider.value);
                     gameData.saveClientOptions();
                 });
 

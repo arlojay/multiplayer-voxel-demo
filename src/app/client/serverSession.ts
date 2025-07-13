@@ -89,8 +89,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
     
     private lastPacketReceived: Map<number, number> = new Map;
     private lastEntityPacketReceived: Map<string, number>[] = new Array;
-    private waitingChunks: Map<ChunkFetchingKey, { reject: () => void, resolve: (packet: ChunkDataPacket) => void }> = new Map;
-    private fetchingChunks: Map<ChunkFetchingKey, Promise<ChunkDataPacket>> = new Map;
+    private waitingChunks: Map<ChunkFetchingKey, PromiseWithResolvers<ChunkDataPacket>> = new Map;
     private chunkFetchingQueueMap: Map<string, QueuedChunkPacket> = new Map;
     private chunkFetchingQueue: FastPriorityQueue<QueuedChunkPacket> = new FastPriorityQueue(
         (a, b) => a.distance < b.distance
@@ -469,7 +468,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
 
         this.chunkFetchingQueue.forEach(v => this.chunkFetchingQueue.remove(v));
         this.chunkFetchingQueueMap.clear();
-        this.fetchingChunks.clear();
+        this.waitingChunks.clear();
         this.loadedChunksA.splice(0);
         this.loadedChunksB.splice(0);
         this.allLoadedChunksByKey.clear();
@@ -560,8 +559,8 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
                     if(dxy2 + dz * dz > rsq) continue;
 
                     const key = `${x};${y};${z}` as ChunkFetchingKey;
-                    if (this.allLoadedChunksByKey.has(key)) continue;
-                    if (this.chunksToCheckForLoading.has(key)) continue;
+                    if(this.allLoadedChunksByKey.has(key)) continue;
+                    if(this.chunksToCheckForLoading.has(key)) continue;
 
                     this.chunksToCheckForLoading.set(key, [ x, y, z ]);
                 }
@@ -680,7 +679,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         }
     }
 
-    public fetchChunk(x: number, y: number, z: number, key?: ChunkFetchingKey) {
+    public async fetchChunk(x: number, y: number, z: number, key?: ChunkFetchingKey) {
         key ??= x + ";" + y + ";" + z as ChunkFetchingKey;
         const distance = Math.sqrt(
             (x - this.player.chunkX) ** 2 +
@@ -688,13 +687,14 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             (z - this.player.chunkZ) ** 2
         );
 
-        if(this.fetchingChunks.has(key)) {
+        if(this.waitingChunks.has(key)) {
             const queuedPacket = this.chunkFetchingQueueMap.get(key);
             this.chunkFetchingQueue.removeOne(v => v == queuedPacket);
             this.chunkFetchingQueue.add({
                 distance, packet: queuedPacket.packet, key
             });
-            return this.fetchingChunks.get(key);
+            await this.waitingChunks.get(key).promise;
+            return;
         }
 
         const packet = new GetChunkPacket;
@@ -706,22 +706,14 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
         this.chunkFetchingQueue.add(queuedPacket);
         this.chunkFetchingQueueMap.set(key, queuedPacket);
 
-        const promise = new Promise<ChunkDataPacket>((res, rej) => {
-            this.waitingChunks.set(key, {
-                resolve: packet => {
-                    const chunk = this.addChunkData(packet);
-                    this.fetchingChunks.delete(key);
-                    this.chunkFetchingQueueMap.delete(key);
-                    this.allLoadedChunksByKey.add(key);
-                    this.allLoadedChunksKeyMap.set(chunk, key);
-                },
-                reject: () => {
-                    // rej();
-                }
-            });
-        });
-        this.fetchingChunks.set(key, promise);
-        return promise;
+        const promiseWithResolvers = Promise.withResolvers<ChunkDataPacket>();
+
+        this.waitingChunks.set(key, promiseWithResolvers);
+        
+        const chunk = this.addChunkData(await promiseWithResolvers.promise);
+        this.chunkFetchingQueueMap.delete(key);
+        this.allLoadedChunksByKey.add(key);
+        this.allLoadedChunksKeyMap.set(chunk, key);
     }
 
     public addChunkData(chunkDataPacket: ChunkDataPacket) {
@@ -768,7 +760,7 @@ export class ServerSession extends TypedEmitter<ServerSessionEvents> {
             }
         }
         this.localWorld = new World(crypto.randomUUID(), this.blockDataMemoizer);
-        this.fetchingChunks.clear();
+        this.waitingChunks.clear();
         this.chunkFetchingQueue.removeMany(() => true);
         if(this.player != null) {
             this.player.setWorld(this.localWorld);

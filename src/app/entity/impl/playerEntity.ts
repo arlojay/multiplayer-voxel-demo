@@ -129,7 +129,6 @@ export class LocalPlayer extends LocalEntity<Player> {
     private pitchOffset = 0;
     private fovMultiplier = 1;
     private fovBase = 90;
-    private waitingForChunk = false;
 
     private freecamSpeed = 10;
     private pressedFreecam = false;
@@ -152,13 +151,8 @@ export class LocalPlayer extends LocalEntity<Player> {
     public update(metric: TimeMetric) {
         this.updateControls(metric);
 
-        if(!this.waitingForChunk) super.update(metric);
-
-        if(!this.base.world.blocks.chunkExists(this.base.chunkX, this.base.chunkY, this.base.chunkZ)) {
-            if(!this.waitingForChunk) this.waitingForChunk = true;
-            return;
-        } else {
-            this.waitingForChunk = false;
+        if(this.base.world.blocks.chunkExists(this.base.chunkX, this.base.chunkY, this.base.chunkZ)) {
+            super.update(metric);
         }
     }
 

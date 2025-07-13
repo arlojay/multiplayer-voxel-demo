@@ -13,12 +13,21 @@ export interface DatabaseChunk {
     version: number
 }
 
+interface ChunkFetchRequest {
+    x: number;
+    y: number;
+    z: number;
+    resolver: PromiseWithResolvers<DatabaseChunk>
+}
+
 export class WorldSaver {
     public server: Server;
     public id: string;
     public db: IDBDatabase;
     public world: World;
-    chunkObjectStore: IDBObjectStore;
+    private chunkObjectStore: IDBObjectStore;
+    private chunkFetchQueue: Set<ChunkFetchRequest> = new Set;
+    private queueCheckInterval: any;
 
     constructor(server: Server, id: string, world: World) {
         this.server = server;
@@ -35,6 +44,14 @@ export class WorldSaver {
                 }
             }
         })
+        this.queueCheckInterval = setInterval(() => {
+            this.updateChunkFetchQueue();
+        }, 100);
+    }
+
+    public close() {
+        this.db.close();
+        clearInterval(this.queueCheckInterval);
     }
 
     private writeChunk(chunk: Chunk) {
@@ -46,15 +63,43 @@ export class WorldSaver {
         } as DatabaseChunk);
     }
 
-    public async getChunkData(x: number, y: number, z: number) {
+    private async updateChunkFetchQueue() {
+        if(this.chunkFetchQueue.size === 0) return;
+        
         const transaction = this.db.transaction("data", "readonly");
-        const request = transaction.objectStore("data").get([ x, y, z ]);
+        const store = transaction.objectStore("data");
+        
+        const requests: any[] = new Array;
+
+        for(const request of this.chunkFetchQueue) {
+            const dbRequest = store.get([ request.x, request.y, request.z ]);
+            requests.push({ base: request, dbRequest });
+        }
+        this.chunkFetchQueue.clear();
+        
         try {
             await waitForTransaction(transaction);
+            for(const request of requests) {
+                request.base.resolver.resolve(request.dbRequest.result as DatabaseChunk);
+            }
+        } catch(e) {
+            for(const request of requests) {
+                request.base.resolver.reject(e);
+            }
+        }
+    }
+
+    public async getChunkData(x: number, y: number, z: number) {
+        const instance = {
+            x, y, z,
+            resolver: Promise.withResolvers<DatabaseChunk>()
+        };
+        this.chunkFetchQueue.add(instance);
+        try {
+            return await instance.resolver.promise;
         } catch(e) {
             throw new Error("Failed to get chunk " + x + ", " + y + ", " + z, { cause: e });
         }
-        return request.result;
     }
 
     public async saveChunk(chunk: Chunk) {

@@ -585,7 +585,7 @@ export class Server extends EventPublisher {
 
         const promises: Promise<unknown>[] = [];
         for(const saver of this.savers.values()) {
-            promises.push(saver.saveModified());
+            promises.push(saver.saveModified().then(() => saver.close()));
         }
         for(const plugin of this.plugins) {
             this.removeSubscriber(plugin);

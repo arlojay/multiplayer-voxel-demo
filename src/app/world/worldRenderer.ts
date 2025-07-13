@@ -56,6 +56,17 @@ export class WorldRenderer {
         metric.budget.msLeft -= performance.now() - t;
     }
 
+    public reloadAllChunks() {
+        for(const region of this.world.blocks.regions.values()) {
+            for(const voxelChunk of region.chunks) {
+                const chunk = this.world.chunkMap.get(voxelChunk);
+                if(chunk == null) continue;
+                
+                if(chunk.isFullySurrounded()) this.renderChunk(chunk);
+            }
+        }
+    }
+
     public destroy() {
         const objects: Set<Object3D> = new Set;
         const geometries: Set<BufferGeometry> = new Set;

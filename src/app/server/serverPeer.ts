@@ -268,6 +268,8 @@ export class ServerPeer extends TypedEmitter<ServerPeerEvents> {
                 } else {
                     this.waitForConnection().then(() => {
                         this.connection.send(buffer);
+                    }).catch(() => {
+                        // oh no... whatever ;p
                     });
                 }
             }
