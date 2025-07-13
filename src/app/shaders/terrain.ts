@@ -1,5 +1,5 @@
 import { Texture } from "three";
-import { attribute, cameraPosition, color, Discard, dot, float, Fn, If, ivec2, mix, nodeProxy, positionWorld, smoothstep, texture, textureSize, uint, vec2, vec3, vec4, vertexStage } from "three/src/nodes/TSL";
+import { attribute, cameraPosition, color, Discard, dot, float, Fn, If, ivec2, mix, nodeProxy, positionWorld, ShaderNode, ShaderNodeObject, smoothstep, texture, textureSize, uint, vec2, vec3, vec4, vertexStage } from "three/src/nodes/TSL";
 import { NearestFilter, Node, NodeBuilder, TextureLoader } from "three/src/Three.WebGPU";
 import { TextureAtlas } from "../texture/textureAtlas";
 import { FaceDirection } from "../world/voxelMesher";
@@ -27,13 +27,13 @@ const bitcast = nodeProxy(class BitcastNode extends Node {
     }
 })
 
-const unpackVec2 = Fn(([ number = uint(0) ]) => {
+const unpackVec2 = Fn(([ number = uint(0) ], builder: NodeBuilder) => {
     return vec2(
         number.bitAnd(uint(0xffff0000)).shiftRight(16).toFloat(),
         number.bitAnd(uint(0x0000ffff)).toFloat(),
     )
 })
-const unpackIvec2 = Fn(([ number = uint(0) ]) => {
+const unpackIvec2 = Fn(([ number = uint(0) ], builder: NodeBuilder) => {
     return ivec2(
         number.bitAnd(uint(0xffff0000)).shiftRight(16).toFloat(),
         number.bitAnd(uint(0x0000ffff)).toFloat(),
@@ -84,16 +84,16 @@ export async function setTextureAtlas(atlas: TextureAtlas) {
     terrainMap.value.needsUpdate = true;
 }
 
-const getUvFromIndex = Fn(([ index = uint(0), dim = uint(1) ]) => {
+const getUvFromIndex = Fn(([ index = uint(0), dim = uint(1) ], builder: NodeBuilder) => {
     return vec2(
         index.mod(dim).toFloat().add(1).div(dim.toFloat().add(1)),
         index.div(dim).toFloat().add(1).div(dim.toFloat().add(1)).oneMinus(),
     );
 });
-function convertToU8(num = float()) {
+function convertToU8(num: ShaderNodeObject<Node>) {
     return num.mul(255).add(0.5).toUint();
 }
-const colorToU32LE = Fn(([ color = vec4() ]) => {
+const colorToU32LE = Fn(([ color = vec4() ], builder: NodeBuilder) => {
     return (
         convertToU8(color.r)
         .bitOr(convertToU8(color.g).shiftLeft(8))
@@ -101,7 +101,7 @@ const colorToU32LE = Fn(([ color = vec4() ]) => {
     );
 });
 
-export const terrainColor = Fn(([viewDistance = float(16)]) => {
+export const terrainColor = Fn(([viewDistance = float(16)], builder: NodeBuilder) => {
     const packedFaceData = attribute("face").toVar("packedFaceData");
     const faceTextureId = packedFaceData.shiftRight(11).toVar("faceTextureId");
 

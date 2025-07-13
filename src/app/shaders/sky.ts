@@ -1,4 +1,5 @@
 import { color, float, Fn, min, mix, normalize, positionLocal, smoothstep, vec3 } from "three/src/nodes/TSL";
+import { NodeBuilder } from "three/src/Three.WebGPU";
 
 // export const sunPos = normalize(vec3(cos(time), tan(cos(time.mul(0.25)).mul(Math.PI/2)), sin(time)));
 export const sunPos = normalize(vec3(0.3, 1, 0.6)).toVar();
@@ -25,15 +26,15 @@ export const nightFactor = sunPos.y.remapClamp(-0.1, 0.1, 1, 0);
 //     });
 // };
 
-export const celestialBody = Fn(([ dot = float(0), radius = float(10), haloSize = float(1), haloIntensity = float(0.25) ]) => {
-    radius = radius.div(1000).toVar();
-    const sunFactor = smoothstep(0, 1, dot.remapClamp(radius.oneMinus(), radius.oneMinus().div(0.99975), 0, 1)).toVar();
-    sunFactor.assign(min(1, sunFactor.add(dot.remapClamp(radius.mul(haloSize.add(1)).oneMinus(), radius.oneMinus(), 0, haloIntensity))));
+export const celestialBody = Fn(([ dot = float(0), radius = float(10), haloSize = float(1), haloIntensity = float(0.25) ], builder: NodeBuilder) => {
+    const rad = radius.div(1000).toVar();
+    const sunFactor = smoothstep(0, 1, dot.remapClamp(rad.oneMinus(), rad.oneMinus().div(0.99975), 0, 1)).toVar();
+    sunFactor.assign(min(1, sunFactor.add(dot.remapClamp(rad.mul(haloSize.add(1)).oneMinus(), rad.oneMinus(), 0, haloIntensity))));
 
     return sunFactor;
 })
 
-export const skyColorNode = Fn(([ pos = vec3(0, 0, 0) ]) => {
+export const skyColorNode = Fn(([ pos = vec3(0, 0, 0) ], builder: NodeBuilder) => {
     const positionNormalized = normalize(pos).toVar();
     // const height = float(2);
     // const skyPos = vec2(

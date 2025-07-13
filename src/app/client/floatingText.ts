@@ -1,5 +1,5 @@
 import { BufferGeometry, Color, Mesh } from "three";
-import { attribute, cameraProjectionMatrix, Fn, mix, modelViewMatrix, positionGeometry, texture, vec4 } from "three/src/nodes/TSL";
+import { attribute, cameraProjectionMatrix, Fn, mix, modelViewMatrix, positionGeometry, texture, uint, vec4 } from "three/src/nodes/TSL";
 import { MeshBasicNodeMaterial } from "three/src/Three.WebGPU";
 import { TextGeometryBuilder } from "../text/textGeometryBuilder";
 import { TextGlyphAtlas } from "../text/textGlyphAtlas";
@@ -64,8 +64,14 @@ const material = new MeshBasicNodeMaterial({
     color: 0xffffff,
     transparent: true
 });
-material.vertexNode = Fn(() => {
-    const aspect = cameraProjectionMatrix.element(1).element(1).div(cameraProjectionMatrix.element(0).element(0));
+material.vertexNode = Fn((builder) => {
+    const aspect = cameraProjectionMatrix
+        .element(uint(1))
+        .element(uint(1))
+        .div(
+            cameraProjectionMatrix.element(uint(0))
+            .element(uint(0))
+        );
     return cameraProjectionMatrix.mul(modelViewMatrix)
     .mul(vec4(0, 0, 0, 1))
     .add(vec4(positionGeometry, 0).div(vec4(aspect, 1, 1, 1)));
